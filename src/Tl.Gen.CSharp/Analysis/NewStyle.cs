@@ -31,7 +31,7 @@ internal sealed class NewStyleAnalysis
     public readonly ISet<string> TlFrameFeeders;
     public readonly IReadOnlyList<INamedTypeSymbol> States;
 
-    public bool HasAuto => AutoColumns.Count != 0;
+    public bool HasAuto => AutoSource.Length != 0;
 }
 
 internal static class NewStyle
@@ -42,6 +42,18 @@ internal static class NewStyle
     internal static string FeederKey(string consumer, string method) => consumer + "." + method;
 
     internal static string AutoNameOf(string id) => "TlAuto_" + id;
+
+    internal static int FeedKey(string assembly)
+    {
+        var hash = 2166136261u;
+        foreach (var c in assembly)
+        {
+            hash ^= c;
+            hash *= 16777619u;
+        }
+        var key = unchecked((int)(hash & 0x7fffffff));
+        return key == 0 ? 1 : key;
+    }
 
     internal static bool IsKindAttribute(INamedTypeSymbol? attribute)
         => attribute is { Name: "TlKindAttribute" or "TimelineKindAttribute", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } };
@@ -119,6 +131,7 @@ internal static class NewStyle
                 AddColumn(columns, apply.Parameters[i].Type.ToDisplayString(Full), apply.Parameters[i].RefKind == RefKind.Ref);
         }
         var members = new HashSet<string>(StringComparer.Ordinal);
+        var feedsForeign = false;
         foreach (var consumer in consumers)
             foreach (var method in consumer.GetMembers().OfType<IMethodSymbol>())
                 foreach (var attribute in method.GetAttributes())
@@ -130,6 +143,7 @@ internal static class NewStyle
                     var foreign = IsForeignKind(fed, compilation.Assembly);
                     if (!foreign && !autoKinds.Contains(fed.ToDisplayString(Full)))
                         continue;
+                    feedsForeign |= foreign;
                     members.Add(consumer.ToDisplayString(Full));
                     foreach (var parameter in method.Parameters)
                         if (isState(parameter.Type))
@@ -148,7 +162,7 @@ internal static class NewStyle
                     result = result.ReplaceSyntaxTree(tree, tree.WithRootAndOptions(rewritten, tree.Options));
             }
         }
-        if (columns.Count == 0)
+        if (columns.Count == 0 && !feedsForeign)
             return new NewStyleAnalysis(result, autoName, [], "", inline, feeders, states);
         var text = new StringBuilder();
         text.Append("namespace Tl.Generated\n{\n[global::Tl.TimelineSystem]\npublic ref partial struct ").Append(autoName).Append("\n{\n");

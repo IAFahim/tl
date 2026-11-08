@@ -219,13 +219,14 @@ type Tl.KindEntries
 type Tl.KindEntry
   Field Byte Feeder
   Field Tl.KindEntryFlags Flags
-  Field Byte Reserved
+  Field Byte Owner
   Field Byte Slot
   Field UInt16 Step
   Field UInt16 Timeline
 type Tl.KindEntryFlags
   Field Tl.KindEntryFlags Interrupted
   Field Tl.KindEntryFlags Pulse
+  Field Tl.KindEntryFlags Ready
   Field Tl.KindEntryFlags Span
   Field Tl.KindEntryFlags Synthetic
   Field Byte value__
@@ -293,6 +294,7 @@ type Tl.KindStore
   Property Int64 DroppedPulses
   Method Tl.KindStats GetStats(Int32)
   Method Int32 IndexOf(System.String)
+  Method UInt16* Join(System.String, Int32, System.String, Int32, Int32 ByRef)
   Property Int32 KindCount
   Method UInt32 MarkerOf(UInt16, Int32)
   Method System.String NameOf(Int32)
@@ -301,7 +303,6 @@ type Tl.KindStore
   Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
   Method Tl.KindTable* Table(Int32)
   Method Int32 TrailingZeros(UInt64)
-  Method Void Verify(System.String, Int32, System.String)
 type Tl.KindTable
   Field UInt64* Active
   Method Tl.KindEntry* Append(Int32)

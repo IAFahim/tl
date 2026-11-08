@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
     <ProjectReference Include="..\..\src\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj" />
+    <ProjectReference Include="..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +34,8 @@
     <EmbeddedResource Include="KindDomain\KindDomain.cs" />
     <Compile Remove="ForceContract\**" />
     <EmbeddedResource Include="ForceContract\*.cs" />
+    <Compile Remove="TwoAssembly\**" />
+    <EmbeddedResource Include="TwoAssembly\*.cs" />
     <EmbeddedResource Include="Generated\TlSystemsKinds.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsSnapshot.g.cs" />
     <EmbeddedResource Include="Generated\ParityGoldens.json" />

@@ -72,7 +72,10 @@ internal sealed record KindDecl(
     int Order,
     string Group,
     IReadOnlyList<ConsumerParam> ApplyParams,
-    IReadOnlyList<string> MemberSystems);
+    IReadOnlyList<string> MemberSystems)
+{
+    public bool Foreign { get; init; }
+}
 
 internal sealed record SystemConsumer(
     string ConsumerTypeName,

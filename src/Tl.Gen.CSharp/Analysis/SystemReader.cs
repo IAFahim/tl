@@ -37,6 +37,7 @@ internal static class SystemReader
         var systems = new List<SystemDecl>();
         var consumers = new List<SystemConsumer>();
         var kinds = new List<KindDecl>();
+        var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
         var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
         var kindContracts = KindContractsOf(compilation);
         var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
@@ -55,13 +56,20 @@ internal static class SystemReader
                     kinds.Add(kind);
                     kindSites[kind.TypeName] = node;
                 }
-                var consumer = ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics);
+                var consumer = ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign);
                 if (consumer is not null)
                 {
                     consumers.Add(consumer);
                     sites[consumer.ConsumerTypeName] = node;
                 }
             }
+        }
+        foreach (var pair in foreign)
+        {
+            if (kindSites.ContainsKey(pair.Key)) continue;
+            if (ReadForeignKind(pair.Value.Type, pair.Value.Site, diagnostics) is not { } kind) continue;
+            kinds.Add(kind);
+            kindSites[kind.TypeName] = pair.Value.Site;
         }
         consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
         kinds.Sort(static (a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : string.CompareOrdinal(a.Name, b.Name));
@@ -168,7 +176,7 @@ internal static class SystemReader
     static bool IsTl(INamedTypeSymbol type, string name)
         => type.Name == name && type.ConstructedFrom.ContainingNamespace?.ToDisplayString() == "Tl";
 
-    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics)
+    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign)
     {
         if (!TypeAnalyzer.IsNewStyle(type)) return null;
         var name = Symbols.Name(type);
@@ -231,7 +239,7 @@ internal static class SystemReader
                 if (at >= 0) methods[at] = active with { Direct = direct };
             }
         }
-        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local);
+        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign);
         foreach (var feeder in feeders) methods.Add(feeder.Method);
         if (methods.Count == 0 && local.Count == 0)
             Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
@@ -253,7 +261,7 @@ internal static class SystemReader
         return 0;
     }
 
-    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics)
+    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, IAssemblySymbol assembly, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign)
     {
         var result = new List<FeederDecl>();
         var name = Symbols.Name(type);
@@ -334,6 +342,7 @@ internal static class SystemReader
             }
             if (!ok) continue;
             if (CheckColumns(type, method.Name, parameters, diagnostics, site) is null) continue;
+            if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
             result.Add(new(kindType.Name, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
         }
         return result;
@@ -386,6 +395,23 @@ internal static class SystemReader
         return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts));
     }
 
+    static KindDecl? ReadForeignKind(INamedTypeSymbol type, SyntaxNode site, List<DeclarationDiagnostic> diagnostics)
+    {
+        AttributeData? attribute = null;
+        foreach (var candidate in type.GetAttributes())
+            if (NewStyle.IsKindAttribute(candidate.AttributeClass)) attribute = candidate;
+        var apply = type.GetMembers("Apply").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+        if (attribute is null || type.TypeKind != TypeKind.Struct || apply is null || apply.Parameters.Length == 0 || !apply.Parameters[0].Type.IsUnmanagedType)
+        {
+            Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{Symbols.Name(type)}' from assembly '{type.ContainingAssembly?.Name}' needs public static void Apply(in <value> total, ...) with an unmanaged value type.");
+            return null;
+        }
+        string group = "";
+        foreach (var pair in attribute.NamedArguments)
+            if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
+        return new(type.Name, Symbols.Name(type), Symbols.Name(apply.Parameters[0].Type), NamedInt(attribute, "Mode") == 1, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, [], []) { Foreign = true };
+    }
+
     static IReadOnlyList<SystemAssignment> AssignKinds(IReadOnlyList<SystemDecl> systems, IReadOnlyList<SystemAssignment> assignments, List<KindDecl> kinds, IReadOnlyDictionary<string, SyntaxNode> kindSites, IReadOnlyDictionary<string, SyntaxNode> consumerSites, List<DeclarationDiagnostic> diagnostics)
     {
         var byName = new Dictionary<string, KindDecl>(StringComparer.Ordinal);
@@ -419,6 +445,11 @@ internal static class SystemReader
             if (fed.Count > 1)
             {
                 Symbols.Error(diagnostics, site, "TLGEN105", $"Kind '{kind.Name}' is fed by consumers in {fed.Count} systems ({string.Join(", ", fed.Select(static a => a.System.TypeName))}); a kind belongs to exactly one system.");
+                continue;
+            }
+            if (kind.Foreign)
+            {
+                if (fed.Count == 1) perSystem[fed[0].System.TypeName].Add(kind);
                 continue;
             }
             if (fed.Count == 1) chosen = fed[0].System;

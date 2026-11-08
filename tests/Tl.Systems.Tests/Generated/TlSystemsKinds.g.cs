@@ -293,10 +293,10 @@ internal static void Kind_0(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("Burn", sizeof(float), "@Effects\nKindGame.Flame.Evaluate:0");
+var __routes = __ks.Join("Burn", sizeof(float), "@Effects\nKindGame.Flame.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("Burn");
 var __kt = __ks.Table(__kid);
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -327,6 +327,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 12);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -338,7 +347,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -359,6 +368,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindGame.Burn.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -375,10 +385,10 @@ internal static void Kind_1(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("Chill", sizeof(int), "@Effects\nKindGame.Frost.Start:1");
+var __routes = __ks.Join("Chill", sizeof(int), "@Effects\nKindGame.Frost.Start:1", 0, out var __me);
 var __kid = __ks.IndexOf("Chill");
 var __kt = __ks.Table(__kid);
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -409,6 +419,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 12);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -420,7 +439,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -441,6 +460,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindGame.Chill.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -457,9 +477,9 @@ internal static void Kind_2(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("Lift", sizeof(float), "KindGame.Jump.Evaluate:0");
+var __routes = __ks.Join("Lift", sizeof(float), "KindGame.Jump.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("Lift"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -489,6 +509,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -500,7 +529,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -531,6 +560,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindGame.Lift.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -547,9 +577,9 @@ internal static void Kind_3(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("Locomotion", sizeof(global::KindGame.Speed), "KindGame.Walk.Evaluate:0");
+var __routes = __ks.Join("Locomotion", sizeof(global::KindGame.Speed), "KindGame.Walk.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("Locomotion"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -579,6 +609,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<global::KindGame.Speed>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -590,7 +629,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -611,6 +650,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindGame.Locomotion.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -627,9 +667,9 @@ internal static void Kind_4(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("StatChange", sizeof(int), "KindGame.ChangeStat.Start:1\nKindGame.Steps.OnStep:3");
+var __routes = __ks.Join("StatChange", sizeof(int), "KindGame.ChangeStat.Start:1\nKindGame.Steps.OnStep:3", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("StatChange"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -657,6 +697,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -668,7 +717,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -698,6 +747,7 @@ break;
 }
 }
 if (!__ok) continue;
+}
 }
 global::KindGame.StatChange.Apply(in __v, ref __c4[__e]);
 }
@@ -922,9 +972,9 @@ internal static void Kind_0(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("Damage", sizeof(int), "KindGame.Hit.Start:1");
+var __routes = __ks.Join("Damage", sizeof(int), "KindGame.Hit.Start:1", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("Damage"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -954,6 +1004,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -965,7 +1024,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -985,6 +1044,7 @@ break;
 }
 }
 if (!__ok) continue;
+}
 }
 if (__has) global::KindGame.Damage.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }

@@ -1195,9 +1195,9 @@ internal static void Kind_0(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("Dmg", sizeof(int), "KindBench.Hit.Start:1");
+var __routes = __ks.Join("Dmg", sizeof(int), "KindBench.Hit.Start:1", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("Dmg"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1227,6 +1227,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1238,7 +1247,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1259,6 +1268,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.Dmg.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1275,9 +1285,9 @@ internal static void Kind_1(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K0", sizeof(float), "KindBench.C0.Evaluate:0");
+var __routes = __ks.Join("K0", sizeof(float), "KindBench.C0.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K0"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1307,6 +1317,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1318,7 +1337,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1339,6 +1358,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K0.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1355,9 +1375,9 @@ internal static void Kind_2(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K1", sizeof(float), "KindBench.C1.Evaluate:0");
+var __routes = __ks.Join("K1", sizeof(float), "KindBench.C1.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K1"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1387,6 +1407,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1398,7 +1427,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1419,6 +1448,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K1.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1435,9 +1465,9 @@ internal static void Kind_3(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K10", sizeof(float), "KindBench.C10.Evaluate:0");
+var __routes = __ks.Join("K10", sizeof(float), "KindBench.C10.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K10"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1467,6 +1497,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1478,7 +1517,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1499,6 +1538,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K10.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1515,9 +1555,9 @@ internal static void Kind_4(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K11", sizeof(float), "KindBench.C11.Evaluate:0");
+var __routes = __ks.Join("K11", sizeof(float), "KindBench.C11.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K11"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1547,6 +1587,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1558,7 +1607,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1579,6 +1628,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K11.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1595,9 +1645,9 @@ internal static void Kind_5(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K12", sizeof(float), "KindBench.C12.Evaluate:0");
+var __routes = __ks.Join("K12", sizeof(float), "KindBench.C12.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K12"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1627,6 +1677,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1638,7 +1697,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1659,6 +1718,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K12.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1675,9 +1735,9 @@ internal static void Kind_6(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K13", sizeof(float), "KindBench.C13.Evaluate:0");
+var __routes = __ks.Join("K13", sizeof(float), "KindBench.C13.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K13"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1707,6 +1767,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1718,7 +1787,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1739,6 +1808,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K13.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1755,9 +1825,9 @@ internal static void Kind_7(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K14", sizeof(float), "KindBench.C14.Evaluate:0");
+var __routes = __ks.Join("K14", sizeof(float), "KindBench.C14.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K14"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1787,6 +1857,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1798,7 +1877,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1819,6 +1898,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K14.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1835,9 +1915,9 @@ internal static void Kind_8(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K15", sizeof(float), "KindBench.C15.Evaluate:0");
+var __routes = __ks.Join("K15", sizeof(float), "KindBench.C15.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K15"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1867,6 +1947,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1878,7 +1967,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1899,6 +1988,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K15.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1915,9 +2005,9 @@ internal static void Kind_9(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K16", sizeof(float), "KindBench.C16.Evaluate:0");
+var __routes = __ks.Join("K16", sizeof(float), "KindBench.C16.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K16"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -1947,6 +2037,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -1958,7 +2057,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -1979,6 +2078,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K16.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -1995,9 +2095,9 @@ internal static void Kind_10(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K17", sizeof(float), "KindBench.C17.Evaluate:0");
+var __routes = __ks.Join("K17", sizeof(float), "KindBench.C17.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K17"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2027,6 +2127,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2038,7 +2147,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2059,6 +2168,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K17.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2075,9 +2185,9 @@ internal static void Kind_11(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K18", sizeof(float), "KindBench.C18.Evaluate:0");
+var __routes = __ks.Join("K18", sizeof(float), "KindBench.C18.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K18"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2107,6 +2217,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2118,7 +2237,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2139,6 +2258,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K18.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2155,9 +2275,9 @@ internal static void Kind_12(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K19", sizeof(float), "KindBench.C19.Evaluate:0");
+var __routes = __ks.Join("K19", sizeof(float), "KindBench.C19.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K19"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2187,6 +2307,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2198,7 +2327,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2219,6 +2348,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K19.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2235,9 +2365,9 @@ internal static void Kind_13(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K2", sizeof(float), "KindBench.C2.Evaluate:0");
+var __routes = __ks.Join("K2", sizeof(float), "KindBench.C2.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K2"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2267,6 +2397,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2278,7 +2417,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2299,6 +2438,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K2.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2315,9 +2455,9 @@ internal static void Kind_14(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K20", sizeof(float), "KindBench.C20.Evaluate:0");
+var __routes = __ks.Join("K20", sizeof(float), "KindBench.C20.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K20"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2347,6 +2487,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2358,7 +2507,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2379,6 +2528,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K20.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2395,9 +2545,9 @@ internal static void Kind_15(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K21", sizeof(float), "KindBench.C21.Evaluate:0");
+var __routes = __ks.Join("K21", sizeof(float), "KindBench.C21.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K21"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2427,6 +2577,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2438,7 +2597,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2459,6 +2618,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K21.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2475,9 +2635,9 @@ internal static void Kind_16(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K22", sizeof(float), "KindBench.C22.Evaluate:0");
+var __routes = __ks.Join("K22", sizeof(float), "KindBench.C22.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K22"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2507,6 +2667,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2518,7 +2687,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2539,6 +2708,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K22.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2555,9 +2725,9 @@ internal static void Kind_17(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K23", sizeof(float), "KindBench.C23.Evaluate:0");
+var __routes = __ks.Join("K23", sizeof(float), "KindBench.C23.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K23"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2587,6 +2757,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2598,7 +2777,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2619,6 +2798,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K23.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2635,9 +2815,9 @@ internal static void Kind_18(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K24", sizeof(float), "KindBench.C24.Evaluate:0");
+var __routes = __ks.Join("K24", sizeof(float), "KindBench.C24.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K24"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2667,6 +2847,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2678,7 +2867,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2699,6 +2888,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K24.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2715,9 +2905,9 @@ internal static void Kind_19(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K25", sizeof(float), "KindBench.C25.Evaluate:0");
+var __routes = __ks.Join("K25", sizeof(float), "KindBench.C25.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K25"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2747,6 +2937,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2758,7 +2957,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2779,6 +2978,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K25.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2795,9 +2995,9 @@ internal static void Kind_20(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K26", sizeof(float), "KindBench.C26.Evaluate:0");
+var __routes = __ks.Join("K26", sizeof(float), "KindBench.C26.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K26"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2827,6 +3027,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2838,7 +3047,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2859,6 +3068,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K26.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2875,9 +3085,9 @@ internal static void Kind_21(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K27", sizeof(float), "KindBench.C27.Evaluate:0");
+var __routes = __ks.Join("K27", sizeof(float), "KindBench.C27.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K27"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2907,6 +3117,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2918,7 +3137,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -2939,6 +3158,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K27.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -2955,9 +3175,9 @@ internal static void Kind_22(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K28", sizeof(float), "KindBench.C28.Evaluate:0");
+var __routes = __ks.Join("K28", sizeof(float), "KindBench.C28.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K28"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -2987,6 +3207,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -2998,7 +3227,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3019,6 +3248,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K28.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3035,9 +3265,9 @@ internal static void Kind_23(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K29", sizeof(float), "KindBench.C29.Evaluate:0");
+var __routes = __ks.Join("K29", sizeof(float), "KindBench.C29.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K29"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3067,6 +3297,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3078,7 +3317,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3099,6 +3338,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K29.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3115,9 +3355,9 @@ internal static void Kind_24(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K3", sizeof(float), "KindBench.C3.Evaluate:0");
+var __routes = __ks.Join("K3", sizeof(float), "KindBench.C3.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K3"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3147,6 +3387,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3158,7 +3407,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3179,6 +3428,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K3.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3195,9 +3445,9 @@ internal static void Kind_25(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K30", sizeof(float), "KindBench.C30.Evaluate:0");
+var __routes = __ks.Join("K30", sizeof(float), "KindBench.C30.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K30"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3227,6 +3477,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3238,7 +3497,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3259,6 +3518,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K30.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3275,9 +3535,9 @@ internal static void Kind_26(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K31", sizeof(float), "KindBench.C31.Evaluate:0");
+var __routes = __ks.Join("K31", sizeof(float), "KindBench.C31.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K31"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3307,6 +3567,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3318,7 +3587,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3339,6 +3608,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K31.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3355,9 +3625,9 @@ internal static void Kind_27(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K32", sizeof(float), "KindBench.C32.Evaluate:0");
+var __routes = __ks.Join("K32", sizeof(float), "KindBench.C32.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K32"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3387,6 +3657,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3398,7 +3677,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3419,6 +3698,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K32.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3435,9 +3715,9 @@ internal static void Kind_28(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K33", sizeof(float), "KindBench.C33.Evaluate:0");
+var __routes = __ks.Join("K33", sizeof(float), "KindBench.C33.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K33"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3467,6 +3747,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3478,7 +3767,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3499,6 +3788,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K33.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3515,9 +3805,9 @@ internal static void Kind_29(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K34", sizeof(float), "KindBench.C34.Evaluate:0");
+var __routes = __ks.Join("K34", sizeof(float), "KindBench.C34.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K34"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3547,6 +3837,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3558,7 +3857,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3579,6 +3878,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K34.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3595,9 +3895,9 @@ internal static void Kind_30(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K35", sizeof(float), "KindBench.C35.Evaluate:0");
+var __routes = __ks.Join("K35", sizeof(float), "KindBench.C35.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K35"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3627,6 +3927,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3638,7 +3947,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3659,6 +3968,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K35.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3675,9 +3985,9 @@ internal static void Kind_31(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K36", sizeof(float), "KindBench.C36.Evaluate:0");
+var __routes = __ks.Join("K36", sizeof(float), "KindBench.C36.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K36"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3707,6 +4017,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3718,7 +4037,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3739,6 +4058,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K36.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3755,9 +4075,9 @@ internal static void Kind_32(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K37", sizeof(float), "KindBench.C37.Evaluate:0");
+var __routes = __ks.Join("K37", sizeof(float), "KindBench.C37.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K37"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3787,6 +4107,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3798,7 +4127,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3819,6 +4148,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K37.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3835,9 +4165,9 @@ internal static void Kind_33(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K38", sizeof(float), "KindBench.C38.Evaluate:0");
+var __routes = __ks.Join("K38", sizeof(float), "KindBench.C38.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K38"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3867,6 +4197,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3878,7 +4217,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3899,6 +4238,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K38.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3915,9 +4255,9 @@ internal static void Kind_34(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K39", sizeof(float), "KindBench.C39.Evaluate:0");
+var __routes = __ks.Join("K39", sizeof(float), "KindBench.C39.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K39"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -3947,6 +4287,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -3958,7 +4307,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -3979,6 +4328,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K39.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -3995,9 +4345,9 @@ internal static void Kind_35(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K4", sizeof(float), "KindBench.C4.Evaluate:0");
+var __routes = __ks.Join("K4", sizeof(float), "KindBench.C4.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K4"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4027,6 +4377,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4038,7 +4397,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4059,6 +4418,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K4.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4075,9 +4435,9 @@ internal static void Kind_36(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K40", sizeof(float), "KindBench.C40.Evaluate:0");
+var __routes = __ks.Join("K40", sizeof(float), "KindBench.C40.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K40"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4107,6 +4467,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4118,7 +4487,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4139,6 +4508,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K40.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4155,9 +4525,9 @@ internal static void Kind_37(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K41", sizeof(float), "KindBench.C41.Evaluate:0");
+var __routes = __ks.Join("K41", sizeof(float), "KindBench.C41.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K41"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4187,6 +4557,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4198,7 +4577,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4219,6 +4598,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K41.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4235,9 +4615,9 @@ internal static void Kind_38(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K42", sizeof(float), "KindBench.C42.Evaluate:0");
+var __routes = __ks.Join("K42", sizeof(float), "KindBench.C42.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K42"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4267,6 +4647,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4278,7 +4667,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4299,6 +4688,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K42.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4315,9 +4705,9 @@ internal static void Kind_39(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K43", sizeof(float), "KindBench.C43.Evaluate:0");
+var __routes = __ks.Join("K43", sizeof(float), "KindBench.C43.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K43"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4347,6 +4737,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4358,7 +4757,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4379,6 +4778,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K43.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4395,9 +4795,9 @@ internal static void Kind_40(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K44", sizeof(float), "KindBench.C44.Evaluate:0");
+var __routes = __ks.Join("K44", sizeof(float), "KindBench.C44.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K44"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4427,6 +4827,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4438,7 +4847,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4459,6 +4868,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K44.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4475,9 +4885,9 @@ internal static void Kind_41(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K45", sizeof(float), "KindBench.C45.Evaluate:0");
+var __routes = __ks.Join("K45", sizeof(float), "KindBench.C45.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K45"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4507,6 +4917,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4518,7 +4937,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4539,6 +4958,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K45.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4555,9 +4975,9 @@ internal static void Kind_42(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K46", sizeof(float), "KindBench.C46.Evaluate:0");
+var __routes = __ks.Join("K46", sizeof(float), "KindBench.C46.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K46"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4587,6 +5007,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4598,7 +5027,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4619,6 +5048,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K46.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4635,9 +5065,9 @@ internal static void Kind_43(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K47", sizeof(float), "KindBench.C47.Evaluate:0");
+var __routes = __ks.Join("K47", sizeof(float), "KindBench.C47.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K47"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4667,6 +5097,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4678,7 +5117,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4699,6 +5138,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K47.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4715,9 +5155,9 @@ internal static void Kind_44(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K48", sizeof(float), "KindBench.C48.Evaluate:0");
+var __routes = __ks.Join("K48", sizeof(float), "KindBench.C48.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K48"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4747,6 +5187,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4758,7 +5207,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4779,6 +5228,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K48.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4795,9 +5245,9 @@ internal static void Kind_45(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K49", sizeof(float), "KindBench.C49.Evaluate:0");
+var __routes = __ks.Join("K49", sizeof(float), "KindBench.C49.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K49"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4827,6 +5277,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4838,7 +5297,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4859,6 +5318,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K49.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4875,9 +5335,9 @@ internal static void Kind_46(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K5", sizeof(float), "KindBench.C5.Evaluate:0");
+var __routes = __ks.Join("K5", sizeof(float), "KindBench.C5.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K5"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4907,6 +5367,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4918,7 +5387,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -4939,6 +5408,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K5.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -4955,9 +5425,9 @@ internal static void Kind_47(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K50", sizeof(float), "KindBench.C50.Evaluate:0");
+var __routes = __ks.Join("K50", sizeof(float), "KindBench.C50.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K50"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -4987,6 +5457,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -4998,7 +5477,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5019,6 +5498,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K50.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5035,9 +5515,9 @@ internal static void Kind_48(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K51", sizeof(float), "KindBench.C51.Evaluate:0");
+var __routes = __ks.Join("K51", sizeof(float), "KindBench.C51.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K51"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5067,6 +5547,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5078,7 +5567,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5099,6 +5588,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K51.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5115,9 +5605,9 @@ internal static void Kind_49(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K52", sizeof(float), "KindBench.C52.Evaluate:0");
+var __routes = __ks.Join("K52", sizeof(float), "KindBench.C52.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K52"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5147,6 +5637,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5158,7 +5657,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5179,6 +5678,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K52.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5195,9 +5695,9 @@ internal static void Kind_50(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K53", sizeof(float), "KindBench.C53.Evaluate:0");
+var __routes = __ks.Join("K53", sizeof(float), "KindBench.C53.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K53"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5227,6 +5727,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5238,7 +5747,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5259,6 +5768,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K53.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5275,9 +5785,9 @@ internal static void Kind_51(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K54", sizeof(float), "KindBench.C54.Evaluate:0");
+var __routes = __ks.Join("K54", sizeof(float), "KindBench.C54.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K54"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5307,6 +5817,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5318,7 +5837,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5339,6 +5858,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K54.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5355,9 +5875,9 @@ internal static void Kind_52(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K55", sizeof(float), "KindBench.C55.Evaluate:0");
+var __routes = __ks.Join("K55", sizeof(float), "KindBench.C55.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K55"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5387,6 +5907,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5398,7 +5927,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5419,6 +5948,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K55.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5435,9 +5965,9 @@ internal static void Kind_53(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K56", sizeof(float), "KindBench.C56.Evaluate:0");
+var __routes = __ks.Join("K56", sizeof(float), "KindBench.C56.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K56"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5467,6 +5997,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5478,7 +6017,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5499,6 +6038,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K56.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5515,9 +6055,9 @@ internal static void Kind_54(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K57", sizeof(float), "KindBench.C57.Evaluate:0");
+var __routes = __ks.Join("K57", sizeof(float), "KindBench.C57.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K57"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5547,6 +6087,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5558,7 +6107,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5579,6 +6128,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K57.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5595,9 +6145,9 @@ internal static void Kind_55(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K58", sizeof(float), "KindBench.C58.Evaluate:0");
+var __routes = __ks.Join("K58", sizeof(float), "KindBench.C58.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K58"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5627,6 +6177,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5638,7 +6197,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5659,6 +6218,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K58.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5675,9 +6235,9 @@ internal static void Kind_56(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K59", sizeof(float), "KindBench.C59.Evaluate:0");
+var __routes = __ks.Join("K59", sizeof(float), "KindBench.C59.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K59"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5707,6 +6267,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5718,7 +6287,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5739,6 +6308,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K59.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5755,9 +6325,9 @@ internal static void Kind_57(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K6", sizeof(float), "KindBench.C6.Evaluate:0");
+var __routes = __ks.Join("K6", sizeof(float), "KindBench.C6.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K6"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5787,6 +6357,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5798,7 +6377,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5819,6 +6398,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K6.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5835,9 +6415,9 @@ internal static void Kind_58(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K60", sizeof(float), "KindBench.C60.Evaluate:0");
+var __routes = __ks.Join("K60", sizeof(float), "KindBench.C60.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K60"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5867,6 +6447,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5878,7 +6467,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5899,6 +6488,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K60.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5915,9 +6505,9 @@ internal static void Kind_59(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K61", sizeof(float), "KindBench.C61.Evaluate:0");
+var __routes = __ks.Join("K61", sizeof(float), "KindBench.C61.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K61"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -5947,6 +6537,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -5958,7 +6557,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -5979,6 +6578,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K61.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -5995,9 +6595,9 @@ internal static void Kind_60(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K7", sizeof(float), "KindBench.C7.Evaluate:0");
+var __routes = __ks.Join("K7", sizeof(float), "KindBench.C7.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K7"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -6027,6 +6627,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -6038,7 +6647,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -6059,6 +6668,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K7.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -6075,9 +6685,9 @@ internal static void Kind_61(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K8", sizeof(float), "KindBench.C8.Evaluate:0");
+var __routes = __ks.Join("K8", sizeof(float), "KindBench.C8.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K8"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -6107,6 +6717,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -6118,7 +6737,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -6139,6 +6758,7 @@ break;
 }
 if (!__ok) continue;
 }
+}
 if (__has) global::KindBench.K8.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
@@ -6155,9 +6775,9 @@ internal static void Kind_62(global::Tl.TimelineWorld world, global::Tl.Playback
 var __view = world.View;
 var __pview = players.View;
 {
-__ks.Verify("K9", sizeof(float), "KindBench.C9.Evaluate:0");
+var __routes = __ks.Join("K9", sizeof(float), "KindBench.C9.Evaluate:0", 0, out var __me);
 var __kt = __ks.Table(__ks.IndexOf("K9"));
-if (__kt != null)
+if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
 for (var __kw = 0; __kw < __kt->Words; __kw++)
@@ -6187,6 +6807,15 @@ else
 {
 var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;
 if (__isPulse) __pulses++;
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;
+__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~global::Tl.KindEntryFlags.Ready;
+}
+else
+{
 var __pb = __pview.SlotOf(__e, __en->Slot);
 if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));
@@ -6198,7 +6827,7 @@ var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFla
 if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;
 var __ok = false;
-switch (__en->Feeder)
+switch (__r & 0xff)
 {
 case 0:
 {
@@ -6218,6 +6847,7 @@ break;
 }
 }
 if (!__ok) continue;
+}
 }
 if (__has) global::KindBench.K9.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
