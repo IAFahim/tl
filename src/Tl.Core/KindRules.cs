@@ -88,7 +88,6 @@ public static unsafe class KindRules
     {
         var live = false;
         var tls = t.Timelines;
-        var samples = 0;
         for (var i = 0; i < count; i++)
         {
             var s = slots + i;
@@ -108,18 +107,29 @@ public static unsafe class KindRules
                     continue;
                 }
             }
-            else if (s->Rate != 0)
-            {
-                slots = TickRated(in t, slots, count, ref rows, row, i, stepDir, ref samples, out var rated);
-                live |= rated;
-                continue;
-            }
+            else if (s->Rate != 0) return TickRatedFrom(in t, slots, count, ref rows, row, i, stepDir, live);
             live |= TickSlot(in t, ref rows, row, i, s, stepDir);
         }
         return live;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    static bool TickRatedFrom<TRows>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int from, int stepDir, bool live) where TRows : struct, IKindRows
+    {
+        var samples = 0;
+        for (var i = from; i < count; i++)
+        {
+            if (slots[i].Timeline == 0) continue;
+            if (slots[i].Rate == 0) live |= TickSlot(in t, ref rows, row, i, slots + i, stepDir);
+            else
+            {
+                slots = TickRated(in t, slots, count, ref rows, row, i, stepDir, ref samples, out var rated);
+                live |= rated;
+            }
+        }
+        return live;
+    }
+
     static Playback* TickRated<TRows>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int i, int stepDir, ref int samples, out bool live) where TRows : struct, IKindRows
     {
         var s = slots + i;
