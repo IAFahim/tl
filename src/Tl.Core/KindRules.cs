@@ -21,7 +21,7 @@ public unsafe interface IKindRows
     KindEntry* Append(int row, LibraryFeeder* feeder);
     void RemoveSpan(int row, int kind, byte slot, ushort timeline, ushort step);
     void Purge(int row, byte slot, ushort timeline);
-    Playback* Reserve(int row, int length);
+    Playback* Reserve(int row, int used, int length);
     void Sample(int row, byte slot, byte sample);
     void Unsample(int row);
 }
@@ -127,7 +127,7 @@ public static unsafe class KindRules
         var room = MaxSampleSlots - count - samples;
         if (room <= 0) return true;
         if (crossings > room) crossings = room;
-        slots = rows.Reserve(row, count + samples + (crossings == 0 ? 1 : crossings));
+        slots = rows.Reserve(row, count + samples, count + samples + (crossings == 0 ? 1 : crossings));
         s = slots + i;
         if (crossings == 0)
         {

@@ -71,7 +71,7 @@ type Tl.IKindRows
   Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
   Method Void Purge(Int32, Byte, UInt16)
   Method Void RemoveSpan(Int32, Int32, Byte, UInt16, UInt16)
-  Method Tl.Playback* Reserve(Int32, Int32)
+  Method Tl.Playback* Reserve(Int32, Int32, Int32)
   Method Void Sample(Int32, Byte, Byte)
   Method Void Unsample(Int32)
 type Tl.IMarker`1

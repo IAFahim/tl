@@ -353,7 +353,7 @@ public sealed unsafe class KindStore : IDisposable
 
         public PlaybackTable Players;
 
-        public Playback* Reserve(int entity, int length) => Players.Reserve(entity, length);
+        public Playback* Reserve(int entity, int used, int length) => Players.Reserve(entity, length);
 
         public void Sample(int entity, byte slot, byte sample)
         {
