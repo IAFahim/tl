@@ -27,15 +27,28 @@ namespace Tl.Pack.Inventory.Tests
             Assert.AreEqual(MixedHash, Run("inventory-mixed.scene.json", 700));
         }
 
-        static ulong Run(string file, int steps)
+        [Test]
+        public void TheSceneBlobRunsWithoutTheJsonAndGivesTheCliHash()
+        {
+            var library = InventoryLibraryBytes.Bytes();
+            var blob = global::Tl.Unity.Editor.TlSceneRunner.Data(Read("inventory-mixed.scene.json", library)).ToBytes();
+            Assert.AreEqual(MixedHash, global::Tl.Unity.TlSceneRun.Run(global::Tl.Unity.TlSceneData.FromBytes(blob), library, 700));
+            Assert.AreEqual(blob, global::Tl.Unity.TlSceneData.FromBytes(blob).ToBytes(), "the blob reads back to the same bytes");
+        }
+
+        static global::Tl.Gen.Tlb.TlScene Read(string file, byte[] library)
         {
             var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(Bag).Assembly);
             var scene = package == null ? null : Path.Combine(package.resolvedPath, "..", "..", "demos", "inventory", file);
             if (scene == null || !File.Exists(scene))
                 Assert.Ignore("the tl demos folder is not next to this pack");
+            return global::Tl.Unity.Editor.TlSceneRunner.Read(File.ReadAllBytes(scene), library);
+        }
+
+        static ulong Run(string file, int steps)
+        {
             var library = InventoryLibraryBytes.Bytes();
-            var data = global::Tl.Unity.Editor.TlSceneRunner.Read(File.ReadAllBytes(scene), library);
-            return global::Tl.Unity.Editor.TlSceneRunner.Run(data, library, steps);
+            return global::Tl.Unity.Editor.TlSceneRunner.Run(Read(file, library), library, steps);
         }
     }
 }
