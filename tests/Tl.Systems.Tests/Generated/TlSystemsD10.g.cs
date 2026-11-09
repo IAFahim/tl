@@ -124,8 +124,14 @@ var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
 {
-var __pb = __pview.SlotOf(__e, __s);
-if (__pb->Timeline == 0 || ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused | global::Tl.PlaybackFlags.Stopping)) != 0 && !global::Tl.PlaybackRules.Resumes(__pb->Flags, forward))) continue;
+var __ps = __pview.SlotOf(__e, __s);
+if (__ps->Timeline == 0 || ((__ps->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused | global::Tl.PlaybackFlags.Stopping)) != 0 && !global::Tl.PlaybackRules.Resumes(__ps->Flags, forward))) continue;
+var __pcopy = *__ps;
+var __pb = __ps->Rate == 0 ? __ps : &__pcopy;
+var __pk = global::Tl.PlaybackRules.Crossings(in *__ps);
+for (var __j = 0; __j < __pk; __j++)
+{
+if (__j > 0 && (global::Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != global::Tl.AdvanceResult.Kept || (__pcopy.Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0)) break;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
 var __tick = __pb->Tick;
@@ -167,6 +173,7 @@ __fd0_0 = *(float*)(__lane0 + 0);
 global::D10.TwoTrackFold.ExecuteActive(in __f0, in __fd0_0, ref __c0[__e], ref __c1[__e]);
 if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::D10.TwoTrackFold.OnClipEnd(in __f0);
 break;
+}
 }
 }
 }
@@ -228,6 +235,9 @@ var __pfl = __pb->Flags;
 if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0 && !global::Tl.PlaybackRules.Unpark(ref *__pb, forward)) { if (!global::Tl.PlaybackRules.IsParked(__pfl)) __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }
 else
 {
+var __pk = global::Tl.PlaybackRules.Cross(ref *__pb);
+for (var __j = 0; __j < __pk; __j++)
+{
 if (__pb->Timeline == 0 || (uint)(__pb->Timeline - 1) >= (uint)__view.TimelineCount) throw new global::System.ArgumentException($"Playback slot {__s} of entity {__e} names no timeline in the loaded library.");
 var __tl = __view.Timelines + (__pb->Timeline - 1);
 var __dur = __tl->Duration;
@@ -285,6 +295,9 @@ __pb[0] = default;
 var __hw = __pview.Counts[__e];
 while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
 __pview.Counts[__e] = __hw;
+break;
+}
+if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
 }
 }
 }

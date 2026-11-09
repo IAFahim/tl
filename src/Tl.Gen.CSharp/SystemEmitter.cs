@@ -347,8 +347,14 @@ internal static class SystemEmitter
         W(writer, "if (__count == 0) continue;");
         W(writer, "for (var __s = 0; __s < __count; __s++)");
         W(writer, "{");
-        W(writer, "var __pb = __pview.SlotOf(__e, __s);");
-        W(writer, "if (__pb->Timeline == 0 || ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused | global::Tl.PlaybackFlags.Stopping)) != 0 && !global::Tl.PlaybackRules.Resumes(__pb->Flags, forward))) continue;");
+        W(writer, "var __ps = __pview.SlotOf(__e, __s);");
+        W(writer, "if (__ps->Timeline == 0 || ((__ps->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused | global::Tl.PlaybackFlags.Stopping)) != 0 && !global::Tl.PlaybackRules.Resumes(__ps->Flags, forward))) continue;");
+        W(writer, "var __pcopy = *__ps;");
+        W(writer, "var __pb = __ps->Rate == 0 ? __ps : &__pcopy;");
+        W(writer, "var __pk = global::Tl.PlaybackRules.Crossings(in *__ps);");
+        W(writer, "for (var __j = 0; __j < __pk; __j++)");
+        W(writer, "{");
+        W(writer, "if (__j > 0 && (global::Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != global::Tl.AdvanceResult.Kept || (__pcopy.Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0)) break;");
         W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));");
         W(writer, "if (__tl is null || __tl->Duration == 0) continue;");
         W(writer, "var __tick = __pb->Tick;");
@@ -363,6 +369,7 @@ internal static class SystemEmitter
         EmitBind(writer, shape, "__e", "__s");
         EmitEntryLoop(writer, assignment, shape, "__steps", "__stage", "__tl", "__tick", "__base", "__backward", "__e", "__s", false);
         EmitMarkers(writer, assignment, shape, "__tl", "__tick", "__base", "__e", "__s");
+        W(writer, "}");
         W(writer, "}");
         W(writer, "}");
         EmitBatchTails(writer, assignment, shape);
@@ -593,6 +600,9 @@ internal static class SystemEmitter
         W(writer, "if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0 && !global::Tl.PlaybackRules.Unpark(ref *__pb, forward)) { if (!global::Tl.PlaybackRules.IsParked(__pfl)) __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }");
         W(writer, "else");
         W(writer, "{");
+        W(writer, "var __pk = global::Tl.PlaybackRules.Cross(ref *__pb);");
+        W(writer, "for (var __j = 0; __j < __pk; __j++)");
+        W(writer, "{");
         W(writer, "if (__pb->Timeline == 0 || (uint)(__pb->Timeline - 1) >= (uint)__view.TimelineCount) throw new global::System.ArgumentException($\"Playback slot {__s} of entity {__e} names no timeline in the loaded library.\");");
         W(writer, "var __tl = __view.Timelines + (__pb->Timeline - 1);");
         W(writer, "var __dur = __tl->Duration;");
@@ -620,6 +630,9 @@ internal static class SystemEmitter
         W(writer, "var __hw = __pview.Counts[__e];");
         W(writer, "while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;");
         W(writer, "__pview.Counts[__e] = __hw;");
+        W(writer, "break;");
+        W(writer, "}");
+        W(writer, "if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;");
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");

@@ -160,12 +160,13 @@ public unsafe class PlaybackRulesTests
     [Fact]
     public void AReversedPlaybackParksAtItsStartAndBeginsWhenItFacesForward()
     {
-        var slide = new Playback { Timeline = 2, Tick = 0, Channel = 1, Flags = PlaybackFlags.Reverse, Reserved = 0x0305 };
+        var slide = new Playback { Timeline = 2, Tick = 0, Channel = 1, Flags = PlaybackFlags.Reverse, Rate = 0x05, Phase = 0x03 };
         Assert.Equal(AdvanceResult.Kept, Advance(ref slide));
         Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, slide.Flags);
         Assert.Equal((ushort)2, slide.Timeline);
         Assert.Equal(0, slide.Tick);
-        Assert.Equal(0x0305, slide.Reserved);
+        Assert.Equal(0x05, slide.Rate);
+        Assert.Equal(0x03, slide.Phase);
         Assert.Equal(AdvanceResult.Kept, Advance(ref slide));
         Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, slide.Flags);
         Assert.False(PlaybackRules.Resumes(slide.Flags, true));
@@ -201,17 +202,79 @@ public unsafe class PlaybackRulesTests
         fixed (LibraryTimeline* t = Timelines) PlaybackRules.Apply(ref slots, t, Timelines.Length, op, timeline, at);
     }
 
+    static AdvanceResult Step(ref Playback slot, bool forward = true)
+    {
+        fixed (LibraryTimeline* t = Timelines) return PlaybackRules.Step(ref slot, t, Timelines.Length, forward);
+    }
+
+    [Fact]
+    public void SpeedStoresSixteenthsAndOneXIsZero()
+    {
+        var slots = Slots();
+        slots.Items[0] = new Playback { Timeline = 3, Channel = 2, Phase = 9 };
+        slots.Items[1] = new Playback { Timeline = 4, Phase = 5 };
+        slots.Count = 2;
+        Apply(ref slots, RequestOp.Speed, 3, 8);
+        Assert.Equal(8, slots[0].Rate);
+        Assert.Equal(9, slots[0].Phase);
+        Apply(ref slots, RequestOp.SpeedChannel, 2, 300);
+        Assert.Equal(255, slots[0].Rate);
+        Apply(ref slots, RequestOp.SpeedChannel, 2, 16);
+        Assert.Equal(0, slots[0].Rate);
+        Assert.Equal(0, slots[0].Phase);
+        Apply(ref slots, RequestOp.SpeedChannel, 0, 40);
+        Apply(ref slots, RequestOp.Speed, 4, 0);
+        Assert.Equal(0, slots[1].Rate);
+        Assert.Equal(0, slots[1].Phase);
+        Assert.Equal(0, slots[0].Rate);
+    }
+
+    [Fact]
+    public void StepCrossesWholeTicksCarriesThePhaseHoldsAndHandsOver()
+    {
+        var half = new Playback { Timeline = 3, Rate = 8 };
+        Step(ref half);
+        Assert.Equal(0, half.Tick);
+        Assert.Equal(8, half.Phase);
+        Step(ref half);
+        Assert.Equal(1, half.Tick);
+        Assert.Equal(0, half.Phase);
+        var fast = new Playback { Timeline = 3, Tick = 4, Rate = 40 };
+        Step(ref fast);
+        Assert.Equal(6, fast.Tick);
+        Assert.Equal(8, fast.Phase);
+        Assert.Equal(AdvanceResult.Removed, Step(ref fast));
+        var handover = new Playback { Timeline = 2, Tick = 4, Rate = 64, Phase = 3 };
+        Assert.Equal(AdvanceResult.Kept, Step(ref handover));
+        Assert.Equal((ushort)1, handover.Timeline);
+        Assert.Equal(2, handover.Tick);
+        Assert.Equal(64, handover.Rate);
+        Assert.Equal(3, handover.Phase);
+        var paused = new Playback { Timeline = 3, Tick = 2, Rate = 24, Phase = 7, Flags = PlaybackFlags.Paused };
+        Step(ref paused);
+        Assert.Equal(2, paused.Tick);
+        Assert.Equal(7, paused.Phase);
+        var back = new Playback { Timeline = 1, Tick = 1, Rate = 48 };
+        Step(ref back, false);
+        Assert.Equal(8, back.Tick);
+        var parks = new Playback { Timeline = 3, Tick = 1, Rate = 64, Flags = PlaybackFlags.Reverse };
+        Step(ref parks);
+        Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, parks.Flags);
+        Assert.Equal(0, parks.Tick);
+    }
+
     [Fact]
     public void SeekClampsWrapsPurgesAndKeepsPauseAndDirection()
     {
         var slots = Slots();
-        slots.Items[0] = new Playback { Timeline = 3, Tick = 7, Channel = 2, Flags = PlaybackFlags.Ended | PlaybackFlags.Paused | PlaybackFlags.Reverse, Reserved = 0x1234 };
+        slots.Items[0] = new Playback { Timeline = 3, Tick = 7, Channel = 2, Flags = PlaybackFlags.Ended | PlaybackFlags.Paused | PlaybackFlags.Reverse, Rate = 0x34, Phase = 0x12 };
         slots.Items[1] = new Playback { Timeline = 1, Tick = 4, Channel = 1, Flags = PlaybackFlags.Began };
         slots.Count = 2;
         Apply(ref slots, RequestOp.Seek, 3, 500);
         Assert.Equal(7, slots[0].Tick);
         Assert.Equal(PlaybackFlags.Paused | PlaybackFlags.Reverse | PlaybackFlags.ReenterPending, slots[0].Flags);
-        Assert.Equal(0x1234, slots[0].Reserved);
+        Assert.Equal(0x34, slots[0].Rate);
+        Assert.Equal(0, slots[0].Phase);
         Assert.Equal(1, slots.Purged);
         Apply(ref slots, RequestOp.SeekChannel, 1, 23);
         Assert.Equal(3, slots[1].Tick);
