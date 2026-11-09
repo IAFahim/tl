@@ -317,13 +317,18 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __pulses = 0;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+for (var __sj = 0; __sj < __sk; __sj++)
+{
 float __total = default;
 var __has = false;
-var __pulses = 0;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
 if (*(ushort*)((byte*)__en + 8) != __kid) continue;
+if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
 float __v = default;
 if (__en->Timeline == 0)
 {
@@ -380,7 +385,9 @@ if (__has) global::KindGame.Burn.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Burn.Apply(in __total, ref __c5[__e]);
-if (__pulses == __len) __kt->Clear(__row);
+}
+if (__sampled) __kt->RemovePulses(__row);
+else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
@@ -409,13 +416,18 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __pulses = 0;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+for (var __sj = 0; __sj < __sk; __sj++)
+{
 int __total = default;
 var __has = false;
-var __pulses = 0;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
 if (*(ushort*)((byte*)__en + 8) != __kid) continue;
+if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
 int __v = default;
 if (__en->Timeline == 0)
 {
@@ -472,7 +484,9 @@ if (__has) global::KindGame.Chill.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Chill.Apply(in __total, ref __c4[__e]);
-if (__pulses == __len) __kt->Clear(__row);
+}
+if (__sampled) __kt->RemovePulses(__row);
+else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
@@ -500,12 +514,17 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __pulses = 0;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+for (var __sj = 0; __sj < __sk; __sj++)
+{
 float __total = default;
 var __has = false;
-var __pulses = 0;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
 float __v = default;
 if (__en->Timeline == 0)
 {
@@ -572,7 +591,9 @@ if (__has) global::KindGame.Lift.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Lift.Apply(in __total, ref __c0[__e]);
-if (__pulses == __len) __kt->Clear(__row);
+}
+if (__sampled) __kt->RemovePulses(__row);
+else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
@@ -600,12 +621,17 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __pulses = 0;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+for (var __sj = 0; __sj < __sk; __sj++)
+{
 global::KindGame.Speed __total = default;
 var __has = false;
-var __pulses = 0;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
 global::KindGame.Speed __v = default;
 if (__en->Timeline == 0)
 {
@@ -662,7 +688,9 @@ if (__has) global::KindGame.Locomotion.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Locomotion.Apply(in __total, ref __c0[__e]);
-if (__pulses == __len) __kt->Clear(__row);
+}
+if (__sampled) __kt->RemovePulses(__row);
+else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
@@ -691,9 +719,14 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+for (var __sj = 0; __sj < __sk; __sj++)
+{
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
 int __v = default;
 if (__en->Timeline == 0)
 {
@@ -758,7 +791,9 @@ if (!__ok) continue;
 }
 global::KindGame.StatChange.Apply(in __v, ref __c4[__e]);
 }
-if (__pulses == __len) __kt->Clear(__row);
+}
+if (__sampled) __kt->RemovePulses(__row);
+else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
@@ -964,12 +999,17 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __pulses = 0;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+for (var __sj = 0; __sj < __sk; __sj++)
+{
 int __total = default;
 var __has = false;
-var __pulses = 0;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
 int __v = default;
 if (__en->Timeline == 0)
 {
@@ -1026,7 +1066,9 @@ if (__has) global::KindGame.Damage.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Damage.Apply(in __total, ref __c0[__e]);
-if (__pulses == __len) __kt->Clear(__row);
+}
+if (__sampled) __kt->RemovePulses(__row);
+else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }

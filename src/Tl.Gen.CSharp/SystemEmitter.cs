@@ -451,16 +451,24 @@ internal static class SystemEmitter
         W(writer, "if (__e >= __n) continue;");
         W(writer, "var __len = (int)__kt->Length[__row];");
         W(writer, "byte* __data = __kt->Data(__row);");
+        if (!feed)
+        {
+            W(writer, "var __pulses = 0;");
+            W(writer, "var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);");
+            W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;");
+            W(writer, "for (var __sj = 0; __sj < __sk; __sj++)");
+            W(writer, "{");
+        }
         if (!kind.Each && !feed)
         {
             W(writer, $"{value} __total = default;");
             W(writer, "var __has = false;");
         }
-        if (!feed) W(writer, "var __pulses = 0;");
         W(writer, "for (var __j = 0; __j < __len; __j++)");
         W(writer, "{");
         W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
         if (kind.Group.Length > 0) W(writer, "if (*(ushort*)((byte*)__en + 8) != __kid) continue;");
+        if (!feed) W(writer, "if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;");
         W(writer, $"{value} __v = default;");
         if (feed)
         {
@@ -558,7 +566,9 @@ internal static class SystemEmitter
             }
             W(writer, "}");
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
-            W(writer, "if (__pulses == __len) __kt->Clear(__row);");
+            W(writer, "}");
+            W(writer, "if (__sampled) __kt->RemovePulses(__row);");
+            W(writer, "else if (__pulses == __len) __kt->Clear(__row);");
             W(writer, "else if (__pulses != 0) __kt->RemovePulses(__row);");
         }
         W(writer, "}");

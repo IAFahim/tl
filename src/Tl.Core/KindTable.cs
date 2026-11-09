@@ -154,6 +154,44 @@ public unsafe struct KindTable
         if (kept == 0) Active[row >> 6] &= ~(1ul << (row & 63));
     }
 
+    public void Sample(int row, byte slot, byte sample, byte tag)
+    {
+        var length = Length[row];
+        for (var i = 0; i < length; i++)
+        {
+            var e = At(row, i);
+            if (e->Owner != 0 || e->Slot != slot || e->Timeline == 0) continue;
+            if ((e->Flags & KindEntryFlags.Pulse) != 0)
+            {
+                if (tag == KindRules.Marker) continue;
+                e->Slot = sample;
+                e->Owner = tag;
+                continue;
+            }
+            var copy = Append(row);
+            Buffer.MemoryCopy(At(row, i), copy, Stride, Stride);
+            copy->Slot = sample;
+            copy->Owner = tag;
+            copy->Flags = (copy->Flags | KindEntryFlags.Pulse) & ~KindEntryFlags.Ready;
+        }
+    }
+
+    public void Unsample(int row)
+    {
+        var length = Length[row];
+        var data = Data(row);
+        var kept = 0;
+        for (var i = 0; i < length; i++)
+        {
+            var e = (KindEntry*)(data + (nuint)i * (nuint)Stride);
+            if (e->Owner != 0) continue;
+            if (kept != i) Buffer.MemoryCopy(e, data + (nuint)kept * (nuint)Stride, Stride, Stride);
+            kept++;
+        }
+        Length[row] = (ushort)kept;
+        if (kept == 0) Active[row >> 6] &= ~(1ul << (row & 63));
+    }
+
     public void RemovePulses(int row)
     {
         var length = Length[row];
