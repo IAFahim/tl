@@ -76,7 +76,7 @@ internal static class NewStyle
         var states = new List<INamedTypeSymbol>();
         var tlKind = compilation.GetTypeByMetadataName("Tl.TlKindAttribute");
         var tlFrame = compilation.GetTypeByMetadataName("Tl.TlFrame`1");
-        var tlState = compilation.GetTypeByMetadataName("Tl.TlStateAttribute");
+        var tlState = compilation.GetTypeByMetadataName("Tl.TlColumnAttribute");
         var system = compilation.GetTypeByMetadataName("Tl.TimelineSystemAttribute");
         var feeds = compilation.GetTypeByMetadataName("Tl.FeedsAttribute");
         var pulse = compilation.GetTypeByMetadataName("Tl.PulseAttribute");

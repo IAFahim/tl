@@ -2,7 +2,7 @@ using Tl.Mathematics;
 
 namespace Tl.Pack.Force
 {
-    [TlState]
+    [TlColumn]
     public partial struct Force
     {
         public float3 Value;

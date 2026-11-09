@@ -1,13 +1,13 @@
 namespace Tl.Pack.Stats
 {
-    [TlState]
+    [TlColumn]
     public partial struct Health
     {
         public int Value;
         public int Max;
     }
 
-    [TlState]
+    [TlColumn]
     public partial struct Attack
     {
         public int Base;

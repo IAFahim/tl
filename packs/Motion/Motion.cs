@@ -26,7 +26,7 @@ namespace Tl.Pack.Motion
         public static float3 Lerp(float3 a, float3 b, float t) => a + (b - a) * t;
     }
 
-    [TlState]
+    [TlColumn]
     public partial struct Pose
     {
         public float3 Position;
@@ -35,7 +35,7 @@ namespace Tl.Pack.Motion
         public byte Has;
     }
 
-    [TlState]
+    [TlColumn]
     public partial struct Tint
     {
         public Rgba Color;
