@@ -1,0 +1,151 @@
+{
+  "name": "release",
+  "title": "Tl: release demo",
+  "voice_id": "83548de556df48ba8c09c42a57c51d85",
+  "scenes": [
+    {
+      "show": "title",
+      "title": "Tl",
+      "sub": "timelines for Unity DOTS and plain .NET",
+      "text": "This is Tl. A timeline library for Unity DOTS, and for plain dot net. Designers draw the timeline. Your code gets plain numbers."
+    },
+    {
+      "show": "pipeline",
+      "title": "Five pieces, every time",
+      "text": "Every effect is the same five pieces. A clip holds the designer's numbers. A track turns a clip into values. A kind combines those values. A column stores the result. And your own system reads it."
+    },
+    {
+      "show": "code",
+      "title": "Teleport.cs: the whole example",
+      "text": "Here is a whole example. A teleport clip. A track that jumps when the clip starts, and comes back when it ends. A kind that adds the jump to a column. That is one file.",
+      "groups": [
+        "",
+        "clip",
+        "track",
+        "kind column",
+        "all"
+      ]
+    },
+    {
+      "show": "numberline",
+      "title": "Run it",
+      "playheadAt": [
+        0,
+        30,
+        90,
+        119,
+        150
+      ],
+      "text": "Run it. At tick thirty the player jumps to five. At tick ninety, to thirteen. At tick one nineteen the clip ends, and it comes back to five. The numbers are the same in Unity and in plain dot net."
+    },
+    {
+      "show": "stats",
+      "title": "Stats and buffs over time",
+      "text": "Stats and buffs, over time. Hits and poison drain health. A haste clip adds attack while it plays, and a second start replaces the first, so the bonus never stacks.",
+      "stepAt": [
+        0,
+        250,
+        600
+      ]
+    },
+    {
+      "show": "inventory",
+      "title": "Inventory, with rewind",
+      "text": "Inventory. Loot fills the bag, and a craft clip turns wood into planks. Now rewind. The bag is empty again, because every pulse is signed by the direction of play. Play it again, and it fills the same way.",
+      "stepAt": [
+        0,
+        450,
+        600,
+        900,
+        1500
+      ]
+    },
+    {
+      "show": "cards",
+      "title": "The Unity demos check themselves",
+      "cards": [
+        {
+          "name": "Force",
+          "big": "4.0333 m",
+          "sub": "pushed, then rewound to 0.0000"
+        },
+        {
+          "name": "Control",
+          "big": "z 3.0500",
+          "sub": "the dash ends exactly where expected"
+        },
+        {
+          "name": "Events",
+          "big": "15 + 15",
+          "sub": "fifteen strikes, fifteen sparks"
+        },
+        {
+          "name": "Motion",
+          "big": "0 of 4897",
+          "sub": "samples differ from the .NET reference"
+        }
+      ],
+      "text": "In Unity, the demos check themselves. Force pushes a cube four metres, then rewinds it to zero. Control dashes a cube to the exact spot. Events strikes fifteen times, and fifteen sparks appear. Motion matches the dot net reference on every one of forty eight ninety seven samples."
+    },
+    {
+      "show": "cards",
+      "title": "And it is fast",
+      "cards": [
+        {
+          "name": "10,000 dancers",
+          "big": "31.8 ns",
+          "sub": "per entity, per tick, 0 bytes allocated",
+          "at": 1
+        },
+        {
+          "name": "100,000 dancers",
+          "big": "32.7 ns",
+          "sub": "per entity, per tick, 0 bytes allocated",
+          "at": 1
+        }
+      ],
+      "text": "And it is fast. Ten thousand dancers, and a hundred thousand dancers, each on its own start tick, cost about thirty three nanoseconds per entity per tick. They allocate zero bytes."
+    },
+    {
+      "show": "terminal",
+      "title": "Try it",
+      "lines": [
+        {
+          "at": 0,
+          "text": "$env:TL_PROJECT='C:/path/MyGame'"
+        },
+        {
+          "at": 0,
+          "text": "irm https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.ps1 | iex"
+        },
+        {
+          "at": 2,
+          "text": "ok   Force    push x 4.0333 m, back to -0.0000"
+        },
+        {
+          "at": 2,
+          "text": "ok   Stats    health/attack 64/20, 53/20, 72/10"
+        },
+        {
+          "at": 2,
+          "text": "ok   Crowd    100000 dancers 32.7 ns/entity 0 B"
+        },
+        {
+          "at": 2,
+          "text": "..."
+        },
+        {
+          "at": 3,
+          "text": "PlayMode tests: passed 9, failed 0, error CS 0"
+        }
+      ],
+      "text": "To try it, run the installer. It builds a Unity project, imports every demo, and runs each demo's test. Seven demos. Nine tests. All passing."
+    },
+    {
+      "show": "outro",
+      "title": "Tl",
+      "sub": "github.com/IAFahim/tl.unity",
+      "text": "Tl. Clip, track, kind, column. Find it on git hub, at I A Fahim slash tl dot unity."
+    }
+  ]
+}

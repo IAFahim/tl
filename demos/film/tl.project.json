@@ -1,0 +1,1 @@
+{ "schema": 1, "tickRate": 30, "channels": [], "timelines": ["timelines/release.json", "timelines/tutorial.json"] }

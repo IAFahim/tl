@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>__TITLE__</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --ground: #0a0f1e;
+        --panel: #131b36;
+        --line: #26335f;
+        --ink: #e8eefc;
+        --muted: #8da0c8;
+        --teal: #2dd4bf;
+        --amber: #fbbf24;
+        --rose: #fb7185;
+        --blue: #60a5fa;
+        --font: "Inter", sans-serif;
+        --mono: "JetBrains Mono", monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ground); font-family: var(--font); color: var(--ink); }
+      #root { position: absolute; inset: 0; background: radial-gradient(1200px 700px at 70% 10%, #16224a 0%, var(--ground) 60%); }
+      #brand { position: absolute; left: 120px; top: 44px; display: flex; align-items: baseline; gap: 20px; }
+      #brand b { font: 700 48px var(--mono); color: var(--teal); }
+      #brand span { font-size: 26px; color: var(--muted); }
+      #beat { position: absolute; left: 100px; top: 62px; width: 12px; height: 12px; border-radius: 50%; background: var(--amber); opacity: 0; }
+      #step { position: absolute; right: 120px; top: 44px; padding: 6px 22px; border-radius: 999px; background: var(--teal); color: #052; font-weight: 700; font-size: 26px; opacity: 0; }
+      #stage { position: absolute; left: 120px; top: 110px; width: 1680px; height: 690px; }
+      .scene { position: absolute; inset: 0; opacity: 0; }
+      .scene h2 { font-size: 54px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 26px; }
+      #caption { position: absolute; left: 192px; top: 808px; width: 1536px; height: 96px; text-align: center; font-size: 38px; line-height: 1.25; font-weight: 500; display: flex; align-items: center; justify-content: center; }
+      #lanes { position: absolute; left: 120px; top: 918px; width: 1680px; height: 100px; }
+      .lane { position: absolute; left: 0; width: 1680px; height: 20px; }
+      .lane label { position: absolute; left: 0; top: 0; width: 130px; font: 16px/20px var(--mono); color: var(--muted); }
+      .lane .rail { position: absolute; left: 140px; right: 0; top: 0; height: 20px; background: #0f1630; border-radius: 4px; }
+      .lane i { position: absolute; top: 2px; height: 16px; border-radius: 3px; background: var(--blue); opacity: 0.8; }
+      .lane.caption i { background: var(--teal); } .lane.voice i { background: var(--amber); } .lane.beat i { background: var(--rose); }
+      #playhead { position: absolute; top: -6px; width: 2px; height: 104px; background: #fff; }
+            .mono { font-family: var(--mono); }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+
+      /* title / outro */
+      .big { position: absolute; left: 0; right: 0; top: 190px; text-align: center; }
+      .big h1 { font: 700 300px/1 var(--mono); color: var(--teal); }
+      .big p { font-size: 48px; color: var(--ink); margin-top: 20px; }
+      .big .row { display: flex; gap: 28px; justify-content: center; margin-top: 50px; font: 700 40px var(--mono); color: var(--amber); }
+
+      /* pipeline */
+      .pipe { display: flex; align-items: center; gap: 24px; margin-top: 70px; }
+      .box { width: 290px; height: 330px; padding: 28px; border-radius: 18px; border: 2px solid var(--line); background: var(--panel); opacity: 0.25; }
+      .box h3 { font-size: 52px; font-weight: 900; color: var(--teal); }
+      .box p { font-size: 26px; color: var(--muted); margin-top: 12px; line-height: 1.3; }
+      .box code { display: block; margin-top: 22px; font: 24px var(--mono); color: var(--amber); }
+      .arrow { font-size: 54px; color: var(--muted); opacity: 0.4; }
+
+      /* code */
+      .codewrap { display: flex; gap: 34px; }
+      .code { width: 1070px; padding: 16px 24px; font: 21px/24px var(--mono); white-space: pre; }
+      .code .l { opacity: 0.3; } .code .gap { height: 9px; }
+      .code .l.on { opacity: 1; color: #fff; }
+      .explain { width: 570px; padding-top: 30px; }
+      .explain h3 { font-size: 64px; font-weight: 900; color: var(--teal); }
+      .explain p { font-size: 34px; line-height: 1.35; color: var(--ink); margin-top: 18px; }
+
+      /* number line */
+      .nl-lane { position: relative; height: 70px; margin-top: 8px; }
+      .nl-lane .rail { position: absolute; left: 150px; right: 40px; top: 14px; height: 42px; background: #0f1630; border-radius: 6px; }
+      .nl-lane label { position: absolute; left: 0; top: 18px; font: 24px var(--mono); color: var(--muted); }
+      .nl-clip { position: absolute; top: 4px; height: 34px; background: var(--blue); border-radius: 5px; opacity: 0.85; font: 18px/34px var(--mono); text-align: center; color: #04122e; }
+      #nl-head { position: absolute; top: -4px; width: 3px; height: 100px; background: #fff; }
+      .nl-world { position: relative; height: 150px; margin: 26px 40px 0 150px; border-bottom: 3px solid var(--line); }
+      .nl-world .tick { position: absolute; bottom: -36px; font: 22px var(--mono); color: var(--muted); }
+      #nl-player { position: absolute; bottom: 3px; width: 90px; height: 90px; background: var(--teal); border-radius: 10px; }
+      #nl-x { font: 900 120px var(--mono); position: absolute; right: 40px; top: 400px; color: var(--amber); }
+      #nl-tick { font: 34px var(--mono); position: absolute; left: 150px; top: 395px; color: var(--muted); }
+      #nl-console { position: absolute; left: 150px; top: 460px; width: 1100px; padding: 20px 28px; font: 26px/36px var(--mono); color: var(--ink); height: 170px; }
+
+      /* stats / inventory */
+      .two { display: flex; gap: 40px; }
+      .meter { height: 56px; background: #0f1630; border-radius: 10px; overflow: hidden; margin-top: 10px; }
+      .meter div { height: 100%; background: var(--teal); }
+      .stat-name { font: 28px var(--mono); color: var(--muted); margin-top: 30px; }
+      .stat-big { font: 900 110px var(--mono); }
+      .lanes2 { margin-top: 20px; position: relative; height: 150px; }
+      .lanes2 .rail { position: absolute; left: 150px; right: 20px; height: 34px; background: #0f1630; border-radius: 6px; }
+      .lanes2 label { position: absolute; left: 0; font: 22px var(--mono); color: var(--muted); }
+      .lanes2 .mk { position: absolute; width: 4px; height: 34px; background: var(--rose); }
+      .lanes2 .pz { position: absolute; height: 34px; background: var(--rose); opacity: 0.35; }
+      .lanes2 .hs { position: absolute; height: 34px; background: var(--amber); opacity: 0.85; border-radius: 4px; }
+      .lanes2 .hl { position: absolute; width: 4px; height: 34px; background: var(--teal); }
+      #st-head, #inv-head { position: absolute; top: -8px; width: 3px; height: 160px; background: #fff; }
+      .bag { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; margin-top: 24px; }
+      .tile { padding: 22px; border-radius: 16px; background: var(--panel); border: 2px solid var(--line); }
+      .tile b { display: block; font: 900 84px var(--mono); color: var(--ink); }
+      .tile span { font: 26px var(--mono); color: var(--muted); }
+      .tile.up { border-color: var(--teal); } .tile.down { border-color: var(--rose); }
+      #inv-dir { font: 900 52px var(--mono); }
+
+      /* cards */
+      .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 0; }
+      .card { padding: 24px 36px; border-radius: 20px; background: var(--panel); border: 2px solid var(--line); opacity: 0; }
+      .card h3 { font-size: 34px; color: var(--teal); }
+      .card b { display: block; font: 900 84px/1.1 var(--mono); margin: 6px 0; }
+      .card p { font-size: 28px; color: var(--muted); }
+
+      /* terminal */
+      .term { padding: 28px 34px; font: 30px/46px var(--mono); min-height: 420px; width: 1600px; }
+      .term .dots { color: var(--rose); font-size: 22px; margin-bottom: 14px; }
+      .term .ps { color: var(--teal); } .term .ok { color: var(--teal); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="__DURATION__" data-width="1920" data-height="1080">
+      <div id="brand"><b>Tl</b><span id="film-title"></span></div>
+      <div id="beat"></div>
+      <div id="step"></div>
+      <div id="stage"></div>
+      <div id="caption"></div>
+      <div id="lanes"></div>
+      __AUDIO__
+    </div>
+    <script>window.FILM = __DATA__;</script>
+    <script>
+      const F = window.FILM, S = F.states, FPS = S.fps, TICKS = F.ticks, DEMO = F.demo;
+      const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+      const ease = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+      const mk = (tag, cls, parent, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; if (parent) parent.appendChild(e); return e; };
+      const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+      // ---- the scene renderers: build once, paint(k = sentence being spoken, q = progress inside it, phase = progress inside the scene)
+      const R = {};
+      // where a moving thing is: `at[k]` is its position when sentence k ends; it eases there while sentence k is spoken
+      const along = (at, k, q) => { const from = k > 0 ? at[Math.min(k - 1, at.length - 1)] : 0, to = k >= 0 ? at[Math.min(k, at.length - 1)] : 0; return from + (to - from) * ease(q / 0.8); };
+
+      R.title = R.outro = (el, sc) => {
+        const big = mk("div", "big", el, `<h1>${sc.title}</h1><p>${sc.sub}</p>`);
+        const row = sc.show === "outro" ? mk("div", "row", big, "<span>clip</span><span>track</span><span>kind</span><span>column</span>") : null;
+        return (k, q, phase) => {
+          big.style.transform = `translateY(${(1 - ease(phase * 5)) * 24}px)`;
+          if (row) [...row.children].forEach((c, i) => (c.style.opacity = k >= i ? 1 : 0.25));
+        };
+      };
+
+      R.pipeline = (el, sc) => {
+        mk("h2", "", el, sc.title);
+        const parts = [
+          ["Clip", "the designer's numbers", "TeleportClip"],
+          ["Track", "turns a clip into values", "TeleportTrack"],
+          ["Kind", "combines the values", "TeleportKind"],
+          ["Column", "stores the result", "Teleported"],
+          ["System", "your code reads it", "your ISystem"],
+        ];
+        const pipe = mk("div", "pipe", el);
+        const boxes = parts.map(([n, d, c], i) => {
+          if (i) mk("div", "arrow", pipe, "&rarr;");
+          return mk("div", "box", pipe, `<h3>${n}</h3><p>${d}</p><code>${c}</code>`);
+        });
+        return (k) => boxes.forEach((b, i) => {
+          const lit = k >= i + 1, now = k === i + 1;
+          b.style.opacity = lit ? (now ? 1 : 0.6) : 0.22;
+          b.style.borderColor = now ? "var(--teal)" : "var(--line)";
+        });
+      };
+
+      R.code = (el, sc) => {
+        const wrap = mk("div", "codewrap", el);
+        const box = mk("div", "code panel", wrap);
+        const ex = mk("div", "explain", wrap, "<h3></h3><p></p>");
+        // dedent the real file, drop the using and namespace lines, split into the four blocks at blank lines
+        const raw = DEMO.hello.code.split(/\r?\n/).filter((l) => !/^\s*using |^\s*namespace |^\s*[{}]\s*$/.test(l) || /^\s{4,}[{}]/.test(l));
+        const lines = raw.map((l) => l.replace(/^ {4}/, ""));
+        const blocks = []; let cur = [];
+        lines.forEach((l, i) => {
+          if (l.trim() === "") { const next = lines.slice(i + 1).find((x) => x.trim() !== ""); if (next !== undefined && !/^\s/.test(next)) { if (cur.length) blocks.push(cur); cur = []; } return; }
+          cur.push(l);
+        });
+        if (cur.length) blocks.push(cur);
+        const names = ["clip", "track", "kind", "column"];
+        const els = blocks.map((b, bi) => {
+          if (bi) mk("div", "gap", box);
+          return b.map((l) => mk("div", "l", box, esc(l) || " "));
+        });
+        const words = {
+          clip: ["Clip", "The numbers the designer types in the Inspector: Distance and ComeBack."],
+          track: ["Track", "Turns a clip into values: a jump when the clip starts, a return when it ends."],
+          kind: ["Kind", "Takes each jump and adds it to the column."],
+          column: ["Column", "Where the result lives: the player's Offset."],
+          all: ["One file", "The generator writes everything else."],
+          "kind column": ["Kind and column", "The kind adds every jump to the column where the result lives."],
+        };
+        const h = ex.querySelector("h3"), p = ex.querySelector("p");
+        return (k) => {
+          const g = sc.groups[Math.min(k, sc.groups.length - 1)] || "";
+          els.forEach((lines, bi) => lines.forEach((e) => e.classList.toggle("on", g === "all" || g.split(" ").includes(names[bi]))));
+          const w = words[g] || ["", ""];
+          h.textContent = w[0]; p.textContent = w[1];
+        };
+      };
+
+      R.numberline = (el, sc) => {
+        mk("h2", "", el, sc.title);
+        const H = DEMO.hello, lane = mk("div", "nl-lane", el, '<label>Teleport</label><div class="rail"></div>');
+        const rail = lane.querySelector(".rail"), MAXT = 150;
+        const RW = 1680 - 150 - 40; // rail width in px
+        const left = (t) => 150 + (t / MAXT) * RW;
+        [[30, 60, "+5"], [90, 120, "+8, back"]].forEach(([a, b, label]) => {
+          const c = mk("div", "nl-clip", lane, label); c.style.left = left(a) + "px"; c.style.width = left(b) - left(a) + "px";
+        });
+        const head = mk("div", "", lane); head.id = "nl-head";
+        const world = mk("div", "nl-world", el);
+        [0, 5, 13].forEach((x) => { const t = mk("div", "tick", world, "x " + x); t.style.left = (x / 14) * 100 + "%"; });
+        const player = mk("div", "", world); player.id = "nl-player";
+        const xEl = mk("div", "", el); xEl.id = "nl-x";
+        const tickEl = mk("div", "", el); tickEl.id = "nl-tick";
+        const con = mk("div", "panel", el); con.id = "nl-console";
+        const P = sc.playheadAt;
+        const xAt = (t) => { let x = 0; for (const [s, v] of H.changes) if (s <= t) x = v; return x; };
+        return (k, q) => {
+          const t = Math.floor(along(P, k, q));
+          head.style.left = left(t) + "px";
+          const x = xAt(t);
+          xEl.textContent = "x = " + x;
+          tickEl.textContent = "timeline tick " + t;
+          player.style.left = `calc(${(x / 14) * 100}% - 0px)`;
+          con.innerHTML = H.changes.filter(([s]) => s <= t).map(([s, v]) => `Hello Tl: the player is at x = ${v} (timeline tick ${s})`).join("<br>") || "&nbsp;";
+        };
+      };
+
+      R.stats = (el, sc) => {  // sc.stepAt: the step each sentence ends on
+        mk("h2", "", el, sc.title);
+        const rows = DEMO.stats;
+        const view = mk("div", "two", el);
+        const left = mk("div", "", view); left.style.width = "820px";
+        mk("div", "stat-name", left, "hero Health");
+        const hv = mk("div", "stat-big", left), hm = mk("div", "meter", left), hf = mk("div", "", hm);
+        mk("div", "stat-name", left, "hero Attack (base + bonus)");
+        const av = mk("div", "stat-big", left); av.style.color = "var(--amber)";
+        const right = mk("div", "", view); right.style.width = "800px";
+        const lanes = mk("div", "lanes2", right);
+        const RW = 800 - 150 - 20, X = (t) => 150 + (t / 600) * RW;
+        const lane = (y, name) => { const l = mk("div", "", lanes, `<label>${name}</label><div class="rail"></div>`); l.style.cssText = `position:absolute;left:0;right:0;top:${y}px;height:34px`; l.querySelector("label").style.top = "4px"; l.querySelector(".rail").style.left = "150px"; return l; };
+        const duel = lane(10, "Duel"), haste = lane(70, "Haste");
+        [60, 120, 180].forEach((t) => { const m = mk("div", "mk", duel); m.style.left = X(t) + "px"; });
+        const pz = mk("div", "pz", duel); pz.style.left = X(240) + "px"; pz.style.width = X(480) - X(240) + "px";
+        const hl = mk("div", "hl", duel); hl.style.left = X(500) + "px";
+        [[100, 250], [250, 550]].forEach(([a, b]) => { const h = mk("div", "hs", haste); h.style.left = X(a) + "px"; h.style.width = X(b) - X(a) + "px"; });
+        const head = mk("div", "", lanes); head.id = "st-head";
+        const legend = mk("div", "", right, "red: hits (-12) and poison (-1 every 20 ticks) &nbsp; green: heal (+20) &nbsp; amber: haste (+10 attack)");
+        legend.style.cssText = "font:24px/32px var(--mono);color:var(--muted);margin-top:24px";
+        const stepEl = mk("div", "", right); stepEl.style.cssText = "font:34px var(--mono);margin-top:24px;color:var(--muted)";
+        return (k, q) => {
+          const step = Math.round(along(sc.stepAt, k, q));
+          const r = rows[Math.min(rows.length - 1, Math.floor(step / 25))];
+          hv.textContent = `${r.health} / ${r.max}`;
+          hf.style.width = clamp(r.health / r.max) * 100 + "%";
+          hf.style.background = r.health < 60 ? "var(--rose)" : "var(--teal)";
+          av.textContent = r.attack;
+          head.style.left = X(step) + "px";
+          stepEl.textContent = "step " + step;
+        };
+      };
+
+      R.inventory = (el, sc) => {
+        mk("h2", "", el, sc.title);
+        const rows = DEMO.inventory, names = ["Wood", "Stone", "Plank", "Potion", "Sword", "Coin", "Key", "Gem"];
+        const info = mk("div", "", el); info.style.cssText = "display:flex;gap:60px;align-items:baseline";
+        const dir = mk("div", "", info); dir.id = "inv-dir";
+        const stepEl = mk("div", "", info); stepEl.style.cssText = "font:34px var(--mono);color:var(--muted)";
+        const grid = mk("div", "bag", el);
+        const tiles = names.map((n) => mk("div", "tile", grid, `<b>0</b><span>${n}</span>`));
+        const lane = mk("div", "lanes2", el); lane.style.marginTop = "34px";
+        const RW = 1680 - 150 - 20, X = (s) => 150 + (s / 1500) * RW;
+        lane.innerHTML = '<label style="top:4px">Timeline</label><div class="rail" style="top:0"></div>';
+        const seg = (a, b, color, label) => { const e = mk("div", "hs", lane, label); e.style.cssText = `left:${X(a)}px;width:${X(b) - X(a)}px;top:0;background:${color};font:20px/34px var(--mono);text-align:center;color:#04122e`; };
+        seg(0, 450, "var(--teal)", "play"); seg(450, 900, "var(--rose)", "rewind"); seg(900, 1500, "var(--teal)", "play again");
+        const head = mk("div", "", lane); head.id = "inv-head"; head.style.top = "-8px"; head.style.height = "50px";
+        let prev = null;
+        return (k, q, phase) => {
+          const step = Math.round(along(sc.stepAt, k, q));
+          const r = rows[Math.min(rows.length - 1, Math.floor(step / 25))], p = rows[Math.max(0, Math.floor(step / 25) - 1)];
+          const back = step > 450 && step <= 900;
+          dir.textContent = back ? "<< rewinding" : ">> playing";
+          dir.style.color = back ? "var(--rose)" : "var(--teal)";
+          const tick = step <= 450 ? step : step <= 900 ? 900 - step : step - 900;
+          stepEl.textContent = `step ${step}   timeline tick ${tick}`;
+          names.forEach((n, i) => {
+            const t = tiles[i]; t.firstChild.textContent = r[n];
+            t.classList.toggle("up", r[n] > p[n]); t.classList.toggle("down", r[n] < p[n]);
+          });
+          head.style.left = X(step) + "px";
+        };
+      };
+
+      R.cards = (el, sc) => {
+        mk("h2", "", el, sc.title);
+        const grid = mk("div", "cards", el);
+        const cards = sc.cards.map((c) => mk("div", "card", grid, `<h3>${c.name}</h3><b>${c.big}</b><p>${c.sub}</p>`));
+        return (k, q) => cards.forEach((c, j) => {
+          const at = sc.cards[j].at != null ? sc.cards[j].at : j + 1;
+          const a = k > at ? 1 : k === at ? ease(q * 4) : 0;
+          c.style.opacity = a; c.style.transform = `translateY(${(1 - a) * 30}px)`;
+        });
+      };
+
+      R.terminal = (el, sc) => {
+        mk("h2", "", el, sc.title);
+        const term = mk("div", "term panel", el, '<div class="dots">&#9679; &#9679; &#9679;</div>');
+        const groups = {};
+        sc.lines.forEach((l) => (groups[l.at] = groups[l.at] || []).push(l));
+        const rows = sc.lines.map((l) => {
+          const e = mk("div", "", term); e.dataset.full = l.text; return { e, l, i: groups[l.at].indexOf(l), n: groups[l.at].length };
+        });
+        return (k, q) => rows.forEach(({ e, l, i, n }) => {
+          const full = l.text;
+          let shown = 0;
+          if (k > l.at) shown = full.length;
+          else if (k === l.at) shown = Math.floor(full.length * clamp(q * 1.6 * n - i));
+          const cls = full.startsWith("ok ") ? "ok" : /^[$>]/.test(full) ? "ps" : "";
+          e.innerHTML = shown ? `<span class="${cls}">${esc(full.slice(0, shown))}</span>` : "&nbsp;";
+        });
+      };
+
+      // ---- build the page
+      const stage = document.getElementById("stage");
+      const painters = F.scenes.map((sc, i) => {
+        const el = mk("div", "scene", stage);
+        return { el, paint: R[sc.show](el, sc), sc };
+      });
+      document.getElementById("film-title").textContent = F.title + "  ·  this film is a Tl timeline (the bars below)";
+      const lanesEl = document.getElementById("lanes");
+      const laneDefs = [["SceneClip", "Scene", ""], ["CaptionClip", "Caption", "caption"], ["VoiceClip", "Voice", "voice"], ["BeatClip", "Beat", "beat"]];
+      laneDefs.forEach(([key, name, cls], r) => {
+        const l = mk("div", "lane " + cls, lanesEl, `<label>${name}</label><div class="rail"></div>`);
+        l.style.top = r * 24 + "px";
+        const rail = l.querySelector(".rail");
+        (F.lanes[key] || []).forEach(([a, b]) => { const c = mk("i", "", rail); c.style.left = (a / TICKS) * 100 + "%"; c.style.width = Math.max(0.12, ((b - a) / TICKS) * 100) + "%"; });
+      });
+      const playhead = mk("div", "", lanesEl); playhead.id = "playhead";
+      const LANE_L = 140, LANE_W = 1680 - 140;
+      const beat = document.getElementById("beat"), stepPill = document.getElementById("step"), capEl = document.getElementById("caption");
+      const flashTicks = []; for (let t = 1; t < TICKS; t++) if (S.flashes[t] !== S.flashes[t - 1]) flashTicks.push(t);
+
+      function paint(tick) {
+        const s = S.scene[tick], tb = F.sceneTable[s - 1], sc = F.scenes[s - 1];
+        const len = tb.end - tb.start, local = tick - tb.start;
+        painters.forEach((p, i) => (p.el.style.opacity = i === s - 1 ? clamp(local / 8) * clamp((len - local) / 8 + 0.5) : 0));
+        const line = S.caption[tick];
+        capEl.textContent = line ? F.captions[line - 1] : "";
+        const k = line ? line - tb.first_line : -1;
+        let q = 0;
+        if (k >= 0) { const a = tb.starts[k], b = k + 1 < tb.starts.length ? tb.starts[k + 1] : tb.end; q = clamp((tick - a) / Math.max(1, b - a)); }
+        painters[s - 1].paint(k, q, S.phase[tick], tick);
+        playhead.style.left = LANE_L + (tick / TICKS) * LANE_W + "px";
+        stepPill.textContent = sc.step ? "STEP " + sc.step + " / 6" : "";
+        stepPill.style.opacity = sc.step ? 1 : 0;
+        let last = -999; for (const f of flashTicks) { if (f <= tick) last = f; else break; }
+        beat.style.opacity = clamp(1 - (tick - last) / 9);
+      }
+
+      // The frame counter is the only thing the timeline animates. Its setter paints, so a seek always lands on the right picture.
+      const clock = { _f: 0, get frame() { return this._f; }, set frame(v) { this._f = v; paint(clamp(Math.round(v), 0, TICKS - 1)); } };
+      const tl = gsap.timeline({ paused: true });
+      tl.to(clock, { frame: TICKS - 1, duration: (TICKS - 1) / FPS, ease: "none" }, 0);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+      paint(0);
+    </script>
+  </body>
+</html>

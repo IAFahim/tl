@@ -1,0 +1,1187 @@
+{
+  "schema": 1,
+  "name": "release",
+  "duration": 4187,
+  "tracks": [
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Film.SceneClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 0,
+          "end": 328,
+          "data": {
+            "Scene": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 328,
+          "end": 776,
+          "data": {
+            "Scene": 2
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 776,
+          "end": 1149,
+          "data": {
+            "Scene": 3
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 1149,
+          "end": 1574,
+          "data": {
+            "Scene": 4
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 1574,
+          "end": 1955,
+          "data": {
+            "Scene": 5
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 1955,
+          "end": 2415,
+          "data": {
+            "Scene": 6
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 2415,
+          "end": 3043,
+          "data": {
+            "Scene": 7
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 3043,
+          "end": 3483,
+          "data": {
+            "Scene": 8
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 3483,
+          "end": 3858,
+          "data": {
+            "Scene": 9
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "SceneClip",
+          "start": 3858,
+          "end": 4157,
+          "data": {
+            "Scene": 10
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Film.CaptionClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 0,
+          "end": 23,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 23,
+          "end": 52,
+          "data": {
+            "Line": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 52,
+          "end": 188,
+          "data": {
+            "Line": 2
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 188,
+          "end": 243,
+          "data": {
+            "Line": 3
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 243,
+          "end": 328,
+          "data": {
+            "Line": 4
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 328,
+          "end": 351,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 351,
+          "end": 439,
+          "data": {
+            "Line": 5
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 439,
+          "end": 504,
+          "data": {
+            "Line": 6
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 504,
+          "end": 576,
+          "data": {
+            "Line": 7
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 576,
+          "end": 644,
+          "data": {
+            "Line": 8
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 644,
+          "end": 698,
+          "data": {
+            "Line": 9
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 698,
+          "end": 776,
+          "data": {
+            "Line": 10
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 776,
+          "end": 797,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 797,
+          "end": 842,
+          "data": {
+            "Line": 11
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 842,
+          "end": 890,
+          "data": {
+            "Line": 12
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 890,
+          "end": 1016,
+          "data": {
+            "Line": 13
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1016,
+          "end": 1091,
+          "data": {
+            "Line": 14
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1091,
+          "end": 1149,
+          "data": {
+            "Line": 15
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1149,
+          "end": 1172,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1172,
+          "end": 1197,
+          "data": {
+            "Line": 16
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1197,
+          "end": 1274,
+          "data": {
+            "Line": 17
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1274,
+          "end": 1339,
+          "data": {
+            "Line": 18
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1339,
+          "end": 1460,
+          "data": {
+            "Line": 19
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1460,
+          "end": 1574,
+          "data": {
+            "Line": 20
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1574,
+          "end": 1597,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1597,
+          "end": 1671,
+          "data": {
+            "Line": 21
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1671,
+          "end": 1739,
+          "data": {
+            "Line": 22
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1739,
+          "end": 1955,
+          "data": {
+            "Line": 23
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1955,
+          "end": 1978,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 1978,
+          "end": 2011,
+          "data": {
+            "Line": 24
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2011,
+          "end": 2147,
+          "data": {
+            "Line": 25
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2147,
+          "end": 2182,
+          "data": {
+            "Line": 26
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2182,
+          "end": 2323,
+          "data": {
+            "Line": 27
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2323,
+          "end": 2415,
+          "data": {
+            "Line": 28
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2415,
+          "end": 2438,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2438,
+          "end": 2529,
+          "data": {
+            "Line": 29
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2529,
+          "end": 2658,
+          "data": {
+            "Line": 30
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2658,
+          "end": 2741,
+          "data": {
+            "Line": 31
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2741,
+          "end": 2860,
+          "data": {
+            "Line": 32
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 2860,
+          "end": 3043,
+          "data": {
+            "Line": 33
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3043,
+          "end": 3067,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3067,
+          "end": 3116,
+          "data": {
+            "Line": 34
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3116,
+          "end": 3409,
+          "data": {
+            "Line": 35
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3409,
+          "end": 3483,
+          "data": {
+            "Line": 36
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3483,
+          "end": 3507,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3507,
+          "end": 3575,
+          "data": {
+            "Line": 37
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3575,
+          "end": 3735,
+          "data": {
+            "Line": 38
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3735,
+          "end": 3774,
+          "data": {
+            "Line": 39
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3774,
+          "end": 3809,
+          "data": {
+            "Line": 40
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3809,
+          "end": 3858,
+          "data": {
+            "Line": 41
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3858,
+          "end": 3882,
+          "data": {
+            "Line": 0
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3882,
+          "end": 3909,
+          "data": {
+            "Line": 42
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 3909,
+          "end": 4001,
+          "data": {
+            "Line": 43
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "CaptionClip",
+          "start": 4001,
+          "end": 4157,
+          "data": {
+            "Line": 44
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Film.VoiceClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 15,
+          "end": 307,
+          "data": {
+            "Line": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 343,
+          "end": 755,
+          "data": {
+            "Line": 2
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 791,
+          "end": 1128,
+          "data": {
+            "Line": 3
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 1164,
+          "end": 1553,
+          "data": {
+            "Line": 4
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 1589,
+          "end": 1934,
+          "data": {
+            "Line": 5
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 1970,
+          "end": 2394,
+          "data": {
+            "Line": 6
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 2430,
+          "end": 3022,
+          "data": {
+            "Line": 7
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 3058,
+          "end": 3462,
+          "data": {
+            "Line": 8
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 3498,
+          "end": 3837,
+          "data": {
+            "Line": 9
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "VoiceClip",
+          "start": 3873,
+          "end": 4136,
+          "data": {
+            "Line": 10
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Film.BeatClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 0,
+          "end": 2,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 23,
+          "end": 25,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 52,
+          "end": 54,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 188,
+          "end": 190,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 243,
+          "end": 245,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 328,
+          "end": 330,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 351,
+          "end": 353,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 439,
+          "end": 441,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 504,
+          "end": 506,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 576,
+          "end": 578,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 644,
+          "end": 646,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 698,
+          "end": 700,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 776,
+          "end": 778,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 797,
+          "end": 799,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 842,
+          "end": 844,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 890,
+          "end": 892,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1016,
+          "end": 1018,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1091,
+          "end": 1093,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1149,
+          "end": 1151,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1172,
+          "end": 1174,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1197,
+          "end": 1199,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1274,
+          "end": 1276,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1339,
+          "end": 1341,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1460,
+          "end": 1462,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1574,
+          "end": 1576,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1597,
+          "end": 1599,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1671,
+          "end": 1673,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1739,
+          "end": 1741,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1955,
+          "end": 1957,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 1978,
+          "end": 1980,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2011,
+          "end": 2013,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2147,
+          "end": 2149,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2182,
+          "end": 2184,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2323,
+          "end": 2325,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2415,
+          "end": 2417,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2438,
+          "end": 2440,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2529,
+          "end": 2531,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2658,
+          "end": 2660,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2741,
+          "end": 2743,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 2860,
+          "end": 2862,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3043,
+          "end": 3045,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3067,
+          "end": 3069,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3116,
+          "end": 3118,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3409,
+          "end": 3411,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3483,
+          "end": 3485,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3507,
+          "end": 3509,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3575,
+          "end": 3577,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3735,
+          "end": 3737,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3774,
+          "end": 3776,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3809,
+          "end": 3811,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3858,
+          "end": 3860,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3882,
+          "end": 3884,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 3909,
+          "end": 3911,
+          "data": {
+            "Weight": 1
+          }
+        },
+        {
+          "namespace": "Film",
+          "type": "BeatClip",
+          "start": 4001,
+          "end": 4003,
+          "data": {
+            "Weight": 1
+          }
+        }
+      ]
+    }
+  ]
+}

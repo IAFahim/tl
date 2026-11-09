@@ -1,0 +1,134 @@
+{
+  "name": "tutorial",
+  "title": "Hello Tl in six steps",
+  "voice_id": "83548de556df48ba8c09c42a57c51d85",
+  "scenes": [
+    {
+      "show": "title",
+      "title": "Hello Tl",
+      "sub": "your first timeline, in six steps",
+      "text": "Hello Tl. Your first timeline, in six steps. A player that teleports along X, from a timeline."
+    },
+    {
+      "show": "terminal",
+      "title": "Step 1: install the package",
+      "step": 1,
+      "lines": [
+        {
+          "at": 2,
+          "text": "Unity 7000.0.0a16, Universal 3D (URP) template"
+        },
+        {
+          "at": 3,
+          "text": "Package Manager > + > Install package from git URL"
+        },
+        {
+          "at": 3,
+          "text": "https://github.com/IAFahim/tl.unity.git?path=/com.tl.unity#main"
+        }
+      ],
+      "text": "Step one. Install the package. Use the newest Unity seven editor, with a Universal three D project. In the Package Manager, choose install package from git U R L, and paste this address."
+    },
+    {
+      "show": "terminal",
+      "title": "Step 2: import the sample",
+      "step": 2,
+      "lines": [
+        {
+          "at": 2,
+          "text": "Package Manager > Tl Unity Playback"
+        },
+        {
+          "at": 2,
+          "text": "Samples > Hello Tl > Import"
+        },
+        {
+          "at": 3,
+          "text": "Assets/Samples/Tl Unity Playback/.../Hello Tl/Teleport.cs"
+        }
+      ],
+      "text": "Step two. Import the sample. Open Tl Unity Playback in the Package Manager, and press import next to Hello Tl. Open Teleport dot C S. It is the whole example."
+    },
+    {
+      "show": "code",
+      "title": "Step 3: read the one file",
+      "step": 3,
+      "text": "Step three. Read the one file. First, the clip. It holds the numbers the designer types. Next, the track. It turns a clip into a value, when the clip starts and when it ends. Then the kind, which adds that value to a column. And the column is where the result lives.",
+      "groups": [
+        "",
+        "clip",
+        "track",
+        "kind",
+        "column"
+      ]
+    },
+    {
+      "show": "terminal",
+      "title": "Step 4: build the scene",
+      "step": 4,
+      "lines": [
+        {
+          "at": 2,
+          "text": "Menu: Tl Hello > Build Scene"
+        },
+        {
+          "at": 3,
+          "text": "builds the timeline, a Player cube in a SubScene, a camera"
+        },
+        {
+          "at": 3,
+          "text": "opens Hello.unity"
+        }
+      ],
+      "text": "Step four. Build the scene. Choose Tl Hello, then Build Scene, from the menu. It builds the timeline, a player cube in a sub scene, and a camera, and opens the scene."
+    },
+    {
+      "show": "numberline",
+      "title": "Step 5: press Play",
+      "step": 5,
+      "playheadAt": [
+        0,
+        0,
+        30,
+        90,
+        119,
+        150
+      ],
+      "text": "Step five. Press play. At tick thirty the player is at five. At tick ninety, at thirteen. At tick one nineteen the clip ends, and it comes back to five. The console prints each change."
+    },
+    {
+      "show": "terminal",
+      "title": "Step 6: the same file, without Unity",
+      "step": 6,
+      "lines": [
+        {
+          "at": 2,
+          "text": "> dotnet run --project demos/hello -c Release"
+        },
+        {
+          "at": 2,
+          "text": "step  offset"
+        },
+        {
+          "at": 2,
+          "text": "  30  5"
+        },
+        {
+          "at": 2,
+          "text": "  90  13"
+        },
+        {
+          "at": 2,
+          "text": " 119  5"
+        }
+      ],
+      "text": "Step six. The same file runs without Unity. Run the hello demo with dot net, and you get the same three changes, at the same ticks."
+    },
+    {
+      "show": "outro",
+      "title": "Next",
+      "sub": "the full course: github.com/IAFahim/tl.unity",
+      "text": "That is Tl. Clip, track, kind, column. The full course is in the read me, at I A Fahim slash tl dot unity."
+    }
+  ]
+}
