@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "project": "tl.project.json",
+  "entities": [
+    {
+      "name": "player",
+      "states": [ { "namespace": "HelloTl", "type": "Teleported", "data": { "Offset": 0 } } ],
+      "play": [ { "timeline": "teleport" } ]
+    }
+  ]
+}
