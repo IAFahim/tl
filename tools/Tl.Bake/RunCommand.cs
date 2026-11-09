@@ -1,30 +1,35 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Tl.Gen.Tlb;
 
 namespace Tl.Bake;
 
 internal static unsafe class RunCommand
 {
-    const string Usage = "Usage: tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show]";
+    internal const string Usage = "tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show] [--export <file> [--export-every <n>]]";
 
     delegate void SystemRun(TimelineWorld world, PlaybackTable players, bool forward, nint* columns, int count);
 
     internal static int Run(string[] args)
     {
-        string? scenePath = null, libraryPath = null;
-        int steps = -1, every = 0;
+        string? scenePath = null, libraryPath = null, exportPath = null;
+        int steps = -1, every = 0, exportEvery = 1;
         var show = false;
         var assemblies = new List<string>();
         for (var i = 0; i < args.Length; i++)
         {
-            if (args[i] is "--assembly" or "-a" or "--library" or "--steps" or "--checkpoints")
+            if (args[i] is "--assembly" or "-a" or "--library" or "--steps" or "--checkpoints" or "--export" or "--export-every")
             {
                 if (i + 1 >= args.Length) return Fail($"Missing argument for {args[i]}");
                 var value = args[++i];
                 if (args[i - 1] == "--library") libraryPath = value;
                 else if (args[i - 1] == "--steps") { if (!int.TryParse(value, out steps) || steps < 0) return Fail("--steps needs a non-negative integer."); }
+                else if (args[i - 1] == "--export") exportPath = value;
+                else if (args[i - 1] == "--export-every") { if (!int.TryParse(value, out exportEvery) || exportEvery <= 0) return Fail("--export-every needs a positive integer."); }
                 else if (args[i - 1] == "--checkpoints") { if (!int.TryParse(value, out every) || every <= 0) return Fail("--checkpoints needs a positive integer."); }
                 else assemblies.Add(value);
             }
@@ -32,23 +37,24 @@ internal static unsafe class RunCommand
             else if (args[i].StartsWith('-') || scenePath != null) return Fail($"Unexpected argument '{args[i]}'");
             else scenePath = args[i];
         }
-        if (scenePath == null || steps < 0 || assemblies.Count == 0) return Fail(Usage);
-        var hash = Scene(scenePath, libraryPath, assemblies, steps, every, show, Console.Out, out var entities);
+        if (scenePath == null || steps < 0 || assemblies.Count == 0) return Fail("Usage: " + Usage);
+        using var export = exportPath == null ? null : new StateExport(exportPath, exportEvery);
+        var hash = Scene(scenePath, libraryPath, assemblies, steps, every, show, Console.Out, out var entities, export);
         Console.WriteLine($"hash={hash} steps={steps} entities={entities}");
         return 0;
     }
 
-    internal static ulong Scene(string scenePath, string? libraryPath, List<string> assemblies, int steps, int every, bool show, TextWriter output, out int entities)
+    internal static ulong Scene(string scenePath, string? libraryPath, List<string> assemblies, int steps, int every, bool show, TextWriter output, out int entities, StateExport? export = null)
     {
         var json = File.ReadAllBytes(scenePath);
         var resolver = new BakerAssemblyResolver(assemblies);
         var library = libraryPath != null ? File.ReadAllBytes(libraryPath) : BakeProject(scenePath, json, assemblies);
         var scene = TlScene.Read(json, resolver, TlScene.ManifestOf(library, out _));
         entities = scene.Entities.Count;
-        return Execute(scene, library, resolver.ReferencedAssemblies, steps, every, show, output);
+        return Execute(scene, library, resolver.ReferencedAssemblies, steps, every, show, output, export);
     }
 
-    internal static ulong Execute(TlScene scene, byte[] library, IEnumerable<Assembly> assemblies, int steps, int every, bool show, TextWriter output)
+    internal static ulong Execute(TlScene scene, byte[] library, IEnumerable<Assembly> assemblies, int steps, int every, bool show, TextWriter output, StateExport? export = null)
     {
         var count = scene.Entities.Count;
         var systems = Systems(assemblies);
@@ -86,6 +92,7 @@ internal static unsafe class RunCommand
                     hash.Slots(view.SlotOf(e, 0), view.CountOf(e));
                     foreach (var type in scene.Columns) hash.Bytes((byte*)columns[type] + e * Size(type), Size(type));
                 }
+                export?.Row(step + 1, scene, columns, players.View);
                 if (every > 0 && (step + 1) % every == 0)
                 {
                     output.WriteLine($"step {step + 1} hash={hash.Value}");
@@ -191,5 +198,47 @@ internal static unsafe class RunCommand
     {
         Console.Error.WriteLine(message);
         return 1;
+    }
+}
+
+internal sealed unsafe class StateExport : IDisposable
+{
+    static readonly JsonSerializerOptions Options = new() { NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals };
+    readonly StreamWriter _out;
+    readonly int _every;
+    bool _started;
+
+    internal StateExport(string path, int every)
+    {
+        _out = new StreamWriter(path, false, new UTF8Encoding(false)) { NewLine = "\n" };
+        _every = every;
+    }
+
+    internal void Row(int step, TlScene scene, Dictionary<Type, nint> columns, PlaybackView view)
+    {
+        if (step % _every != 0) return;
+        for (var e = 0; e < scene.Entities.Count; e++)
+        {
+            var slots = Enumerable.Range(0, view.CountOf(e)).Select(s => $"{view.SlotOf(e, s)->Timeline}:{view.SlotOf(e, s)->Tick}");
+            var cells = new Dictionary<string, object> { ["step"] = step, ["entity"] = scene.Entities[e].Name ?? e.ToString(), ["playback"] = string.Join(' ', slots) };
+            foreach (var type in scene.Columns)
+                Flatten(type.Name, Marshal.PtrToStructure((nint)((byte*)columns[type] + e * TimelineBakerFast.HelperFor(type).Size), type)!, cells);
+            _out.Write(_started ? ",\n" : "[\n");
+            _out.Write(JsonSerializer.Serialize(cells, Options));
+            _started = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        _out.Write(_started ? "\n]\n" : "[]\n");
+        _out.Dispose();
+    }
+
+    static void Flatten(string key, object value, Dictionary<string, object> cells)
+    {
+        if (value.GetType() is { IsPrimitive: false, IsEnum: false } type)
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance)) Flatten(key + "." + field.Name, field.GetValue(value)!, cells);
+        else cells[key] = value;
     }
 }

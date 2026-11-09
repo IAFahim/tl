@@ -16,6 +16,7 @@ internal static class LibraryPack
         string? kindsPath = null;
         var ns = "Game";
         var auto = false;
+        var noSources = false;
         var diagnosticsJson = false;
         for (var i = 0; i < args.Length; i++)
         {
@@ -25,6 +26,7 @@ internal static class LibraryPack
                 if (i + 1 >= args.Length) return Fail("Missing argument for --assembly", diagnosticsJson);
                 assemblyPaths.Add(args[++i]);
             }
+            else if (a == "--no-sources") noSources = true;
             else if (a == "--out") { if (i + 1 >= args.Length) return Fail("Missing argument for --out", diagnosticsJson); outPath = args[++i]; }
             else if (a == "--ids") { if (i + 1 >= args.Length) return Fail("Missing argument for --ids", diagnosticsJson); idsPath = args[++i]; }
             else if (a == "--kinds") { if (i + 1 >= args.Length) return Fail("Missing argument for --kinds", diagnosticsJson); kindsPath = args[++i]; }
@@ -40,7 +42,7 @@ internal static class LibraryPack
             else return Fail($"Unexpected argument '{a}'", diagnosticsJson);
         }
         if (dir == null) return Fail("Usage: tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--diagnostics json]", diagnosticsJson);
-        try { return Pack(dir, assemblyPaths, outPath, idsPath, kindsPath, ns, auto, diagnosticsJson); }
+        try { return Pack(dir, assemblyPaths, outPath, idsPath, kindsPath, ns, auto, noSources, diagnosticsJson); }
         catch (BakeDiagnosticException ex) { return Fail(ex.Message, diagnosticsJson); }
         catch (Exception ex) { return Fail(ex.Message, diagnosticsJson); }
     }
@@ -132,7 +134,7 @@ internal static class LibraryPack
         return new LibraryKindInputs(names, parts, tickRate, kindSettings, reached);
     }
 
-    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool diagnosticsJson)
+    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool noSources, bool diagnosticsJson)
     {
         dir = Path.GetFullPath(dir);
         var input = LoadKindInputs(dir, assemblyPaths, auto);
@@ -140,25 +142,28 @@ internal static class LibraryPack
         var names = input.Names;
         var tickRate = input.TickRate;
         outPath ??= Path.Combine(dir, "game.tlib");
-        idsPath ??= Path.Combine(dir, "Timelines.g.cs");
+        if (!noSources) idsPath ??= Path.Combine(dir, "Timelines.g.cs");
         var gameTlib = LibraryAssembler.Assemble(input.Parts, tickRate, input.Settings, out var capacities);
         var rows = input.Reached || kindsPath != null ? capacities : null;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
         File.WriteAllBytes(outPath, gameTlib);
         var digest = Convert.ToHexString(SHA256.HashData(gameTlib)).ToLowerInvariant();
         var ids = EmitIds(ns, names, digest, tickRate);
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(idsPath))!);
-        File.WriteAllText(idsPath, ids);
-        var kindsWritten = false;
-        if (rows != null)
+        if (idsPath != null)
         {
-            kindsPath ??= Path.Combine(Path.GetDirectoryName(Path.GetFullPath(idsPath))!, "Kinds.g.cs");
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(idsPath))!);
+            File.WriteAllText(idsPath, ids);
+        }
+        var kindsWritten = false;
+        if (rows != null && (kindsPath != null || idsPath != null))
+        {
+            kindsPath ??= Path.Combine(Path.GetDirectoryName(Path.GetFullPath(idsPath!))!, "Kinds.g.cs");
             kindsWritten = KindLayout.WriteIfChanged(kindsPath, KindLayout.CapacitySource(ns, rows));
         }
         if (diagnosticsJson)
         {
             var kinds = rows?.Select(r => new { name = r.Name, group = r.Group, worst = r.Worst, capacity = r.Capacity, entryBytes = r.EntryBytes, inlineBytes = r.Capacity * r.EntryBytes, setBy = r.SetBy }).ToArray();
-            Console.WriteLine(JsonSerializer.Serialize(new { timelines = names.Count, bytes = gameTlib.Length, digest, @out = outPath, ids = idsPath, tickRate, kinds, kindsFile = rows == null ? null : kindsPath, kindsWritten }));
+            Console.WriteLine(JsonSerializer.Serialize(new { timelines = names.Count, bytes = gameTlib.Length, digest, @out = outPath, ids = idsPath, tickRate, kinds, kindsFile = kindsPath, kindsWritten }));
         }
         else
         {
@@ -166,7 +171,7 @@ internal static class LibraryPack
             if (rows != null)
             {
                 Console.Write(KindLayout.Report(rows));
-                Console.WriteLine(kindsWritten ? $"kinds: wrote {kindsPath}" : $"kinds: {kindsPath} unchanged");
+                if (kindsPath != null) Console.WriteLine(kindsWritten ? $"kinds: wrote {kindsPath}" : $"kinds: {kindsPath} unchanged");
             }
         }
         return 0;

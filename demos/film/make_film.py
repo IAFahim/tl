@@ -197,9 +197,6 @@ def main():
     os.makedirs(os.path.dirname(library), exist_ok=True)
     run(["dotnet", "run", "--no-build", "-c", "Release", "--project", "tools/Tl.Bake", "--", "bake", "demos/film/tl.project.json", "-o", library,
          "--assembly", "demos/film/bin/Release/net10.0/FilmTl.dll"], cwd=ROOT)
-    for stray in ("Kinds.g.cs", "Timelines.g.cs"):      # bake writes these next to the project; the build already generates them
-        path = os.path.join(HERE, stray)
-        if os.path.exists(path): os.remove(path)
 
     demo = collect_demo_data()
     template = open(os.path.join(HERE, "template", "index.template.html"), encoding="utf-8").read()

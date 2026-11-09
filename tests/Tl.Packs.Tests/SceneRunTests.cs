@@ -52,6 +52,43 @@ public sealed class SceneRunTests
     }
 
     [Fact]
+    public void ExportWritesEveryColumnFieldAtEachStepWithoutChangingTheHash()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "tl-export-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            using (var export = new StateExport(path, 100))
+            {
+                var hash = RunCommand.Scene(Demo("stats", "stats.scene.json"), null, [typeof(Health).Assembly.Location], 600, 0, false, new StringWriter(), out _, export);
+                Assert.Equal(StatsHash, hash);
+            }
+            using var rows = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal([100, 200, 300, 400, 500, 600], rows.RootElement.EnumerateArray().Select(r => r.GetProperty("step").GetInt32()));
+            var at200 = rows.RootElement[1];
+            Assert.Equal("hero", at200.GetProperty("entity").GetString());
+            Assert.Equal("1:199 2:99", at200.GetProperty("playback").GetString());
+            Assert.Equal(64, at200.GetProperty("Health.Value").GetInt32());
+            Assert.Equal(10, at200.GetProperty("Attack.Bonus").GetInt32());
+            Assert.Equal(72, rows.RootElement[5].GetProperty("Health.Value").GetInt32());
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void ExportEveryStepGivesOneRowPerStep()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "tl-export-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            using (var export = new StateExport(path, 1))
+                RunCommand.Scene(Demo("stats", "stats.scene.json"), null, [typeof(Health).Assembly.Location], 600, 0, false, new StringWriter(), out _, export);
+            using var rows = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal(600, rows.RootElement.GetArrayLength());
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void ACheckpointHashIsTheRunningHashOfAShorterRun()
     {
         var (_, text) = Run("stats", "stats.scene.json", typeof(Health), 600, 50);

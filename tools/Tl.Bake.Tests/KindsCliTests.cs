@@ -57,6 +57,86 @@ public class KindsCliTests
     }
 
     [Fact]
+    public void BakeOfAProjectWritesNoSourcesUnlessAsked()
+    {
+        var dir = Stage();
+        var temp = Path.Combine(Path.GetTempPath(), "tl-bake-out-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var library = Path.Combine(temp, "game.tlib");
+            string[] common = [Path.Combine(dir, "tl.project.json"), "-o", library, "--namespace", Namespace, "--assembly", typeof(KindsCliTests).Assembly.Location];
+            var (exit, _, _) = Bake(["bake", .. common]);
+            Assert.Equal(0, exit);
+            Assert.Equal(["game.tlib"], Directory.GetFiles(temp).Select(Path.GetFileName));
+            Assert.False(File.Exists(Path.Combine(dir, "Kinds.g.cs")));
+            Assert.False(File.Exists(Path.Combine(dir, "Timelines.g.cs")));
+            var bytes = File.ReadAllBytes(library);
+            var sources = Path.Combine(temp, "sources");
+            (exit, _, _) = Bake(["bake", .. common, "--emit-sources", sources]);
+            Assert.Equal(0, exit);
+            Assert.Equal(["Kinds.g.cs", "Timelines.g.cs"], Directory.GetFiles(sources).Select(Path.GetFileName).Order());
+            Assert.Equal(File.ReadAllText(Golden("kinds", "Kinds.g.cs.txt")), File.ReadAllText(Path.Combine(sources, "Kinds.g.cs")));
+            Assert.Equal(bytes, File.ReadAllBytes(library));
+            Assert.False(File.Exists(Path.Combine(dir, "Kinds.g.cs")));
+            Assert.False(File.Exists(Path.Combine(dir, "Timelines.g.cs")));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+            if (Directory.Exists(temp)) Directory.Delete(temp, true);
+        }
+    }
+
+    [Fact]
+    public void EmitSourcesNeedsAProject()
+    {
+        var (exit, _, stderr) = Bake(["bake", "one.json", "--emit-sources", "out"]);
+        Assert.Equal(1, exit);
+        Assert.Contains("--emit-sources needs a project", stderr);
+    }
+
+    static string Inspect(params string[] args)
+    {
+        var output = new StringWriter();
+        Assert.Equal(0, InspectCommand.Run([Golden("kinds", "game.tlib"), .. args], output));
+        return output.ToString().Replace("\r\n", "\n");
+    }
+
+    [Fact]
+    public void InspectListsClipPulsesAndMarkersOfAKindLibrary()
+    {
+        Assert.Equal("2\tstart\tKindFixture.Damage\tKindFixture.Hit.Start\n3\tend\tKindFixture.StatChange\tKindFixture.Hit.End\n4\tstart\tKindFixture.Damage\tKindFixture.Hit.Start\n5\tend\tKindFixture.StatChange\tKindFixture.Hit.End\n", Inspect("stomp"));
+        Assert.Equal("5\tmarker\tKindFixture.StatChange\tKindFixture.Steps.OnStep\n5\tmarker\t0xf735aa41026d914c\tffffffff\n", Inspect("jump"));
+        Assert.Equal("5\tmarker\t0xf735aa41026d914c\tffffffff\n", Inspect("jump", "--markers"));
+        Assert.Equal("5\tmarker\tKindFixture.StatChange\tKindFixture.Steps.OnStep\n", Inspect("jump", "--pulses"));
+        Assert.Equal("", Inspect("run"));
+    }
+
+    [Fact]
+    public void InspectRefusesAnUnknownTimelineAndBadArguments()
+    {
+        Assert.Throws<BakeDiagnosticException>(() => InspectCommand.Run([Golden("kinds", "game.tlib"), "nope"], new StringWriter()));
+        Assert.Equal(1, InspectCommand.Run([Golden("kinds", "game.tlib")], new StringWriter()));
+        Assert.Equal(1, InspectCommand.Run([Golden("kinds", "game.tlib"), "jump", "--all"], new StringWriter()));
+    }
+
+    static (int Exit, string Stdout, string Stderr) Bake(string[] args)
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var savedOut = Console.Out;
+        var savedError = Console.Error;
+        Console.SetOut(stdout);
+        Console.SetError(stderr);
+        try { return (Program.Main(args), stdout.ToString(), stderr.ToString()); }
+        finally
+        {
+            Console.SetOut(savedOut);
+            Console.SetError(savedError);
+        }
+    }
+
+    [Fact]
     public void StdoutMatchesLibraryKindsGolden()
     {
         var dir = Stage();

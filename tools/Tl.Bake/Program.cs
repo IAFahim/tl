@@ -17,6 +17,9 @@ public static class Program
             if (args is ["run", ..])
                 return RunCommand.Run(args[1..]);
 
+            if (args is ["inspect", ..])
+                return InspectCommand.Run(args[1..], Console.Out);
+
             if (args is ["decode", ..])
                 return DecodeCommand.Run(args[1..]);
 
@@ -56,15 +59,21 @@ public static class Program
     private static int BakeCommand(string[] args)
     {
         var rest = new List<string>();
-        string? output = null;
+        string? output = null, sources = null;
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] is "-o" or "--out" && i + 1 < args.Length) output = args[++i];
+            else if (args[i] == "--emit-sources" && i + 1 < args.Length) sources = args[++i];
             else rest.Add(args[i]);
         }
         var input = rest.FirstOrDefault(a => !a.StartsWith('-'));
         if (input != null && (Directory.Exists(input) || input.EndsWith("tl.project.json", StringComparison.Ordinal)))
-            return LibraryPack.Run(output == null ? [.. rest] : [.. rest, "--out", output]);
+        {
+            if (output != null) rest.AddRange(["--out", output]);
+            rest.AddRange(sources == null ? ["--no-sources"] : ["--ids", Path.Combine(sources, "Timelines.g.cs")]);
+            return LibraryPack.Run([.. rest]);
+        }
+        if (sources != null) return LibraryPack.Fail("--emit-sources needs a project.", false);
         if (output != null && input != null) rest.Insert(rest.IndexOf(input) + 1, output);
         return Bake([.. rest]);
     }
@@ -158,9 +167,10 @@ public static class Program
         if (inputPath == null)
         {
             Console.Error.WriteLine("Usage: tl [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
-            Console.Error.WriteLine("       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...");
+            Console.Error.WriteLine("       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]... [--emit-sources <dir>]");
             Console.Error.WriteLine("       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...");
-            Console.Error.WriteLine("       tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show]");
+            Console.Error.WriteLine("       " + RunCommand.Usage);
+            Console.Error.WriteLine("       tl inspect <game.tlib> <timeline> [--pulses] [--markers]");
             Console.Error.WriteLine("       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tl --strip <input.tlb> <output.tlb>");

@@ -22,7 +22,7 @@ Tick 30: clip 1 starts, jump +5 and stay. Tick 90: clip 2 starts, +8 (13). Tick 
 - `timelines/teleport.json`, `tl.project.json`: the timeline as portable JSON (what Unity's **Tl > Export** writes).
 - `HelloTl.tlib`: the baked library. Rebake after a change:
   `dotnet run --project tools/Tl.Bake -- bake demos/hello/tl.project.json -o demos/hello/HelloTl.tlib --assembly demos/hello/bin/Release/net10.0/HelloTl.dll`
-  (delete the `Kinds.g.cs` and `Timelines.g.cs` it writes next to the project).
+  (it writes only the library; `--emit-sources <dir>` would add `Kinds.g.cs` and `Timelines.g.cs`).
 - `hello.scene.json`: the same run as a scene: `dotnet run --project tools/Tl.Bake -- run demos/hello/hello.scene.json --steps 150 --assembly demos/hello/bin/Release/net10.0/HelloTl.dll` prints hash `4684325832958264737`.
 
 ## What is checked

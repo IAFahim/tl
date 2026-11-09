@@ -159,6 +159,8 @@ Collisions (two names mapping to one member, or mapping to the reserved
 tl library <dir> [--assembly Game.Logic.dll]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--diagnostics json]
 ```
 
+`tl bake <project> --emit-sources <dir>` is the same pack, but it writes `Timelines.g.cs` and `Kinds.g.cs` (when a kind is reached) only into `<dir>`, and nothing without the flag. `tl inspect <game.tlib> <timeline> [--pulses] [--markers]` lists, from the library alone and without running it, one tab-separated line per pulse (`tick`, `start`/`end`/`marker`, kind, `Consumer.Method`) and per marker (`tick`, `marker`, type key, payload bytes in hex). A pulse's value is what its consumer method returns at run time, so the library has the tick and the kind but not the value; a marker's payload is stored, so it is exact. A clip's end pulse fires on its last tick (`End - 1`). Libraries without kinds list markers only.
+
 `--out`/`--ids` default beside the library folder (`game.tlib`,
 `Timelines.g.cs`). `--auto` infers missing `namespace` fields as in single
 bakes. With `--diagnostics json`, success prints one JSON summary line and

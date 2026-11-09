@@ -164,9 +164,10 @@ public class CliTests
             Assert.Equal(
                 string.Join("\n",
                     "Usage: tl [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]",
-                    "       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...",
+                    "       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]... [--emit-sources <dir>]",
                     "       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...",
-                    "       tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show]",
+                    "       tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show] [--export <file> [--export-every <n>]]",
+                    "       tl inspect <game.tlib> <timeline> [--pulses] [--markers]",
                     "       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]",
                     "       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]",
                     "       tl --strip <input.tlb> <output.tlb>",
