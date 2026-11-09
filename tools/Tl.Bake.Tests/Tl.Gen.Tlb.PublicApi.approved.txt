@@ -44,6 +44,7 @@ type Tl.Gen.Tlb.TlScene
   Method Tl.Gen.Tlb.TlScene Read(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Tl.Gen.Tlb.LibraryManifest)
   NestedType Tl.Gen.Tlb.TlScene+Request
   Field System.Collections.Generic.List`1[Tl.Gen.Tlb.TlScene+Request] Requests
+  Method System.String ToJson(Tl.Gen.Tlb.LibraryManifest)
 type Tl.Gen.Tlb.TlScene+Entity
   Field System.String Name
   Field System.Collections.Generic.List`1[System.ValueTuple`2[System.UInt16,System.UInt16]] Play
