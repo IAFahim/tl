@@ -9,6 +9,7 @@ public sealed class SceneRunTests
 {
     internal const ulong InventoryHash = 6806057278687917896UL;
     internal const ulong StatsHash = 13171269908726092120UL;
+    internal const ulong CrowdHash = 18108985316199147936UL;
     internal const ulong InventoryFastHash = 17812265086550969911UL;
     internal const ulong InventoryMixedHash = 15172252175353637725UL;
     const string DemoBag = "player Bag: Wood 1, Stone 3, Plank 2, Potion 1, Sword 1, Coin 10, Key 0, Gem 1\n";
@@ -124,5 +125,18 @@ public sealed class SceneRunTests
         {
             Directory.Delete(folder, true);
         }
+    }
+
+    [Fact]
+    public void TheCrowdSceneGivesItsPinnedCheckpointsAndTheCommittedLibraryMatchesTheJson()
+    {
+        var scene = Demo("crowd", "crowd.scene.json");
+        Assert.Equal(File.ReadAllBytes(Demo("crowd", "crowd.tlib")), RunCommand.BakeProject(scene, File.ReadAllBytes(scene), [typeof(Tl.Pack.Motion.Pose).Assembly.Location]));
+        var (hash, text) = Run("crowd", "crowd.scene.json", typeof(Tl.Pack.Motion.Pose), 600, 150);
+        Assert.Contains("step 150 hash=18310795104460496812\n", text);
+        Assert.Contains("step 300 hash=8426876472808293853\n", text);
+        Assert.Contains("step 450 hash=16975299878586844118\n", text);
+        Assert.Equal(CrowdHash, hash);
+        Assert.Equal(hash, Run("crowd", "crowd.scene.json", typeof(Tl.Pack.Motion.Pose), 600, 0).Hash);
     }
 }

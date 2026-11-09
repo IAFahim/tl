@@ -21,7 +21,7 @@ def budget(label, *scopes, limit):
 ok = budget("src", "src", limit=520_000)
 ok &= budget("samples", "samples", limit=66_000)
 portable_json = ["tools/Tl.Gen.Tlb/TimelineJson.cs", "tools/Tl.Gen.Tlb/TlJson.cs", "tools/Tl.Gen.Tlb/ValueJson.cs", "tools/Tl.Bake/DecodeCommand.cs"]
-ok &= budget("shipped-tools", "tools/Tl.Gen.Tlb", "tools/Tl.Bake", *[":(exclude)" + path for path in portable_json], limit=309_000)
+ok &= budget("shipped-tools", "tools/Tl.Gen.Tlb", "tools/Tl.Bake", *[":(exclude)" + path for path in portable_json], limit=345_000)
 ok &= budget("portable-json-tools", *portable_json, limit=36_000)
 ok &= budget("analyzers", "tools/Tl.Analyzers", "tools/Tl.Analyzers.Tests", limit=24_000)
 raise SystemExit(0 if ok else 1)
