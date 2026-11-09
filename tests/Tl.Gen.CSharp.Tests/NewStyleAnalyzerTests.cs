@@ -10,7 +10,7 @@ public sealed class NewStyleAnalyzerTests
     const string Source = """
         using Tl;
         namespace Portable;
-        [TlColumn] public partial struct Push { public float X; }
+        [TlState] public partial struct Push { public float X; }
         [TlClip("Push")] public struct PushClip { public float X; }
         [TlKind] public struct PushKind
         {
@@ -46,7 +46,7 @@ public sealed class NewStyleAnalyzerTests
     const string EventSource = """
         using Tl;
         namespace Portable;
-        [TlColumn] public partial struct Push { public float X; }
+        [TlState] public partial struct Push { public float X; }
         [TlClip("Push")] public struct PushClip { public float X; public int Amount; }
         public struct Strike { public int Amount; }
         public struct Ring { public int Count; }
@@ -103,23 +103,6 @@ public sealed class NewStyleAnalyzerTests
         var first = driver.GetRunResult().GeneratedTrees.Select(tree => tree.ToString()).ToArray();
         driver = driver.RunGenerators(compilation);
         Assert.Equal(first, driver.GetRunResult().GeneratedTrees.Select(tree => tree.ToString()));
-    }
-
-    const string StaleSource = """
-        using Tl;
-        namespace Portable;
-        [TlState] public partial struct Push { public float X; }
-        """;
-
-    [Fact]
-    public void StaleStateAttributeDoesNotCompile()
-    {
-        var parse = new CSharpParseOptions(LanguageVersion.Latest);
-        var compilation = CSharpCompilation.Create("Portable.Pack", [CSharpSyntaxTree.ParseText(StaleSource, parse, "Push.cs")], References(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));
-        GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: parse);
-        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
-        Assert.Contains(diagnostics.Concat(output.GetDiagnostics()), d => d.Severity == DiagnosticSeverity.Error && d.GetMessage().Contains("TlState"));
     }
 
     static IEnumerable<MetadataReference> References()

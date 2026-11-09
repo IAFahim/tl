@@ -12,7 +12,7 @@ namespace Tl.Pack.Inventory
         Gem,
     }
 
-    [TlColumn]
+    [TlState]
     public partial struct Bag
     {
         public int Wood;

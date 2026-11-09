@@ -676,7 +676,6 @@ type Tl.TlAssetId
   Field UInt32 Z
 type Tl.TlClipAttribute
   Property System.String Menu
-type Tl.TlColumnAttribute
 type Tl.TlCurve
   NestedType Tl.TlCurve+<_values>e__FixedBuffer
   Method Tl.TlCurve Constant(Single)
@@ -709,6 +708,7 @@ type Tl.TlKindAttribute
   Property Int32 Order
 type Tl.TlNoSettings`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
+type Tl.TlStateAttribute
 type Tl.TlStateHash
   Method Tl.TlStateHash Begin()
   Method Void Bytes(Byte*, Int32)
