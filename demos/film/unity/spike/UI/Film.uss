@@ -1,0 +1,9 @@
+.root { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgb(10, 15, 30); }
+.header { position: absolute; left: 120px; top: 44px; flex-direction: row; align-items: center; }
+.brand { font-size: 52px; color: rgb(45, 212, 191); -unity-font-style: bold; }
+.beat { width: 14px; height: 14px; margin-left: 16px; border-radius: 7px; background-color: rgb(251, 191, 36); opacity: 0; }
+.tag { margin-left: 20px; font-size: 26px; color: rgb(141, 160, 200); }
+.scene { position: absolute; left: 120px; top: 260px; font-size: 96px; color: rgb(232, 238, 252); -unity-font-style: bold; }
+.bar { position: absolute; left: 120px; top: 420px; width: 1680px; height: 24px; border-radius: 12px; background-color: rgb(15, 22, 48); }
+.fill { height: 100%; width: 0; border-radius: 12px; background-color: rgb(45, 212, 191); }
+.caption { position: absolute; left: 192px; top: 800px; width: 1536px; font-size: 42px; color: rgb(232, 238, 252); -unity-text-align: middle-center; white-space: normal; }
