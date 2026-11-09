@@ -105,6 +105,17 @@
       .card b { display: block; font: 900 84px/1.1 var(--mono); margin: 6px 0; }
       .card p { font-size: 28px; color: var(--muted); }
 
+      /* Unity footage: the <video> sits in #root (HyperFrames times it); the scene draws the numbers beside it */
+      video.footage { position: absolute; left: 120px; top: 200px; width: 960px; height: 540px; border-radius: 16px; border: 2px solid var(--line); object-fit: cover; }
+      .fo-side { position: absolute; left: 1000px; top: 90px; width: 680px; }
+      .fo-tag { font: 22px var(--mono); color: var(--muted); }
+      .fo-read { margin-top: 18px; font: 900 76px/1.15 var(--mono); color: var(--amber); }
+      .fo-read small { font: 24px var(--mono); color: var(--muted); margin-right: 14px; }
+      .fo-stat { margin-top: 28px; padding: 22px 28px; border-radius: 16px; background: var(--panel); border: 2px solid var(--line); opacity: 0; }
+      .fo-stat b { display: block; font: 900 64px var(--mono); color: var(--teal); }
+      .fo-stat span { font-size: 26px; color: var(--muted); }
+      .fo-console { margin-top: 20px; padding: 16px 20px; font: 22px/32px var(--mono); min-height: 130px; }
+
       /* terminal */
       .term { padding: 28px 34px; font: 30px/46px var(--mono); min-height: 420px; width: 1600px; }
       .term .dots { color: var(--rose); font-size: 22px; margin-bottom: 14px; }
@@ -215,6 +226,19 @@
         const xEl = mk("div", "", el); xEl.id = "nl-x";
         const tickEl = mk("div", "", el); tickEl.id = "nl-tick";
         const con = mk("div", "panel", el); con.id = "nl-console";
+        // sc.unity: a stack of recorded Unity frames (one per 2 ticks) replaces the drawn world; the playhead picks the frame
+        let shots = null;
+        if (sc.unity) {
+          world.style.display = "none";
+          const rec = F.footage[sc.unity];
+          const box = mk("div", "", el); box.style.cssText = "position:absolute;left:150px;top:175px;width:640px;height:360px;border-radius:14px;overflow:hidden;border:2px solid var(--line)";
+          shots = [...Array(rec.frames).keys()].map((i) => { const im = mk("img", "", box); im.src = `assets/unity-${sc.unity}/f${String(i).padStart(4, "0")}.jpg`; im.style.cssText = "position:absolute;inset:0;width:100%;height:100%;opacity:0"; return im; });
+          xEl.style.cssText = "right:auto;left:850px;top:185px";
+          tickEl.style.cssText = "left:850px;top:335px";
+          con.style.cssText = "left:850px;top:395px;width:830px;height:150px;font:20px/32px var(--mono)";
+          const tag = mk("div", "", el, "recorded from Unity"); tag.style.cssText = "position:absolute;left:150px;top:545px;font:22px var(--mono);color:var(--muted)";
+        }
+        let shown = -1;
         const P = sc.playheadAt;
         const xAt = (t) => { let x = 0; for (const [s, v] of H.changes) if (s <= t) x = v; return x; };
         return (k, q) => {
@@ -224,6 +248,10 @@
           xEl.textContent = "x = " + x;
           tickEl.textContent = "timeline tick " + t;
           player.style.left = `calc(${(x / 14) * 100}% - 0px)`;
+          if (shots) {
+            const i = clamp(Math.round(t / 2), 0, shots.length - 1);
+            if (i !== shown) { if (shown >= 0) shots[shown].style.opacity = 0; shots[i].style.opacity = 1; shown = i; }
+          }
           con.innerHTML = H.changes.filter(([s]) => s <= t).map(([s, v]) => `Hello Tl: the player is at x = ${v} (timeline tick ${s})`).join("<br>") || "&nbsp;";
         };
       };
@@ -302,6 +330,23 @@
           const a = k > at ? 1 : k === at ? ease(q * 4) : 0;
           c.style.opacity = a; c.style.transform = `translateY(${(1 - a) * 30}px)`;
         });
+      };
+
+      // sc.footage names recorded Unity footage; the <video> is timed by the Footage clip, and the numbers beside it are the recorded ones
+      R.footage = (el, sc) => {
+        mk("h2", "", el, sc.title);
+        const name = sc.footage, rec = F.footage[name], id = F.footageNames.indexOf(name) + 1;
+        const side = mk("div", "fo-side", el, '<div class="fo-tag"></div><div class="fo-read"></div>');
+        const tag = side.querySelector(".fo-tag"), read = side.querySelector(".fo-read");
+        tag.textContent = "recorded from Unity, " + rec.frames + " frames per lap";
+        const stat = sc.stat ? mk("div", "fo-stat", side, `<b>${sc.stat.big}</b><span>${sc.stat.sub}</span>`) : null;
+        const con = sc.console ? mk("div", "panel fo-console", side) : null;
+        return (k, q, phase, tick) => {
+          const f = Math.max(0, tick - F.footageStart[id]) % rec.frames;
+          read.innerHTML = (sc.readout || ["x"]).map((a) => `<div><small>${a}</small>${rec[a][f].toFixed(4)}</div>`).join("");
+          if (stat) stat.style.opacity = k >= (sc.statAt != null ? sc.statAt : 1) ? 1 : 0;
+          if (con) con.innerHTML = DEMO.hello.changes.filter(([s]) => s <= rec.tick[f]).map(([s, v]) => `Hello Tl: the player is at x = ${v} (timeline tick ${s})`).join("<br>") || "&nbsp;";
+        };
       };
 
       R.terminal = (el, sc) => {

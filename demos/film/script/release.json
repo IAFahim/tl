@@ -36,7 +36,8 @@
         119,
         150
       ],
-      "text": "Run it. At tick thirty the player jumps to five. At tick ninety, to thirteen. At tick one nineteen the clip ends, and it comes back to five. The numbers are the same in Unity and in plain dot net."
+      "text": "Run it. At tick thirty the player jumps to five. At tick ninety, to thirteen. At tick one nineteen the clip ends, and it comes back to five. The picture is Unity. The numbers are the same in plain dot net.",
+      "unity": "hello"
     },
     {
       "show": "stats",
@@ -61,50 +62,69 @@
       ]
     },
     {
-      "show": "cards",
-      "title": "The Unity demos check themselves",
-      "cards": [
-        {
-          "name": "Force",
-          "big": "4.0333 m",
-          "sub": "pushed, then rewound to 0.0000"
-        },
-        {
-          "name": "Control",
-          "big": "z 3.0500",
-          "sub": "the dash ends exactly where expected"
-        },
-        {
-          "name": "Events",
-          "big": "15 + 15",
-          "sub": "fifteen strikes, fifteen sparks"
-        },
-        {
-          "name": "Motion",
-          "big": "0 of 4897",
-          "sub": "samples differ from the .NET reference"
-        }
+      "show": "footage",
+      "footage": "force",
+      "title": "Force: a push, and the way back",
+      "readout": [
+        "x"
       ],
-      "text": "In Unity, the demos check themselves. Force pushes a cube four metres, then rewinds it to zero. Control dashes a cube to the exact spot. Events strikes fifteen times, and fifteen sparks appear. Motion matches the dot net reference on every one of forty eight ninety seven samples."
+      "stat": {
+        "big": "4.0333 m",
+        "sub": "pushed, then back to 0.0000"
+      },
+      "statAt": 1,
+      "text": "Force. One clip pushes the cube to the right, about four metres, and slows it down. A second timeline pushes it back to zero. The number beside the video is the cube's real x, recorded from Unity."
     },
     {
-      "show": "cards",
-      "title": "And it is fast",
-      "cards": [
-        {
-          "name": "10,000 dancers",
-          "big": "31.8 ns",
-          "sub": "per entity, per tick, 0 bytes allocated",
-          "at": 1
-        },
-        {
-          "name": "100,000 dancers",
-          "big": "32.7 ns",
-          "sub": "per entity, per tick, 0 bytes allocated",
-          "at": 1
-        }
+      "show": "footage",
+      "footage": "control",
+      "title": "Control: a clip that starts a clip",
+      "readout": [
+        "x",
+        "z"
       ],
-      "text": "And it is fast. Ten thousand dancers, and a hundred thousand dancers, each on its own start tick, cost about thirty three nanoseconds per entity per tick. They allocate zero bytes."
+      "stat": {
+        "big": "z 3.0500",
+        "sub": "where the dash ends, as the test expects"
+      },
+      "statAt": 2,
+      "text": "Control. A clip watches the cube. When it passes two metres, it starts a dash timeline, and the cube moves along z. The dash ends exactly where the test expects."
+    },
+    {
+      "show": "footage",
+      "footage": "events",
+      "title": "Events: a clip raises an event",
+      "readout": [],
+      "stat": {
+        "big": "15 + 15",
+        "sub": "strikes and sparks"
+      },
+      "statAt": 2,
+      "text": "Events. Each strike clip makes the knight lunge, and at the moment it starts, it raises an event. Gameplay code sends damage to the dummy, squashes it, and spawns a spark. Fifteen strikes, fifteen sparks."
+    },
+    {
+      "show": "footage",
+      "footage": "motion",
+      "title": "Motion: values over time",
+      "readout": [],
+      "stat": {
+        "big": "0 of 4897",
+        "sub": "samples differ from the .NET reference"
+      },
+      "statAt": 2,
+      "text": "Motion. No game code. The cube glides, the sphere breathes and changes colour, and the capsule spins while it hops. A plain dot net program samples the same timeline, and all forty eight ninety seven samples match."
+    },
+    {
+      "show": "footage",
+      "footage": "crowd",
+      "title": "Crowd: ten thousand dancers",
+      "readout": [],
+      "stat": {
+        "big": "32.7 ns",
+        "sub": "per entity per tick at 100,000, 0 bytes"
+      },
+      "statAt": 2,
+      "text": "Crowd. Ten thousand dancers, each started on its own tick, so the field ripples. A hundred thousand cost about thirty three nanoseconds per entity per tick, and allocate zero bytes."
     },
     {
       "show": "terminal",

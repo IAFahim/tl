@@ -16,6 +16,10 @@ public struct CaptionClip { public int Line; }
 [TlClip("Film/Voice")]
 public struct VoiceClip { public int Line; }
 
+// Which recorded Unity footage plays while this clip is on the timeline (0 means none).
+[TlClip("Film/Footage")]
+public struct FootageClip { public int Footage; }
+
 // A beat: something on screen flashes once, at the first tick of this clip.
 [TlClip("Film/Beat")]
 public struct BeatClip { public int Weight; }
@@ -33,6 +37,12 @@ public struct CaptionTrack : ITlTrack<CaptionClip>
 {
     [Feeds(typeof(ShowCaption))]
     public static int WhichLine(in TlFrame<CaptionClip> frame) => frame.Clip.Line;
+}
+
+public struct FootageTrack : ITlTrack<FootageClip>
+{
+    [Feeds(typeof(ShowFootage))]
+    public static int WhichFootage(in TlFrame<FootageClip> frame) => frame.Clip.Footage;
 }
 
 public struct VoiceTrack : ITlTrack<VoiceClip>
@@ -68,6 +78,13 @@ public struct ShowCaption
     public static void Apply(in int line, ref OnScreen screen) => screen.Caption = line;
 }
 
+[TlKind]
+public struct ShowFootage
+{
+    public static void Combine(ref int total, in int next) => total = next;
+    public static void Apply(in int footage, ref OnScreen screen) => screen.Footage = footage;
+}
+
 [TlKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each)]
 public struct StartVoice
 {
@@ -88,5 +105,6 @@ public partial struct OnScreen
     public float ScenePhase;
     public int Caption;
     public int Voice;
+    public int Footage;
     public int Flashes;
 }

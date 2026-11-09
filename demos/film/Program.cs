@@ -26,7 +26,7 @@ public static class Host
         return perTick;
     }
 
-    // One number per tick for each field, as JSON: {"fps":30,"scene":[...],"phase":[...],"caption":[...],"voice":[...],"flashes":[...]}
+    // One number per tick for each field, as JSON: {"fps":30,"scene":[...],"phase":[...],"caption":[...],"voice":[...],"footage":[...],"flashes":[...]}
     public static string ToJson(OnScreen[] perTick, int fps)
     {
         var json = new StringBuilder();
@@ -35,6 +35,7 @@ public static class Host
         Column(json, "phase", perTick, s => s.ScenePhase.ToString("0.####", CultureInfo.InvariantCulture));
         Column(json, "caption", perTick, s => s.Caption.ToString(CultureInfo.InvariantCulture));
         Column(json, "voice", perTick, s => s.Voice.ToString(CultureInfo.InvariantCulture));
+        Column(json, "footage", perTick, s => s.Footage.ToString(CultureInfo.InvariantCulture));
         Column(json, "flashes", perTick, s => s.Flashes.ToString(CultureInfo.InvariantCulture));
         return json.Append('}').ToString();
     }

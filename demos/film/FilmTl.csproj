@@ -11,6 +11,9 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="unity/**;out/**" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
     <ProjectReference Include="..\..\src\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" AdditionalProperties="TargetFramework=netstandard2.0" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
   </ItemGroup>

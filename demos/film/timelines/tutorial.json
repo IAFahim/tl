@@ -487,6 +487,22 @@
     },
     {
       "namespace": "Tl",
+      "type": "TlNoSettings<Film.FootageClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Film",
+          "type": "FootageClip",
+          "start": 0,
+          "end": 3174,
+          "data": {
+            "Footage": 0
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
       "type": "TlNoSettings<Film.VoiceClip>",
       "data": {},
       "clips": [
