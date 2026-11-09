@@ -94,4 +94,35 @@ public sealed class SceneRunTests
             Directory.Delete(folder, true);
         }
     }
+
+    [Theory]
+    [InlineData("inventory", "inventory.scene.json", 1500, InventoryHash, typeof(Bag))]
+    [InlineData("inventory", "inventory-fast.scene.json", 300, InventoryFastHash, typeof(Bag))]
+    [InlineData("inventory", "inventory-mixed.scene.json", 700, InventoryMixedHash, typeof(Bag))]
+    [InlineData("stats", "stats.scene.json", 600, StatsHash, typeof(Health))]
+    public void AnExportedSceneIsStableAndRunsToTheSameHash(string demo, string file, int steps, ulong expected, Type pack)
+    {
+        var assemblies = new List<string> { pack.Assembly.Location };
+        var library = demo == "inventory" ? InventoryTests.Library() : StatsTests.Library();
+        var original = File.ReadAllBytes(Demo(demo, file));
+        var manifest = Tl.Gen.Tlb.TlScene.ManifestOf(library, out _);
+        var scene = Tl.Gen.Tlb.TlScene.Read(original, new Tl.Gen.Tlb.BakerAssemblyResolver(assemblies), manifest);
+        var exported = scene.ToJson(manifest);
+        var again = Tl.Gen.Tlb.TlScene.Read(System.Text.Encoding.UTF8.GetBytes(exported), new Tl.Gen.Tlb.BakerAssemblyResolver(assemblies), manifest).ToJson(manifest);
+        Assert.Equal(exported, again);
+        var folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            foreach (var path in Directory.GetFiles(Path.GetDirectoryName(Demo(demo, file))!))
+                File.Copy(path, Path.Combine(folder, Path.GetFileName(path)));
+            var target = Path.Combine(folder, "exported.scene.json");
+            File.WriteAllText(target, exported);
+            Assert.Equal(expected, RunCommand.Scene(target, null, assemblies, steps, 0, false, new StringWriter(), out _));
+        }
+        finally
+        {
+            Directory.Delete(folder, true);
+        }
+    }
 }
