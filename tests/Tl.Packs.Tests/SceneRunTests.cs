@@ -139,4 +139,10 @@ public sealed class SceneRunTests
         Assert.Equal(CrowdHash, hash);
         Assert.Equal(hash, Run("crowd", "crowd.scene.json", typeof(Tl.Pack.Motion.Pose), 600, 0).Hash);
     }
+
+    [Fact]
+    public void AServerThatUsesOnlyCoreTheLibraryAndThePackGivesTheCrowdHash()
+    {
+        Assert.Equal(CrowdHash, CrowdServer.Host.Run(File.ReadAllBytes(Demo("crowd", "crowd.tlib")), CrowdServer.Host.Steps));
+    }
 }

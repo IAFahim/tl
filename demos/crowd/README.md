@@ -32,3 +32,18 @@ limit (the Inventory demo, which adds and removes, rewinds to an empty bag). The
 backward path too.
 
 For speed (ns per entity at 10,000 and 100,000 dancers) see the Unity Crowd demo.
+
+## A second host in 55 lines
+
+`Server/Program.cs` is a game-server style host: it uses only `Tl.Core`, the pack and `crowd.tlib`. No Unity, no JSON, no CLI, no
+`Tl.Gen.Tlb`. It places the 625 dancers, starts each at its tick, steps the world and prints the same hash as `tl run`:
+
+```sh
+dotnet run --project demos/crowd/Server -c Release -- demos/crowd/crowd.tlib
+```
+
+```
+crowd server steps=600 dancers=625 hash=18108985316199147936
+```
+
+`SceneRunTests.AServerThatUsesOnlyCoreTheLibraryAndThePackGivesTheCrowdHash` keeps it equal.
