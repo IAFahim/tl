@@ -148,6 +148,11 @@ internal static class NewStyle
             autoKinds.Add(kind.ToDisplayString(Full));
             for (var i = 1; i < apply!.Parameters.Length; i++)
                 AddColumn(columns, apply.Parameters[i].Type.ToDisplayString(Full), apply.Parameters[i].RefKind == RefKind.Ref);
+            var idle = kind.GetMembers("Idle").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+            if (idle is not null)
+                foreach (var parameter in idle.Parameters)
+                    if (isState(parameter.Type) && !systemColumns.Contains(parameter.Type.ToDisplayString(Full)))
+                        AddColumn(columns, parameter.Type.ToDisplayString(Full), parameter.RefKind == RefKind.Ref);
         }
         var members = new HashSet<string>(StringComparer.Ordinal);
         var feedsForeign = false;

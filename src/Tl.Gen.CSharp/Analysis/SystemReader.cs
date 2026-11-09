@@ -392,7 +392,28 @@ internal static class SystemReader
         string group = "";
         foreach (var pair in attribute.NamedArguments)
             if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
-        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type) };
+        List<ConsumerParam>? idleParams = null;
+        var idle = type.GetMembers("Idle").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+        if (idle is not null)
+        {
+            if (group.Length > 0 || NamedInt(attribute, "Accepts") == 1)
+            {
+                Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' declares Idle, which needs a kind that accepts spans and has no Group; a pulse leaves nothing to be idle after, and a group row is shared with other kinds.");
+                return null;
+            }
+            idleParams = [];
+            for (var i = 0; i < idle.Parameters.Length; i++)
+            {
+                if (!BindValue(type, "Idle", idle.Parameters[i], contracts, diagnostics, site, out var bound)) return null;
+                if (bound.Kind is ConsumerParamKind.Requests or ConsumerParamKind.Events)
+                {
+                    Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' Idle takes {bound.Kind}; kinds apply to columns and context only.");
+                    return null;
+                }
+                idleParams.Add(bound);
+            }
+        }
+        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams };
     }
 
     static KindDecl? ReadForeignKind(INamedTypeSymbol type, SyntaxNode site, List<DeclarationDiagnostic> diagnostics)
@@ -440,7 +461,9 @@ internal static class SystemReader
         {
             var site = kindSites[kind.TypeName];
             var fed = assignments.Where(a => a.Consumers.Any(c => c.Feeders.Any(f => f.KindName == kind.Id))).ToList();
-            var apply = new SystemConsumer(kind.TypeName, "", "", "", false, false, 0, kind.MemberSystems, [new(ConsumerMethodKind.ExecuteActive, kind.ApplyParams, [], [])], []);
+            var applyMethods = new List<ConsumerMethod> { new(ConsumerMethodKind.ExecuteActive, kind.ApplyParams, [], []) };
+            if (kind.IdleParams is not null) applyMethods.Add(new(ConsumerMethodKind.ExecuteActive, kind.IdleParams, [], []));
+            var apply = new SystemConsumer(kind.TypeName, "", "", "", false, false, 0, kind.MemberSystems, applyMethods, []);
             SystemDecl? chosen = null;
             if (fed.Count > 1)
             {
@@ -460,7 +483,7 @@ internal static class SystemReader
                 else
                 {
                     Symbols.Error(diagnostics, site, "TLGEN105", fitting.Count == 0
-                        ? $"Kind '{kind.Name}' fits no system; its Apply needs {(FirstMissingParam(apply, systems) is { } m ? $"{m.Kind} '{m.Type}'" : "columns no system provides")}."
+                        ? $"Kind '{kind.Name}' fits no system; its Apply or Idle needs {(FirstMissingParam(apply, systems) is { } m ? $"{m.Kind} '{m.Type}'" : "columns no system provides")}."
                         : $"Kind '{kind.Name}' fits {fitting.Count} systems; add [TimelineSystemMember(typeof(...))] to pick one.");
                     continue;
                 }
@@ -468,7 +491,7 @@ internal static class SystemReader
             if (!Fits(chosen, apply))
             {
                 var missing = FirstMissingParam(apply, [chosen]);
-                Symbols.Error(diagnostics, site, "TLGEN105", $"Kind '{kind.Name}' is fed in system '{chosen.TypeName}', but its Apply needs {(missing is { } x ? $"{x.Kind} '{x.Type}'" : "columns")} that system does not provide.");
+                Symbols.Error(diagnostics, site, "TLGEN105", $"Kind '{kind.Name}' is fed in system '{chosen.TypeName}', but its Apply or Idle needs {(missing is { } x ? $"{x.Kind} '{x.Type}'" : "columns")} that system does not provide.");
                 continue;
             }
             perSystem[chosen.TypeName].Add(kind);

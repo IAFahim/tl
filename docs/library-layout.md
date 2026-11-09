@@ -183,6 +183,25 @@ name, so the attribute types may live in any assembly:
   lets game code fold consecutive pulses to one target, see #562). The kind needs `public static Apply`; its first parameter
   (by `in`/`ref` or value) is the kind's unmanaged value type. Combine mode also
   needs `public static Combine(ref T total, in T next)`.
+- Optional `public static void Idle(...)` on the kind (issue #584). Without it a
+  column fed by a kind keeps its last value on ticks no clip covers, because
+  `Apply` only runs for a row that has entries. `Idle` takes the same columns
+  and context an `Apply` takes after its first parameter (for example
+  `Idle(ref OnScreen screen) => screen.Caption = 0;`) and runs once per system
+  `Run` for every enabled kind row with no entries, in the entity order of the
+  kind table. It is code only: it adds nothing to the library or its digest, and a
+  kind without `Idle` generates exactly the code it did before. Rules:
+  - The kind must accept spans (`Spans` or `Both`) and have no `Group`; the
+    generator reports TLGEN102 otherwise. `Idle` takes no `Requests` or `Events`.
+  - It runs for every entity that reaches the kind, including entities that
+    never started a playback, and after a playback has ended. A paused or
+    running playback keeps its entries, so `Idle` does not run under it; a row
+    disabled through `KindTable.SetEnabled` skips `Idle` like it skips entries.
+  - Rewind: whether a row has entries is restored exactly by running backward, so
+    a `Run(..., forward: false)` calls `Idle` on the same ticks a forward run does.
+    An `Idle` that assigns (`=`) therefore rewinds to the same column value. An
+    `Idle` that accumulates (`+=`) has no value to rewind to and is the author's
+    to keep consistent.
 - `[Tl.Feeds(typeof(K))]` on a public static method of an `ITrack<TTrack, TClip>`
   consumer: a span feeder. `K` must accept spans.
 - `[Tl.Pulse(typeof(K), On = …)]` with `On` `0` Start, `1` End (on an `ITrack`

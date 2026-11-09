@@ -243,7 +243,11 @@ internal static class SystemEmitter
         foreach (var consumer in assignment.Consumers)
             foreach (var method in consumer.Methods)
                 parameters.AddRange(method.Params);
-        foreach (var kind in assignment.Kinds) parameters.AddRange(kind.ApplyParams);
+        foreach (var kind in assignment.Kinds)
+        {
+            parameters.AddRange(kind.ApplyParams);
+            if (kind.IdleParams is not null) parameters.AddRange(kind.IdleParams);
+        }
         foreach (var parameter in parameters)
         {
             if (parameter.Kind is ConsumerParamKind.Column or ConsumerParamKind.ColumnReadOnly)
@@ -573,6 +577,23 @@ internal static class SystemEmitter
         }
         W(writer, "}");
         W(writer, "}");
+        if (kind.IdleParams is not null) EmitIdle(writer, shape, kind);
+        W(writer, "}");
+        W(writer, "}");
+    }
+
+    static void EmitIdle(StringBuilder writer, KernelShape shape, KindDecl kind)
+    {
+        var idleArgs = CallArgs(shape, new ConsumerMethod(ConsumerMethodKind.ExecuteActive, kind.IdleParams!, [], []), 0, "", "__e", "");
+        W(writer, "for (var __kw = 0; __kw < __kt->Words; __kw++)");
+        W(writer, "{");
+        W(writer, "var __kb = ~__kt->Active[__kw] & __kt->Enabled[__kw];");
+        W(writer, "while (__kb != 0)");
+        W(writer, "{");
+        W(writer, "var __e = __kt->Entity[(__kw << 6) + global::Tl.KindStore.TrailingZeros(__kb)];");
+        W(writer, "__kb &= __kb - 1;");
+        W(writer, "if (__e >= __n) continue;");
+        W(writer, $"{kind.TypeName}.Idle({idleArgs});");
         W(writer, "}");
         W(writer, "}");
     }

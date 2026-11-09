@@ -76,6 +76,7 @@ internal sealed record KindDecl(
 {
     public bool Foreign { get; init; }
     public string Id { get; init; } = "";
+    public IReadOnlyList<ConsumerParam>? IdleParams { get; init; }
 }
 
 internal sealed record SystemConsumer(

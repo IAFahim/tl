@@ -33,6 +33,23 @@ public sealed class KindEmissionTests
         Assert.True(actual == expected, $"Snapshot differs at first offset {EmissionTests.FirstDifference(actual, expected)}.");
     }
 
+    [Fact]
+    public void IdleDomainEmitsWithoutDiagnosticsAndMatchesTheSnapshot()
+    {
+        var emitted = SystemGeneration.Emit(Compile(EmissionTests.ReadResource("Tl.Systems.Tests.IdleDomain.IdleDomain.cs")), "Idle");
+        Assert.True(emitted.Diagnostics.Count == 0, string.Join("\n", emitted.Diagnostics.Select(static diagnostic => diagnostic.ToString())));
+        var artifact = Assert.Single(emitted.Artifacts);
+        var actual = artifact.Content.Replace("\r\n", "\n");
+        if (Environment.GetEnvironmentVariable("TL_UPDATE_SNAPSHOT") == "1")
+        {
+            var root = AppContext.BaseDirectory;
+            for (var i = 0; i < 8 && !File.Exists(Path.Combine(root, "Tl.Systems.Tests.csproj")); i++) root = Path.GetDirectoryName(root)!;
+            File.WriteAllText(Path.Combine(root, "Generated", "TlSystemsIdle.g.cs"), actual);
+        }
+        var expected = EmissionTests.ReadResource("Tl.Systems.Tests.Generated.TlSystemsIdle.g.cs").Replace("\r\n", "\n");
+        Assert.True(actual == expected, $"Snapshot differs at first offset {EmissionTests.FirstDifference(actual, expected)}.");
+    }
+
     const string Prelude = """
         using System;
         using Tl;
@@ -75,6 +92,53 @@ public sealed class KindEmissionTests
         Rejects("[TimelineKind(Mode = KindMode.Each)] public struct K { public static void Apply(in float t, ref Events<int> e) { } }", "TLGEN102", "takes Events");
         Rejects("[TimelineKind(Mode = KindMode.Each)] public struct K { public static void Apply(in float t, ref M m) { } } [TimelineKind(Mode = KindMode.Each)] public struct K2 { public static void Apply(in float t, ref M m) { } } [TimelineSystem] public ref partial struct S3 { public Span<M> M; }", "TLGEN105", "fits 2 systems");
         Rejects("public struct Unseen { public int Q; } [TimelineKind(Mode = KindMode.Each)] public struct K { public static void Apply(in float t, ref Unseen u) { } }", "TLGEN105", "fits no system");
+    }
+
+    [Fact]
+    public void AKindMayDeclareIdleOnTheColumnsItsSystemProvides()
+    {
+        const string feeder = "public struct C : ITrack<Tr, Cl> { [Feeds(typeof(K))] public static float E(in Frame<Tr, Cl> f) => f.Clip.V; }";
+        const string kind = "[TimelineKind] public struct K { public static void Combine(ref float t, in float n) => t += n; public static void Apply(in float t, ref M m) => m.X += t; public static void Idle(ref M m) => m.X = 0; }";
+        Assert.Empty(Codes(kind + feeder));
+        var emitted = SystemGeneration.Emit(Compile(Prelude + kind + feeder + "\n}\n"), "Idle");
+        var all = string.Join("\n", emitted.Artifacts.Select(static a => a.Content));
+        Assert.Contains("global::T.K.Idle(ref __c0[__e]);", all);
+        Assert.Contains("~__kt->Active[__kw] & __kt->Enabled[__kw]", all);
+        var plain = SystemGeneration.Emit(Compile(Prelude + kind.Replace(" public static void Idle(ref M m) => m.X = 0;", "") + feeder + "\n}\n"), "Idle");
+        Assert.DoesNotContain(".Idle(", string.Join("\n", plain.Artifacts.Select(static a => a.Content)));
+    }
+
+    [Fact]
+    public void ATlKindIdleColumnJoinsTheAutoSystem()
+    {
+        const string source = """
+            using Tl;
+            namespace N
+            {
+            [TlClip("N/Line")] public struct LineClip { public int Line; }
+            public struct LineTrack : ITlTrack<LineClip> { [Feeds(typeof(Show))] public static int Which(in TlFrame<LineClip> f) => f.Clip.Line; }
+            [TlKind] public struct Show
+            {
+                public static void Combine(ref int total, in int next) => total = next;
+                public static void Apply(in int line, ref Screen screen) => screen.Caption = line;
+                public static void Idle(ref Screen screen) => screen.Caption = 0;
+            }
+            [TlState] public partial struct Screen { public int Caption; }
+            }
+            """;
+        var emitted = SystemGeneration.Emit(Compile(source), "Auto");
+        Assert.True(emitted.Diagnostics.Count == 0, string.Join("\n", emitted.Diagnostics.Select(static d => d.ToString())));
+        Assert.Contains("global::N.Show.Idle(ref __c0[__e]);", string.Join("\n", emitted.Artifacts.Select(static a => a.Content)));
+    }
+
+    [Fact]
+    public void IdleDeclarationsFailWithTheKindAndTheRepairNamed()
+    {
+        const string body = "public static void Combine(ref float t, in float n) => t += n; public static void Apply(in float t, ref M m) => m.X += t;";
+        Rejects("[TimelineKind(Accepts = KindEntries.Pulses)] public struct K { " + body + " public static void Idle(ref M m) { } }", "TLGEN102", "declares Idle");
+        Rejects("[TimelineKind(Group = \"G\")] public struct K { " + body + " public static void Idle(ref M m) { } }", "TLGEN102", "no Group");
+        Rejects("[TimelineKind] public struct K { " + body + " public static void Idle(ref Events<int> e) { } }", "TLGEN102", "Idle takes Events");
+        Rejects("public struct Unseen { public int Q; } [TimelineKind] public struct K { " + body + " public static void Idle(ref Unseen u) { } }", "TLGEN105", "fits no system");
     }
 
     [Fact]
