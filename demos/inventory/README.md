@@ -29,3 +29,7 @@ the pack dll, runs its generated system and prints the state hash (`docs/json-fo
 
 `tests/Tl.Packs.Tests/SceneRunTests.cs`: empty bag after the rewind, the final bag above, hash 6806057278687917896 on every run.
 `packs/Inventory/Tests/InventorySceneTests.cs` runs the same scene JSON in a Unity world (Burst jobs) and expects the same hash.
+
+## Speed
+
+`inventory-fast.scene.json` plays the same timeline at 2x: 300 steps end with the demo bag. `inventory-mixed.scene.json` changes the speed three times (2x, then 0.5x at step 100, then 1.5x at step 260) and 700 steps end with the same bag. Hashes 17812265086550969911 and 15172252175353637725 are pinned in `SceneRunTests` and in the Unity pack test, which runs the same JSON in a Unity world.

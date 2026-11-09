@@ -9,6 +9,9 @@ public sealed class SceneRunTests
 {
     internal const ulong InventoryHash = 6806057278687917896UL;
     internal const ulong StatsHash = 13171269908726092120UL;
+    internal const ulong InventoryFastHash = 17812265086550969911UL;
+    internal const ulong InventoryMixedHash = 15172252175353637725UL;
+    const string DemoBag = "player Bag: Wood 1, Stone 3, Plank 2, Potion 1, Sword 1, Coin 10, Key 0, Gem 1\n";
 
     static string Demo(string name, string file) => Path.Combine(ForceTests.Root(), "demos", name, file);
 
@@ -52,5 +55,43 @@ public sealed class SceneRunTests
     {
         var (_, text) = Run("stats", "stats.scene.json", typeof(Health), 600, 50);
         Assert.Contains($"step 200 hash={Run("stats", "stats.scene.json", typeof(Health), 200, 0).Hash}\n", text);
+    }
+
+    [Fact]
+    public void TheInventoryDoubledEndsWithTheDemoBagInHalfTheSteps()
+    {
+        var (hash, text) = Run("inventory", "inventory-fast.scene.json", typeof(Bag), 300, 100);
+        Assert.EndsWith(DemoBag, text);
+        Assert.Equal(InventoryFastHash, hash);
+        Assert.Equal(hash, Run("inventory", "inventory-fast.scene.json", typeof(Bag), 300, 0).Hash);
+    }
+
+    [Fact]
+    public void TheInventoryWithChangingSpeedsEndsWithTheDemoBag()
+    {
+        var (hash, text) = Run("inventory", "inventory-mixed.scene.json", typeof(Bag), 700, 100);
+        Assert.Contains("step 400 hash=1598489104830719401\n  player Bag: Wood 1, Stone 3, Plank 2, Potion 1, Sword 0, Coin 10, Key 0, Gem 1\n", text);
+        Assert.EndsWith(DemoBag, text);
+        Assert.Equal(InventoryMixedHash, hash);
+    }
+
+    [Fact]
+    public void ASpeedThatIsNotAMultipleOfOneSixteenthIsRefused()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        foreach (var file in Directory.GetFiles(Path.GetDirectoryName(Demo("inventory", "tl.project.json"))!))
+            File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
+        var path = Path.Combine(folder, "inventory-fast.scene.json");
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"speed\": 2", "\"speed\": 0.3"));
+        try
+        {
+            var error = Assert.Throws<Tl.Gen.Tlb.BakeDiagnosticException>(() => RunCommand.Scene(path, null, [typeof(Bag).Assembly.Location], 10, 0, false, new StringWriter(), out _));
+            Assert.Contains("multiple of 1/16", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(folder, true);
+        }
     }
 }

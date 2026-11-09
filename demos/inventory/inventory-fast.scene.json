@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "project": "tl.project.json",
+  "entities": [
+    {
+      "name": "player",
+      "states": [ { "namespace": "Tl.Pack.Inventory", "type": "Bag", "data": {} } ],
+      "play": [ { "timeline": "loot_run" } ]
+    }
+  ],
+  "requests": [ { "step": 0, "entity": 0, "op": "SetSpeed", "timeline": "loot_run", "speed": 2 } ]
+}

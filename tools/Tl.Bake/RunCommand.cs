@@ -117,6 +117,8 @@ internal static unsafe class RunCommand
             case RequestOp.ResumeChannel: players.ResumeChannel(r.Entity, (byte)r.Target); break;
             case RequestOp.SeekChannel: players.SeekChannel(r.Entity, (byte)r.Target, r.Value); break;
             case RequestOp.ReverseChannel: players.ReverseChannel(r.Entity, (byte)r.Target, r.Value != 0); break;
+            case RequestOp.Speed: players.SetSpeed(r.Entity, r.Target, r.Value); break;
+            case RequestOp.SpeedChannel: players.SetChannelSpeed(r.Entity, (byte)r.Target, r.Value); break;
         }
     }
 
