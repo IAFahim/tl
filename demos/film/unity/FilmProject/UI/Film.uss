@@ -1,0 +1,680 @@
+:root {
+    --ground: #0a0f1e;
+    --panel: #131b36;
+    --panel-dark: #0f1630;
+    --line: #26335f;
+    --ink: #e8eefc;
+    --muted: #8da0c8;
+    --teal: #2dd4bf;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --blue: #60a5fa;
+}
+
+.film-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--ground);
+    color: var(--ink);
+}
+
+.is-hidden {
+    display: none;
+}
+
+.header {
+    position: absolute;
+    left: 120px;
+    top: 40px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.brand {
+    font-size: 52px;
+    color: var(--teal);
+    -unity-font-style: bold;
+}
+
+.beat-dot {
+    width: 14px;
+    height: 14px;
+    margin-left: 14px;
+    border-radius: 7px;
+    background-color: var(--amber);
+}
+
+.tag {
+    margin-left: 20px;
+    font-size: 26px;
+    color: var(--muted);
+}
+
+.step-pill {
+    position: absolute;
+    right: 120px;
+    top: 44px;
+    padding: 4px 22px;
+    border-radius: 24px;
+    background-color: var(--teal);
+    color: #052e2a;
+    font-size: 26px;
+    -unity-font-style: bold;
+}
+
+.stage {
+    position: absolute;
+    left: 120px;
+    top: 110px;
+    width: 1680px;
+    height: 690px;
+}
+
+.scene {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.scene-title {
+    font-size: 54px;
+    -unity-font-style: bold;
+    margin-bottom: 26px;
+}
+
+.caption {
+    position: absolute;
+    left: 192px;
+    top: 808px;
+    width: 1536px;
+    height: 96px;
+    font-size: 38px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.lanes {
+    position: absolute;
+    left: 120px;
+    top: 918px;
+    width: 1680px;
+    height: 100px;
+}
+
+.lane {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 20px;
+}
+
+.lane-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 130px;
+    font-size: 16px;
+    color: var(--muted);
+}
+
+.lane-rail {
+    position: absolute;
+    left: 140px;
+    right: 0;
+    top: 0;
+    height: 20px;
+    border-radius: 4px;
+    background-color: var(--panel-dark);
+}
+
+.lane-clip {
+    position: absolute;
+    top: 2px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: var(--blue);
+    opacity: 0.8;
+}
+
+.lane-caption .lane-clip {
+    background-color: var(--teal);
+}
+
+.lane-voice .lane-clip {
+    background-color: var(--amber);
+}
+
+.lane-beat .lane-clip {
+    background-color: var(--rose);
+}
+
+.playhead {
+    position: absolute;
+    top: -6px;
+    width: 2px;
+    height: 104px;
+    background-color: #ffffff;
+}
+
+.big-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 190px;
+    align-items: center;
+}
+
+.big-title {
+    font-size: 300px;
+    -unity-font-style: bold;
+    color: var(--teal);
+}
+
+.big-sub {
+    font-size: 48px;
+    margin-top: 20px;
+}
+
+.word-row {
+    flex-direction: row;
+    margin-top: 50px;
+}
+
+.word {
+    font-size: 40px;
+    margin-left: 14px;
+    margin-right: 14px;
+    color: var(--amber);
+    -unity-font-style: bold;
+}
+
+.pipe {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 70px;
+}
+
+.pipe-item {
+    flex-direction: row;
+    align-items: center;
+}
+
+.pipe-arrow {
+    font-size: 54px;
+    color: var(--muted);
+    margin-left: 12px;
+    margin-right: 12px;
+}
+
+.pipe-box {
+    width: 290px;
+    height: 330px;
+    padding: 28px;
+    border-radius: 18px;
+    border-width: 2px;
+    border-color: var(--line);
+    background-color: var(--panel);
+    opacity: 0.6;
+}
+
+.pipe-box.is-now {
+    border-color: var(--teal);
+    opacity: 1;
+}
+
+.pipe-name {
+    font-size: 52px;
+    color: var(--teal);
+    -unity-font-style: bold;
+}
+
+.pipe-desc {
+    font-size: 26px;
+    color: var(--muted);
+    margin-top: 12px;
+    white-space: normal;
+}
+
+.pipe-code {
+    font-size: 24px;
+    color: var(--amber);
+    margin-top: 22px;
+}
+
+.code-wrap {
+    flex-direction: row;
+}
+
+.panel {
+    background-color: var(--panel);
+    border-radius: 16px;
+    border-width: 1px;
+    border-color: var(--line);
+}
+
+.code-panel {
+    width: 1070px;
+    height: 690px;
+    padding: 16px 24px;
+}
+
+.code-line {
+    font-size: 20px;
+    height: 22px;
+    margin: 0;
+    padding: 0;
+    opacity: 0.3;
+    white-space: nowrap;
+}
+
+.code-line.is-lit {
+    opacity: 1;
+    color: #ffffff;
+}
+
+.code-gap {
+    height: 9px;
+}
+
+.explain {
+    width: 570px;
+    margin-left: 34px;
+    padding-top: 30px;
+}
+
+.explain-name {
+    font-size: 64px;
+    color: var(--teal);
+    -unity-font-style: bold;
+}
+
+.explain-text {
+    font-size: 34px;
+    margin-top: 18px;
+    white-space: normal;
+}
+
+.nl-lane {
+    height: 70px;
+    margin-top: 8px;
+}
+
+.nl-label {
+    position: absolute;
+    left: 0;
+    top: 18px;
+    font-size: 24px;
+    color: var(--muted);
+}
+
+.nl-rail {
+    position: absolute;
+    left: 150px;
+    right: 40px;
+    top: 14px;
+    height: 42px;
+    border-radius: 6px;
+    background-color: var(--panel-dark);
+}
+
+.nl-clip {
+    position: absolute;
+    top: 4px;
+    height: 34px;
+    border-radius: 5px;
+    background-color: var(--blue);
+    opacity: 0.85;
+    color: #04122e;
+    font-size: 18px;
+    -unity-text-align: middle-center;
+}
+
+.nl-head {
+    position: absolute;
+    top: -4px;
+    width: 3px;
+    height: 100px;
+    background-color: #ffffff;
+}
+
+.nl-shot {
+    position: absolute;
+    left: 150px;
+    top: 175px;
+    width: 640px;
+    height: 360px;
+    border-radius: 14px;
+    border-width: 2px;
+    border-color: var(--line);
+}
+
+.nl-x {
+    position: absolute;
+    left: 850px;
+    top: 185px;
+    font-size: 120px;
+    color: var(--amber);
+    -unity-font-style: bold;
+}
+
+.nl-tick {
+    position: absolute;
+    left: 850px;
+    top: 335px;
+    font-size: 34px;
+    color: var(--muted);
+}
+
+.nl-console {
+    position: absolute;
+    left: 850px;
+    top: 395px;
+    width: 830px;
+    height: 150px;
+    padding: 16px 20px;
+}
+
+.nl-line {
+    font-size: 20px;
+    height: 32px;
+}
+
+.nl-tag {
+    position: absolute;
+    left: 150px;
+    top: 545px;
+    font-size: 22px;
+    color: var(--muted);
+}
+
+.st-left {
+    position: absolute;
+    left: 0;
+    top: 80px;
+    width: 820px;
+}
+
+.st-right {
+    position: absolute;
+    left: 860px;
+    top: 80px;
+    width: 800px;
+}
+
+.st-name {
+    font-size: 28px;
+    color: var(--muted);
+    margin-top: 30px;
+}
+
+.st-big {
+    font-size: 110px;
+    -unity-font-style: bold;
+}
+
+.st-attack {
+    color: var(--amber);
+}
+
+.st-meter {
+    height: 56px;
+    margin-top: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: var(--panel-dark);
+}
+
+.st-fill {
+    height: 100%;
+    background-color: var(--teal);
+}
+
+.st-fill.is-low {
+    background-color: var(--rose);
+}
+
+.st-lane {
+    height: 34px;
+    margin-top: 20px;
+}
+
+.st-rail {
+    position: absolute;
+    left: 150px;
+    right: 20px;
+    top: 0;
+    height: 34px;
+    border-radius: 6px;
+    background-color: var(--panel-dark);
+}
+
+.st-marker {
+    position: absolute;
+    top: 0;
+    width: 4px;
+    height: 34px;
+    background-color: var(--rose);
+}
+
+.st-poison {
+    position: absolute;
+    top: 0;
+    height: 34px;
+    background-color: var(--rose);
+    opacity: 0.35;
+}
+
+.st-heal {
+    position: absolute;
+    top: 0;
+    width: 4px;
+    height: 34px;
+    background-color: var(--teal);
+}
+
+.st-haste {
+    position: absolute;
+    top: 0;
+    height: 34px;
+    border-radius: 4px;
+    background-color: var(--amber);
+    opacity: 0.85;
+}
+
+.st-lane-name {
+    position: absolute;
+    left: 0;
+    top: 2px;
+    font-size: 22px;
+    color: var(--muted);
+}
+
+.st-head {
+    position: absolute;
+    top: -8px;
+    width: 3px;
+    height: 150px;
+    background-color: #ffffff;
+}
+
+.st-legend {
+    font-size: 24px;
+    color: var(--muted);
+    margin-top: 24px;
+    white-space: normal;
+}
+
+.st-step {
+    font-size: 34px;
+    color: var(--muted);
+    margin-top: 24px;
+}
+
+.inv-info {
+    flex-direction: row;
+    align-items: center;
+}
+
+.inv-dir {
+    font-size: 52px;
+    -unity-font-style: bold;
+    margin-right: 60px;
+}
+
+.inv-dir.is-forward {
+    color: var(--teal);
+}
+
+.inv-dir.is-back {
+    color: var(--rose);
+}
+
+.inv-step {
+    font-size: 34px;
+    color: var(--muted);
+}
+
+.inv-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 24px;
+}
+
+.inv-tile {
+    width: 398px;
+    margin: 11px;
+    padding: 22px;
+    border-radius: 16px;
+    border-width: 2px;
+    border-color: var(--line);
+    background-color: var(--panel);
+}
+
+.inv-tile.is-up {
+    border-color: var(--teal);
+}
+
+.inv-tile.is-down {
+    border-color: var(--rose);
+}
+
+.inv-count {
+    font-size: 84px;
+    -unity-font-style: bold;
+}
+
+.inv-name {
+    font-size: 26px;
+    color: var(--muted);
+}
+
+.inv-lane {
+    height: 34px;
+    margin-top: 34px;
+}
+
+.inv-seg {
+    position: absolute;
+    top: 0;
+    height: 34px;
+    border-radius: 4px;
+    color: #04122e;
+    font-size: 20px;
+    -unity-text-align: middle-center;
+}
+
+.inv-seg.is-play {
+    background-color: var(--teal);
+}
+
+.inv-seg.is-rewind {
+    background-color: var(--rose);
+}
+
+.fo-shot {
+    position: absolute;
+    left: 0;
+    top: 90px;
+    width: 960px;
+    height: 540px;
+    border-radius: 16px;
+    border-width: 2px;
+    border-color: var(--line);
+}
+
+.fo-side {
+    position: absolute;
+    left: 1000px;
+    top: 90px;
+    width: 680px;
+}
+
+.fo-tag {
+    font-size: 22px;
+    color: var(--muted);
+}
+
+.fo-axis {
+    flex-direction: row;
+    align-items: center;
+}
+
+.fo-axis-name {
+    font-size: 24px;
+    color: var(--muted);
+    margin-right: 14px;
+}
+
+.fo-value {
+    font-size: 76px;
+    color: var(--amber);
+    -unity-font-style: bold;
+}
+
+.fo-stat {
+    margin-top: 28px;
+    padding: 22px 28px;
+}
+
+.fo-stat-big {
+    font-size: 64px;
+    color: var(--teal);
+    -unity-font-style: bold;
+}
+
+.fo-stat-sub {
+    font-size: 26px;
+    color: var(--muted);
+    white-space: normal;
+}
+
+.term-panel {
+    width: 1600px;
+    min-height: 420px;
+    padding: 28px 34px;
+}
+
+.term-dots {
+    font-size: 22px;
+    color: var(--rose);
+    margin-bottom: 14px;
+}
+
+.term-line {
+    font-size: 30px;
+    height: 46px;
+    white-space: nowrap;
+}
+
+.term-line.is-command {
+    color: var(--teal);
+}
+
+.term-line.is-ok {
+    color: var(--teal);
+}

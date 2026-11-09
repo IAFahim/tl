@@ -49,6 +49,8 @@ public sealed class FilmTests
         var footage = screen.Select(s => s.Footage).Where(f => f != 0).Distinct().ToArray();
         Assert.Equal(Enumerable.Range(1, footage.Length), footage);   // each recorded clip plays in one stretch, in order
         Assert.Equal(0, screen[^1].Footage);
+        Assert.Contains(screen, s => s.Reveal != 0);      // elements are revealed by Reveal clips
+        Assert.Contains(screen, s => s.Sweep > 0f);       // and numbers glide by Sweep clips
     }
 
     [Fact]
@@ -57,7 +59,7 @@ public sealed class FilmTests
         var (_, ticks) = Film("release");
         var json = JsonDocument.Parse(Host.ToJson(Host.Run(Library(), 1, ticks), 30)).RootElement;
         Assert.Equal(30, json.GetProperty("fps").GetInt32());
-        foreach (var field in new[] { "scene", "phase", "caption", "voice", "footage", "flashes" })
+        foreach (var field in new[] { "scene", "phase", "caption", "voice", "footage", "footageTick", "reveal", "sweep", "flashes" })
             Assert.Equal(ticks, json.GetProperty(field).GetArrayLength());
     }
 }

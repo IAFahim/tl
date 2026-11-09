@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="Film.uss" />
+    <ui:VisualElement name="filmRoot" class="film-root">
+        <ui:VisualElement name="header" class="header">
+            <ui:Label name="brand" text="Tl" class="brand" />
+            <ui:VisualElement name="beat" class="beat-dot" />
+            <ui:Label name="tag" class="tag" />
+        </ui:VisualElement>
+        <ui:Label name="stepPill" class="step-pill is-hidden" />
+        <ui:VisualElement name="stage" class="stage" />
+        <ui:Label name="caption" class="caption" />
+        <ui:VisualElement name="lanes" class="lanes" />
+    </ui:VisualElement>
+</ui:UXML>

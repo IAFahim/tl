@@ -20,6 +20,15 @@ public struct VoiceClip { public int Line; }
 [TlClip("Film/Footage")]
 public struct FootageClip { public int Footage; }
 
+// Which UI elements of the current scene are on screen while this clip plays: one bit per element.
+// Clips follow each other, so each one carries the whole set (a new element means a new clip).
+[TlClip("Film/Reveal")]
+public struct RevealClip { public uint Mask; }
+
+// A number that glides from From to To over the clip: a playhead, a step counter, a footage frame.
+[TlClip("Film/Sweep")]
+public struct SweepClip { public float From; public float To; }
+
 // A beat: something on screen flashes once, at the first tick of this clip.
 [TlClip("Film/Beat")]
 public struct BeatClip { public int Weight; }
@@ -43,6 +52,25 @@ public struct FootageTrack : ITlTrack<FootageClip>
 {
     [Feeds(typeof(ShowFootage))]
     public static int WhichFootage(in TlFrame<FootageClip> frame) => frame.Clip.Footage;
+
+    [Feeds(typeof(ShowFootageTick))]
+    public static int TickInTheClip(in TlFrame<FootageClip> frame) => frame.WithinClip;
+}
+
+public struct RevealTrack : ITlTrack<RevealClip>
+{
+    [Feeds(typeof(ShowElements))]
+    public static uint WhichElements(in TlFrame<RevealClip> frame) => frame.Clip.Mask;
+}
+
+public struct SweepTrack : ITlTrack<SweepClip>
+{
+    [Feeds(typeof(MoveSweep))]
+    public static float Glide(in TlFrame<SweepClip> frame)
+    {
+        var p = frame.Progress;
+        return frame.Clip.From + (frame.Clip.To - frame.Clip.From) * (p * p * (3f - 2f * p));
+    }
 }
 
 public struct VoiceTrack : ITlTrack<VoiceClip>
@@ -85,6 +113,27 @@ public struct ShowFootage
     public static void Apply(in int footage, ref OnScreen screen) => screen.Footage = footage;
 }
 
+[TlKind]
+public struct ShowFootageTick
+{
+    public static void Combine(ref int total, in int next) => total = next;
+    public static void Apply(in int tick, ref OnScreen screen) => screen.FootageTick = tick;
+}
+
+[TlKind]
+public struct ShowElements
+{
+    public static void Combine(ref uint total, in uint next) => total = next;
+    public static void Apply(in uint mask, ref OnScreen screen) => screen.Reveal = mask;
+}
+
+[TlKind]
+public struct MoveSweep
+{
+    public static void Combine(ref float total, in float next) => total = next;
+    public static void Apply(in float value, ref OnScreen screen) => screen.Sweep = value;
+}
+
 [TlKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each)]
 public struct StartVoice
 {
@@ -106,5 +155,8 @@ public partial struct OnScreen
     public int Caption;
     public int Voice;
     public int Footage;
+    public int FootageTick;
+    public uint Reveal;
+    public float Sweep;
     public int Flashes;
 }

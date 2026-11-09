@@ -72,10 +72,67 @@ def track(kind, clips):
     return {"namespace": "Tl", "type": f"TlNoSettings<Film.{kind}>", "data": {}, "clips": clips}
 
 
+def scene_plan(scene, scene_start, scene_end, starts):
+    """What a scene needs on its timeline besides the voice: which UI elements are on screen when (Reveal clips) and which
+    numbers glide when (Sweep clips). Both follow the sentence start times, so the picture follows the narration."""
+    show, n = scene["show"], len(starts)
+    start_of = lambda k: starts[min(max(k, 0), n - 1)]
+    end_of = lambda k: starts[k + 1] if k + 1 < n else scene_end
+    events, sweeps = [], []          # events: (tick, whole mask now); sweeps: (start, end, from, to)
+    if show in ("title", "outro"):
+        events.append((scene_start, 0b11))                      # bit 0 title, bit 1 subtitle
+        if show == "outro":
+            mask = 0b11
+            for i in range(4):                                  # bits 2..5: clip, track, kind, column
+                mask |= 1 << (2 + i)
+                events.append((start_of(i), mask))
+    elif show == "pipeline":
+        mask = 0
+        for i in range(5):                                      # the five boxes, one per sentence after the first
+            mask |= 1 << i
+            events.append((start_of(i + 1), mask))
+    elif show == "code":
+        bits = {"clip": 1, "track": 2, "kind": 4, "column": 8}
+        for k in range(n):
+            group = scene["groups"][min(k, len(scene["groups"]) - 1)]
+            events.append((starts[k], 15 if group == "all" else sum(bits[w] for w in group.split() if w in bits)))
+    elif show == "footage":
+        if scene.get("stat"):
+            events.append((start_of(scene.get("statAt", 1)), 1))
+    elif show == "terminal":
+        by_sentence = {}
+        for index, line in enumerate(scene["lines"]):
+            by_sentence.setdefault(line["at"], []).append(index)
+        mask = 0
+        for at, indexes in sorted(by_sentence.items()):
+            a, b = start_of(at), end_of(min(at, n - 1))
+            for j, index in enumerate(indexes):
+                mask |= 1 << index
+                events.append((a + round((b - a) * j / (1.6 * len(indexes))), mask))
+    elif show in ("numberline", "stats", "inventory"):
+        targets = scene.get("playheadAt") or scene.get("stepAt")
+        sweeps.append((scene_start, starts[0], 0, 0))           # a new scene starts its number at 0
+        previous = 0
+        for k in range(n):
+            to = targets[min(k, len(targets) - 1)]
+            a = starts[k]
+            if to != previous:
+                sweeps.append((a, a + max(2, round(0.8 * (end_of(k) - a))), previous, to))
+            previous = to
+    events = sorted({tick: mask for tick, mask in events}.items())
+    reveals, at, mask = [], scene_start, 0                      # Reveal clips follow each other across the whole scene
+    for tick, new_mask in events:
+        if tick > at: reveals.append((at, tick, mask))
+        at, mask = max(tick, at), new_mask
+    if scene_end > at: reveals.append((at, scene_end, mask))
+    return reveals, sweeps
+
+
 def build_timeline(film, script):
     """Places every clip of one film from the narration timings. Returns (timeline, ticks, caption lines, scene table)."""
     os.makedirs(os.path.join(HERE, "audio"), exist_ok=True)
     scenes, captions, beats = [], [], []
+    reveal_clips, sweep_clips = [], []
     footage_names = []                  # footage ids are 1-based positions in this list
     footage_spans = []                  # (start, end, id): the footage plays while the scene's voice speaks
     cursor, line = 0, 0
@@ -104,6 +161,9 @@ def build_timeline(film, script):
         for j, s in enumerate(starts):
             end = starts[j + 1] if j + 1 < len(starts) else scene_start + length
             caption_segments.append((s, end, first_line + j))
+        reveals, sweeps = scene_plan(scene, scene_start, scene_start + length, starts)
+        reveal_clips.extend(reveals)
+        sweep_clips.extend(sweeps)
         if scene.get("footage"):
             if scene["footage"] not in footage_names: footage_names.append(scene["footage"])
             footage_spans.append((voice_start, voice_start + voice_len, footage_names.index(scene["footage"]) + 1))
@@ -123,6 +183,8 @@ def build_timeline(film, script):
             track("SceneClip", [clip("SceneClip", s["start"], s["end"], Scene=s["n"]) for s in scenes]),
             track("CaptionClip", [clip("CaptionClip", a, b, Line=n) for a, b, n in caption_segments if b > a]),
             track("FootageClip", [clip("FootageClip", a, b, Footage=n) for a, b, n in footage_segments]),
+            track("RevealClip", [clip("RevealClip", a, b, Mask=m) for a, b, m in reveal_clips if b > a]),
+            track("SweepClip", [clip("SweepClip", a, b, From=f, To=t) for a, b, f, t in sweep_clips if b > a]),
             track("VoiceClip", [clip("VoiceClip", s["voice_start"], s["voice_start"] + s["voice_len"], Line=s["n"]) for s in scenes]),
             track("BeatClip", [clip("BeatClip", b, b + 2, Weight=1) for b in sorted(set(beats))]),
         ],
@@ -144,6 +206,50 @@ def looped_video(name, seconds, destination):
     """The one-lap footage repeated (and cut) to exactly `seconds`, so it plays for as long as the narration does."""
     run(["ffmpeg", "-y", "-loglevel", "error", "-stream_loop", "-1", "-i", os.path.join(HERE, "footage", name + ".mp4"), "-t", f"{seconds:.3f}",
          "-r", str(FPS), "-an", "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", destination])
+
+
+def write_unity_package(film, script, timeline, scenes, captions, states, footage_names, demo, ticks, footage):
+    """Everything the Unity project needs to rebuild the film as a Timeline: out/unity/<film>/ (timeline.json, film.json, audio)
+    and out/unity/footage/<demo>/ (jpg frames of the recorded Unity footage)."""
+    out = os.path.join(HERE, "out", "unity", film)
+    shutil.rmtree(out, ignore_errors=True)
+    os.makedirs(os.path.join(out, "audio"))
+    clips = [{"type": t["type"].split(".")[-1].rstrip(">"),
+              "clips": [{"start": c["start"], "end": c["end"], "data": json.dumps(c["data"])} for c in t["clips"]]} for t in timeline["tracks"]]
+    json.dump({"duration": ticks, "fps": FPS, "tracks": clips}, open(os.path.join(out, "timeline.json"), "w"))
+    cues, previous = [], 0
+    for tick, voice in enumerate(states["voice"]):
+        if voice and voice != previous: cues.append({"tick": tick, "voice": voice})
+        previous = voice
+    for cue in cues:
+        shutil.copy(os.path.join(HERE, "audio", scenes[cue["voice"] - 1]["audio"] + ".mp3"), os.path.join(out, "audio", f"voice-{cue['voice']}.mp3"))
+    specs = []
+    for sc in script["scenes"]:
+        specs.append({"show": sc["show"], "title": sc.get("title", ""), "sub": sc.get("sub", ""), "text": sc["text"],
+                      "footage": sc.get("footage", ""), "unity": sc.get("unity", ""), "step": sc.get("step", 0), "groups": sc.get("groups", []),
+                      "playheadAt": sc.get("playheadAt", []), "stepAt": sc.get("stepAt", []),
+                      "readout": sc.get("readout", ["x"]), "statBig": (sc.get("stat") or {}).get("big", ""),
+                      "statSub": (sc.get("stat") or {}).get("sub", ""), "lines": sc.get("lines", [])})
+    lane_names = {"SceneClip": "Scene", "CaptionClip": "Caption", "VoiceClip": "Voice", "BeatClip": "Beat"}
+    lanes = [{"name": lane_names[t["type"].split(".")[-1].rstrip(">")],
+              "spans": [v for c in t["clips"] for v in (c["start"], c["end"])]}
+             for t in timeline["tracks"] if t["type"].split(".")[-1].rstrip(">") in lane_names]
+    names = sorted(set(footage_names) | {sc["unity"] for sc in script["scenes"] if sc.get("unity")})
+    for name in names:
+        folder = os.path.join(HERE, "out", "unity", "footage", name)
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+            run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(HERE, "footage", name + ".mp4"), "-vf", "scale=960:540", "-q:v", "3",
+                 "-start_number", "0", os.path.join(folder, "f%04d.jpg")])
+    data = {"film": film, "title": script["title"], "ticks": ticks, "captions": captions, "scenes": specs,
+            "sceneTable": [{"start": sc["start"], "end": sc["end"], "firstLine": sc["first_line"], "lastLine": sc["last_line"], "starts": sc["starts"]} for sc in scenes],
+            "lanes": lanes, "cues": cues, "footageNames": footage_names,
+            "stats": demo["stats"], "inventory": demo["inventory"],
+            "helloSteps": [c[0] for c in demo["hello"]["changes"]], "helloValues": [c[1] for c in demo["hello"]["changes"]],
+            "helloCode": demo["hello"]["code"],
+            "footage": [{"name": n, **footage[n]} for n in names if n in footage]}
+    json.dump(data, open(os.path.join(out, "film.json"), "w", encoding="utf-8"), ensure_ascii=False)
+    return out
 
 
 def collect_demo_data():
@@ -259,6 +365,7 @@ def main():
         json.dump({"name": f"tl-film-{film}", "private": True, "type": "module",
                    "scripts": {"check": "npx --yes hyperframes@0.9.26 check", "render": "npx --yes hyperframes@0.9.26 render"}},
                   open(os.path.join(project, "package.json"), "w"), indent=2)
+        write_unity_package(film, script, timeline, scenes, captions, film_states, footage_names, demo, ticks, footage_data(footage_names + unity_names))
         print(f"   {project}  ({ticks / FPS:.1f} s)")
 
 

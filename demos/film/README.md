@@ -8,6 +8,8 @@ The release demo and the "Hello Tl in six steps" tutorial are not edited in a vi
 | `Film/Caption` | `CaptionTrack` | `ShowCaption` | `Caption` |
 | `Film/Voice` | `VoiceTrack` (a pulse when the clip starts) | `StartVoice` | `Voice` |
 | `Film/Footage` | `FootageTrack` (feeds which recorded Unity clip plays) | `ShowFootage` | `Footage` |
+| `Film/Reveal` | `RevealTrack` (feeds a mask: which UI elements of the scene exist now) | `ShowElements` | `Reveal` |
+| `Film/Sweep` | `SweepTrack` (feeds a number gliding from `From` to `To`) | `MoveSweep` | `Sweep` |
 | `Film/Beat` | `BeatTrack` (a pulse when the clip starts) | `Flash` | `Flashes` |
 
 `Film.cs` is all of Tl's part (one file, the same four pieces as `demos/hello`). `Program.cs` runs a timeline for N ticks (30 ticks = 1 second = 1 video frame) and writes what is on screen at every tick.
@@ -26,14 +28,36 @@ python demos/film/make_film.py
 
 The numbers drawn for the demos are real: the Hello Tl steps come from running `demos/hello`, the Stats and Inventory bars and bag counts come from `tl run --checkpoints 25 --show` on the demos' scene files (inventory includes its rewind), and the Force, Control, Events, Motion and Crowd cards quote the checked values from the Unity installer run (`PlayMode tests: passed 9, failed 0`). The Unity pictures are real: `unity/FilmCapture.cs` records each demo in Play mode with `Time.captureFramerate = 60` (one frame is one Tl tick), `unity/record_footage.py` runs it on an installer-made project and encodes `footage/<demo>.mp4` plus `footage/<demo>.csv` (the tick and position of every video frame, which are the numbers shown beside each clip). Needs a real graphics device, not `-nographics`. The Stats and Inventory scenes and the Hello number line's drawn parts are data views; the Hello number line also steps through the recorded Unity frames by tick.
 
+## The same films made inside Unity (Timeline + Tl + UI Toolkit)
+
+The film is also built as a **Unity Timeline**: every Tl clip above is a clip on a Tl track (so a designer can retime the film in the
+Timeline window), the narration is clips on an audio track, and the scenes are drawn by **UI Toolkit** (`unity/FilmProject/`:
+`UI/Film.uxml`, `UI/Film.uss`, `FilmUi.cs`). The UI owns no timing. A system (`FilmBridgeSystem`) copies the `OnScreen` column into a
+plain struct; then
+
+- a **Reveal** clip's mask says which UI elements exist: a bit turning on **instantiates** the element (a pipeline box, a terminal
+  line, a stat card), turning off removes it;
+- a **Sweep** clip's number moves playheads, step counters and the Hello Unity frame;
+- a **Footage** clip picks the recorded frame; **Caption** and **Scene** clips set the caption and the scene.
+
+```sh
+python demos/film/make_film.py                                      # timelines, narration, out/unity/<film>/
+python demos/film/unity/setup_film_project.py <unity project>       # installer-made project (package + Hello Tl sample)
+python demos/film/unity/render_film.py <unity project> release      # -> demos/film/release-unity.mp4  (or tutorial)
+```
+
+`render_film.py` plays the scene in Unity at a fixed 30 fps (one frame is one film tick), saves the UI RenderTexture per frame, and
+encodes the MP4 with the narration placed at the frames where Unity's own Tl run started each voice. Unity Recorder 5.1.7 compiles on
+Unity 7000.0.0a16 but in batchmode it stopped the DOTS world while recording, so the frames are saved directly.
+
 ## Files
 
 - `Film.cs`, `Program.cs`, `FilmTl.csproj`, `tl.project.json`: the Tl part.
 - `script/*.json`: the words and the scene types (`title`, `pipeline`, `code`, `numberline`, `stats`, `inventory`, `footage`, `cards`, `terminal`, `outro`).
 - `template/index.template.html`: the scene renderers (one function per scene type).
 - `timelines/*.json`, `audio/*`: generated, committed so the film can be rebuilt without the HeyGen key.
-- `footage/*`, `unity/*`: recorded Unity footage and the recorder that makes it.
-- `release.mp4`, `tutorial.mp4`: the rendered films (1920x1080, 30 fps).
+- `footage/*`, `unity/*`: recorded Unity footage, the recorder that makes it, and the Unity film project.
+- `release.mp4`, `tutorial.mp4`: the films rendered with HyperFrames; `release-unity.mp4`, `tutorial-unity.mp4`: the same films rendered in Unity.
 
 ## What is checked
 

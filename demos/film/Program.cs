@@ -36,6 +36,9 @@ public static class Host
         Column(json, "caption", perTick, s => s.Caption.ToString(CultureInfo.InvariantCulture));
         Column(json, "voice", perTick, s => s.Voice.ToString(CultureInfo.InvariantCulture));
         Column(json, "footage", perTick, s => s.Footage.ToString(CultureInfo.InvariantCulture));
+        Column(json, "footageTick", perTick, s => s.FootageTick.ToString(CultureInfo.InvariantCulture));
+        Column(json, "reveal", perTick, s => s.Reveal.ToString(CultureInfo.InvariantCulture));
+        Column(json, "sweep", perTick, s => s.Sweep.ToString("0.###", CultureInfo.InvariantCulture));
         Column(json, "flashes", perTick, s => s.Flashes.ToString(CultureInfo.InvariantCulture));
         return json.Append('}').ToString();
     }
