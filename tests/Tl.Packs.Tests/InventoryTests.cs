@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Tl.Packs.Tests;
 
-public sealed class InventoryTests
+public sealed unsafe class InventoryTests
 {
     internal const ulong Pinned = 5645869165897381019UL;
 
@@ -87,6 +87,31 @@ public sealed class InventoryTests
         Run(Library(), out var rewound, out var final, out _);
         Assert.Equal(Show(default), Show(rewound));
         Assert.Equal(Show(new Bag { Wood = 1, Stone = 3, Plank = 2, Potion = 1, Sword = 1, Coin = 10, Key = 0, Gem = 1 }), Show(final));
+    }
+
+    [Fact]
+    public void ReversingTheRunEmptiesTheBagParksItAndPlayingOnRefillsItInOneWorld()
+    {
+        using var world = new TimelineWorld(Library());
+        using var players = new PlaybackTable(1);
+        using var kinds = new KindStore(world, players);
+        var bags = new Bag[1];
+        players.Start(0, 1);
+        for (var step = 0; step < 1500; step++)
+        {
+            if (step == 450) players.Reverse(0, 1, true);
+            if (step == 900)
+            {
+                Assert.Equal(Show(default), Show(bags[0]));
+                Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, players.View.SlotOf(0, 0)->Flags);
+                Assert.Equal(0, players.View.SlotOf(0, 0)->Tick);
+                players.Reverse(0, 1, false);
+            }
+            world.Tick(players);
+            new Tl.Generated.TlAuto_Tl_Pack_Inventory { C0_Bag = bags }.Run(world, players, true);
+        }
+        Assert.Equal(599, players.View.SlotOf(0, 0)->Tick);
+        Assert.Equal(Show(new Bag { Wood = 1, Stone = 3, Plank = 2, Potion = 1, Sword = 1, Coin = 10, Key = 0, Gem = 1 }), Show(bags[0]));
     }
 
     [Fact]

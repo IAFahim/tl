@@ -108,7 +108,7 @@ public sealed unsafe class ControlRunTests : IDisposable
     }
 
     [Fact]
-    public void ReversingOnePlaybackUndoesItsTicksExactlyAndEndsAtTheStart()
+    public void ReversingOnePlaybackUndoesItsTicksExactlyParksAtTheStartAndPlaysAgain()
     {
         _players.Start(0, Jump);
         _players.Start(1, Jump);
@@ -120,17 +120,25 @@ public sealed unsafe class ControlRunTests : IDisposable
         Assert.Equal(7, _players.View.SlotOf(1, 0)->Tick);
         for (var s = 0; s < 5; s++) Step();
         Expect(0, 1f, 6f, 10);
-        Step();
-        Assert.Equal(0, Slot.Timeline);
-        Assert.Equal(1f, _motion[0].X);
-        Assert.Equal(6f, _motion[0].Y);
+        _players.StopAll(1);
+        for (var s = 0; s < 3; s++) Step();
+        Assert.Equal(Jump, Slot.Timeline);
+        Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, Slot.Flags);
+        Expect(0, 1f, 6f, 10);
+        Assert.Equal(0, _players.View.SlotOf(1, 0)->Timeline);
+        _motion[1] = _motion[0];
+        _stamina[1] = _stamina[0];
         _players.Start(1, Jump);
-        Step();
-        _players.Reverse(1, Jump, true);
-        _players.Reverse(1, Jump, false);
-        Step();
-        Assert.Equal(PlaybackFlags.None, _players.View.SlotOf(1, 0)->Flags);
-        Assert.Equal(1, _players.View.SlotOf(1, 0)->Tick);
+        _players.Reverse(0, Jump, false);
+        for (var s = 0; s < 7; s++)
+        {
+            Step();
+            Assert.Equal(_players.View.SlotOf(1, 0)->Tick, Slot.Tick);
+            Assert.Equal(_motion[1].X, _motion[0].X);
+            Assert.Equal(_motion[1].Y, _motion[0].Y);
+            Assert.Equal(_stamina[1].Value, _stamina[0].Value);
+        }
+        Expect(6, 8f, 48f, 19);
     }
 
     [Fact]

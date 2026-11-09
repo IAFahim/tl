@@ -157,6 +157,45 @@ public unsafe class PlaybackRulesTests
         Assert.Equal(AdvanceResult.Unknown, Advance(ref lost));
     }
 
+    [Fact]
+    public void AReversedPlaybackParksAtItsStartAndBeginsWhenItFacesForward()
+    {
+        var slide = new Playback { Timeline = 2, Tick = 0, Channel = 1, Flags = PlaybackFlags.Reverse, Reserved = 0x0305 };
+        Assert.Equal(AdvanceResult.Kept, Advance(ref slide));
+        Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, slide.Flags);
+        Assert.Equal((ushort)2, slide.Timeline);
+        Assert.Equal(0, slide.Tick);
+        Assert.Equal(0x0305, slide.Reserved);
+        Assert.Equal(AdvanceResult.Kept, Advance(ref slide));
+        Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, slide.Flags);
+        Assert.False(PlaybackRules.Resumes(slide.Flags, true));
+        Assert.True(PlaybackRules.Resumes(slide.Flags, false));
+        var slots = Slots();
+        slots.Items[0] = slide;
+        slots.Count = 1;
+        Apply(ref slots, RequestOp.Reverse, 2, 0);
+        Assert.Equal(PlaybackRules.Parked, slots[0].Flags);
+        Apply(ref slots, RequestOp.Pause, 2);
+        var paused = slots[0];
+        Assert.Equal(AdvanceResult.Kept, Advance(ref paused));
+        Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Paused, paused.Flags);
+        Apply(ref slots, RequestOp.Resume, 2);
+        var go = slots[0];
+        Assert.Equal(AdvanceResult.Kept, Advance(ref go));
+        Assert.Equal(1, go.Tick);
+        Assert.Equal(PlaybackFlags.None, go.Flags);
+        Apply(ref slots, RequestOp.Seek, 2, 4);
+        Assert.Equal(4, slots[0].Tick);
+        Assert.Equal(PlaybackFlags.StartPending, slots[0].Flags);
+        Assert.Equal(0, slots.Purged);
+        var world = new Playback { Timeline = 3, Tick = 0 };
+        Assert.Equal(AdvanceResult.Removed, Advance(ref world, false));
+        var loop = new Playback { Timeline = 1, Tick = 0, Flags = PlaybackFlags.Reverse };
+        Assert.Equal(AdvanceResult.Kept, Advance(ref loop));
+        Assert.Equal(9, loop.Tick);
+        Assert.Equal(PlaybackFlags.Reverse, loop.Flags);
+    }
+
     static void Apply(ref ListSlots slots, RequestOp op, ushort timeline, ushort at = 0)
     {
         fixed (LibraryTimeline* t = Timelines) PlaybackRules.Apply(ref slots, t, Timelines.Length, op, timeline, at);

@@ -516,16 +516,20 @@ type Tl.PlaybackRules
   Method Boolean Find[TSlots](TSlots ByRef, Byte, Tl.Playback ByRef)
   Method Int32 FindChannel[TSlots](TSlots ByRef, Byte)
   Method Boolean IsLive(Tl.Playback ByRef)
+  Method Boolean IsParked(Tl.PlaybackFlags)
   Method Boolean IsPlaying[TSlots](TSlots ByRef, UInt16)
+  Field Tl.PlaybackFlags Parked
   Method Boolean Pause[TSlots](TSlots ByRef, UInt16, Boolean)
   Method Boolean PauseAt[TSlots](TSlots ByRef, Int32, Boolean)
   Method Boolean Rebind(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32)
+  Method Boolean Resumes(Tl.PlaybackFlags, Boolean)
   Method Boolean Reverse[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, Boolean)
   Method Boolean Seek[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, UInt16)
   Method Boolean Start[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, UInt16, UInt16, Boolean ByRef)
   Method Boolean Stop[TSlots](TSlots ByRef, UInt16)
   Method Void StopAll[TSlots](TSlots ByRef)
   Method Boolean StopChannel[TSlots](TSlots ByRef, Byte)
+  Method Boolean Unpark(Tl.Playback ByRef, Boolean)
 type Tl.PlaybackTable
   Property Tl.ClosingList* Closing
   Property Tl.RequestQueue* Consumer

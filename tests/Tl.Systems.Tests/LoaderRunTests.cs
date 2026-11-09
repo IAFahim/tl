@@ -89,7 +89,7 @@ public sealed unsafe class LoaderRunTests
         Assert.Equal(2, players.View.SlotOf(0, 0)->Tick);
         for (var f = 0; f < 4; f++) Step(world, players, motion, power, stats, input, anim, feet, cues);
         Assert.Equal(0f, motion[0].Y);
-        Assert.Equal(PlaybackFlags.Ended | PlaybackFlags.Reverse, players.View.SlotOf(0, 0)->Flags);
+        Assert.Equal(PlaybackRules.Parked | PlaybackFlags.Reverse, players.View.SlotOf(0, 0)->Flags);
         Assert.Equal(0, players.View.SlotOf(0, 0)->Tick);
         players.Reverse(0, 1, false);
         Step(world, players, motion, power, stats, input, anim, feet, cues);
