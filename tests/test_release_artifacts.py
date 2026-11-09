@@ -137,7 +137,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             self.git(repository, "branch", "v1.0.0-alpha.3")
 
             branch_only = subprocess.run(
-                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.3", "1.0.0-alpha.3"],
+                ["bash", str(ROOT / "eng" / "release-ref"), "v1.0.0-alpha.3", "1.0.0-alpha.3"],
                 cwd=repository,
                 capture_output=True,
                 text=True,
@@ -148,7 +148,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 
             self.git(repository, "tag", "v1.0.0-alpha.3")
             tagged = subprocess.run(
-                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.3", "1.0.0-alpha.3"],
+                ["bash", str(ROOT / "eng" / "release-ref"), "v1.0.0-alpha.3", "1.0.0-alpha.3"],
                 cwd=repository,
                 capture_output=True,
                 text=True,
