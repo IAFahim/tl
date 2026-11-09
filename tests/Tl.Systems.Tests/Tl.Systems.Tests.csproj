@@ -32,11 +32,13 @@
     <EmbeddedResource Include="..\..\tests\Shared\DomainBaker.cs" Link="Shared\DomainBaker.cs" />
     <EmbeddedResource Include="Toolbox\Toolbox.cs" />
     <EmbeddedResource Include="KindDomain\KindDomain.cs" />
+    <EmbeddedResource Include="IdleDomain\IdleDomain.cs" />
     <Compile Remove="ForceContract\**" />
     <EmbeddedResource Include="ForceContract\*.cs" />
     <Compile Remove="TwoAssembly\**" />
     <EmbeddedResource Include="TwoAssembly\*.cs" />
     <EmbeddedResource Include="Generated\TlSystemsKinds.g.cs" />
+    <EmbeddedResource Include="Generated\TlSystemsIdle.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsSnapshot.g.cs" />
     <EmbeddedResource Include="Generated\ParityGoldens.json" />
     <EmbeddedResource Include="BenchDomain\BenchShapes.cs" />

@@ -1,0 +1,23 @@
+{
+  "name": "film",
+  "duration": 30,
+  "tracks": [
+    {
+      "namespace": "IdleGame",
+      "type": "LineTrack",
+      "data": { "Scale": 1 },
+      "clips": [
+        { "namespace": "IdleGame", "type": "LineClip", "start": 5, "end": 10, "data": { "Line": 7 } },
+        { "namespace": "IdleGame", "type": "LineClip", "start": 12, "end": 15, "data": { "Line": 9 } }
+      ]
+    },
+    {
+      "namespace": "IdleGame",
+      "type": "ReelTrack",
+      "data": { "Scale": 1 },
+      "clips": [
+        { "namespace": "IdleGame", "type": "ReelClip", "start": 8, "end": 20, "data": { "Reel": 3 } }
+      ]
+    }
+  ]
+}
