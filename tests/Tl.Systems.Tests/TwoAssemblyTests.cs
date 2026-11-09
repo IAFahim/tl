@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Tl.Systems.Tests;
 
-public sealed class TwoAssemblyTests
+public sealed partial class TwoAssemblyTests
 {
     internal const ulong Pinned = 12545803591333190611UL;
     const string PackName = "Tl.Unity.PushPack";
@@ -90,6 +90,8 @@ public sealed class TwoAssemblyTests
         public Assembly Host = null!;
         public string PackSource = "";
         public string GameSource = "";
+        public byte[] PackImage = null!;
+        public byte[] GameImage = null!;
         public Assembly All = null!;
         public Assembly AllHost = null!;
     }
@@ -133,6 +135,8 @@ public sealed class TwoAssemblyTests
         {
             Pack = context.LoadFromStream(new MemoryStream(pack)),
             Game = context.LoadFromStream(new MemoryStream(game)),
+            PackImage = pack,
+            GameImage = game,
             PackSource = string.Join("\n", packGenerated),
             GameSource = string.Join("\n", gameGenerated),
         };
