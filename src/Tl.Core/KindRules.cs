@@ -93,10 +93,9 @@ public static unsafe class KindRules
             var s = slots + i;
             var id = s->Timeline;
             if (id == 0) continue;
-            var bits = *(ushort*)&s->Flags;
-            if ((bits & ~(int)PlaybackFlags.Reverse & 0xffff) == 0)
+            var flags = s->Flags;
+            if ((flags & ~PlaybackFlags.Reverse) == 0 && s->Rate == 0)
             {
-                var flags = (PlaybackFlags)bits;
                 var dir = flags == 0 ? stepDir : -stepDir;
                 var tick = s->Tick + dir;
                 if ((uint)tick < tls[id - 1].Duration)
