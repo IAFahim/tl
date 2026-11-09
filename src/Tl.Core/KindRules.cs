@@ -110,7 +110,8 @@ public static unsafe class KindRules
             }
             else if (s->Rate != 0)
             {
-                live |= TickRated(in t, ref slots, count, ref rows, row, i, stepDir, ref samples);
+                slots = TickRated(in t, slots, count, ref rows, row, i, stepDir, ref samples, out var rated);
+                live |= rated;
                 continue;
             }
             live |= TickSlot(in t, ref rows, row, i, s, stepDir);
@@ -118,14 +119,20 @@ public static unsafe class KindRules
         return live;
     }
 
-    static bool TickRated<TRows>(in KindTables t, ref Playback* slots, int count, ref TRows rows, int row, int i, int stepDir, ref int samples) where TRows : struct, IKindRows
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static Playback* TickRated<TRows>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int i, int stepDir, ref int samples, out bool live) where TRows : struct, IKindRows
     {
         var s = slots + i;
-        if (!PlaybackRules.Moves(s->Flags, stepDir > 0)) return TickSlot(in t, ref rows, row, i, s, stepDir);
+        live = true;
+        if (!PlaybackRules.Moves(s->Flags, stepDir > 0))
+        {
+            live = TickSlot(in t, ref rows, row, i, s, stepDir);
+            return slots;
+        }
         if (samples == 0) rows.Unsample(row);
         var crossings = PlaybackRules.Cross(ref *s);
         var room = MaxSampleSlots - count - samples;
-        if (room <= 0) return true;
+        if (room <= 0) return slots;
         if (crossings > room) crossings = room;
         slots = rows.Reserve(row, count + samples, count + samples + (crossings == 0 ? 1 : crossings));
         s = slots + i;
@@ -135,9 +142,8 @@ public static unsafe class KindRules
             slots[mark] = *s;
             slots[mark].Phase = Marker;
             rows.Sample(row, (byte)i, (byte)mark);
-            return true;
+            return slots;
         }
-        var live = true;
         for (var j = 0; j < crossings; j++)
         {
             live = TickSlot(in t, ref rows, row, i, s, stepDir);
@@ -147,7 +153,7 @@ public static unsafe class KindRules
             rows.Sample(row, (byte)i, (byte)at);
             if (!live || s->Timeline == 0 || (s->Flags & (PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0) break;
         }
-        return live;
+        return slots;
     }
 
     static bool TickSlot<TRows>(in KindTables t, ref TRows rows, int row, int i, Playback* s, int stepDir) where TRows : struct, IKindRows
