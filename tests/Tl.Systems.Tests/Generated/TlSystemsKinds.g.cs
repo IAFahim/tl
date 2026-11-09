@@ -318,8 +318,8 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
-var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
@@ -417,8 +417,8 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
-var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 int __total = default;
@@ -515,8 +515,8 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
-var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
@@ -622,8 +622,8 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
-var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 global::KindGame.Speed __total = default;
@@ -719,8 +719,8 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
-var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 for (var __j = 0; __j < __len; __j++)
@@ -1000,8 +1000,8 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);
-var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;
+var __sampled = global::Tl.KindRules.IsSampled(__data, __len);
+var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 int __total = default;

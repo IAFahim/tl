@@ -454,8 +454,8 @@ internal static class SystemEmitter
         if (!feed)
         {
             W(writer, "var __pulses = 0;");
-            W(writer, "var __sampled = global::Tl.KindRules.IsSampled(__data, __len, __stride);");
-            W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride) : 1;");
+            W(writer, "var __sampled = global::Tl.KindRules.IsSampled(__data, __len);");
+            W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;");
             W(writer, "for (var __sj = 0; __sj < __sk; __sj++)");
             W(writer, "{");
         }

@@ -22,7 +22,7 @@ public unsafe interface IKindRows
     void RemoveSpan(int row, int kind, byte slot, ushort timeline, ushort step);
     void Purge(int row, byte slot, ushort timeline);
     Playback* Reserve(int row, int length);
-    void Sample(int row, byte slot, byte sample, byte tag);
+    void Sample(int row, byte slot, byte sample);
     void Unsample(int row);
 }
 
@@ -63,23 +63,24 @@ public static unsafe class KindRules
     public const int MaxSampleSlots = 256;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsSampled(byte* data, int length, int stride) => length != 0 && ((KindEntry*)(data + (nuint)(length - 1) * (nuint)stride))->Owner != 0;
+    public static bool IsSampled(byte* data, int length) => length != 0 && (((KindEntry*)data)->Flags & KindEntryFlags.Sample) != 0;
 
-    public static int SampleDepth(byte* data, int length, int stride)
+    public static int SampleDepth(byte* data, int length, int stride, Playback* slots)
     {
         var depth = 1;
         for (var i = 0; i < length; i++)
         {
-            var tag = ((KindEntry*)(data + (nuint)i * (nuint)stride))->Owner;
-            if (tag != Marker && tag > depth) depth = tag;
+            var e = (KindEntry*)(data + (nuint)i * (nuint)stride);
+            if ((e->Flags & KindEntryFlags.Sample) == 0) break;
+            var j = slots[e->Slot].Phase;
+            if (j != Marker && j + 1 > depth) depth = j + 1;
         }
         return depth;
     }
 
     public static bool Due(KindEntry* entry, int substep, Playback* slot)
     {
-        var tag = entry->Owner;
-        if (tag != 0) return tag == substep + 1;
+        if ((entry->Flags & KindEntryFlags.Sample) != 0) return slot->Phase == substep;
         return substep == 0 && (entry->Timeline == 0 || (entry->Flags & KindEntryFlags.Pulse) != 0 || slot->Rate == 0);
     }
 
@@ -123,22 +124,27 @@ public static unsafe class KindRules
         if (!PlaybackRules.Moves(s->Flags, stepDir > 0)) return TickSlot(in t, ref rows, row, i, s, stepDir);
         if (samples == 0) rows.Unsample(row);
         var crossings = PlaybackRules.Cross(ref *s);
+        var room = MaxSampleSlots - count - samples;
+        if (room <= 0) return true;
+        if (crossings > room) crossings = room;
+        slots = rows.Reserve(row, count + samples + (crossings == 0 ? 1 : crossings));
+        s = slots + i;
         if (crossings == 0)
         {
-            rows.Sample(row, (byte)i, 0, Marker);
+            var mark = count + samples++;
+            slots[mark] = *s;
+            slots[mark].Phase = Marker;
+            rows.Sample(row, (byte)i, (byte)mark);
             return true;
         }
-        if (count + samples + crossings > MaxSampleSlots) crossings = MaxSampleSlots - count - samples;
-        if (crossings <= 0) return true;
-        slots = rows.Reserve(row, count + samples + crossings);
-        s = slots + i;
         var live = true;
         for (var j = 0; j < crossings; j++)
         {
             live = TickSlot(in t, ref rows, row, i, s, stepDir);
             var at = count + samples++;
             slots[at] = *s;
-            rows.Sample(row, (byte)i, (byte)at, (byte)(j + 1));
+            slots[at].Phase = (byte)j;
+            rows.Sample(row, (byte)i, (byte)at);
             if (!live || s->Timeline == 0 || (s->Flags & (PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0) break;
         }
         return live;

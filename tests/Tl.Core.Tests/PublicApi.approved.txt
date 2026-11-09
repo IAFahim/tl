@@ -72,7 +72,7 @@ type Tl.IKindRows
   Method Void Purge(Int32, Byte, UInt16)
   Method Void RemoveSpan(Int32, Int32, Byte, UInt16, UInt16)
   Method Tl.Playback* Reserve(Int32, Int32)
-  Method Void Sample(Int32, Byte, Byte, Byte)
+  Method Void Sample(Int32, Byte, Byte)
   Method Void Unsample(Int32)
 type Tl.IMarker`1
 type Tl.IPlaybackSlots
@@ -247,6 +247,7 @@ type Tl.KindEntryFlags
   Field Tl.KindEntryFlags Interrupted
   Field Tl.KindEntryFlags Pulse
   Field Tl.KindEntryFlags Ready
+  Field Tl.KindEntryFlags Sample
   Field Tl.KindEntryFlags Span
   Field Tl.KindEntryFlags Synthetic
   Field Byte value__
@@ -285,12 +286,12 @@ type Tl.KindPulses`2
 type Tl.KindRules
   Method Void Close[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
   Method Boolean Due(Tl.KindEntry*, Int32, Tl.Playback*)
-  Method Boolean IsSampled(Byte*, Int32, Int32)
+  Method Boolean IsSampled(Byte*, Int32)
   Field Byte Marker
   Field Int32 MaxSampleSlots
   Method Boolean Rebind[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
   Method Void Reenter[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
-  Method Int32 SampleDepth(Byte*, Int32, Int32)
+  Method Int32 SampleDepth(Byte*, Int32, Int32, Tl.Playback*)
   Method Boolean TickEntity[TRows](Tl.KindTables ByRef, Tl.Playback*, Int32, TRows ByRef, Int32, Int32)
 type Tl.KindSectionView
   Field Byte* Base
@@ -353,7 +354,7 @@ type Tl.KindTable
   Method Void RemovePulses(Int32)
   Method Boolean RemoveSpan(Int32, Byte, UInt16, UInt16, Int32)
   Field Int32 Rows
-  Method Void Sample(Int32, Byte, Byte, Byte)
+  Method Void Sample(Int32, Byte, Byte)
   Method Void SetEnabled(Int32, Boolean)
   Property Int64 StorageBytesPerRow
   Field Int32 Stride

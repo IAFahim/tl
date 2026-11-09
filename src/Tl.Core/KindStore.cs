@@ -355,14 +355,14 @@ public sealed unsafe class KindStore : IDisposable
 
         public Playback* Reserve(int entity, int length) => Players.Reserve(entity, length);
 
-        public void Sample(int entity, byte slot, byte sample, byte tag)
+        public void Sample(int entity, byte slot, byte sample)
         {
             var kinds = Mask[entity];
             while (kinds != 0)
             {
                 var kind = Tz(kinds);
                 kinds &= kinds - 1;
-                Tables[kind]->Sample(RowOf(entity, kind), slot, sample, tag);
+                Tables[kind]->Sample(RowOf(entity, kind), slot, sample);
             }
         }
 
