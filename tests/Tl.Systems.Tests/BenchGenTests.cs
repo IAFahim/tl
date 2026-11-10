@@ -23,17 +23,25 @@ public sealed class BenchGenTests
     }
 
     [Fact]
-    public void BenchDomainProducesZeroDiagnostics()
+    public void BenchDomainProducesOneRefContextWarning()
     {
-        var (_, diagnostics) = EmitBench();
-        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString())));
+        var (artifacts, diagnostics) = EmitBench();
+        var warning = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN107", warning.Code);
+        Assert.Contains("S64", warning.Message);
+        Assert.Contains("Ctx", warning.Message);
+        Assert.Contains("Shared", warning.Message);
+        var content = Assert.Single(artifacts).Content;
+        Assert.DoesNotContain("RunParallel", content);
+        Assert.DoesNotContain("TlWorkers", content);
+        Assert.Contains("RunLegacyRange", content);
     }
 
     [Fact]
     public void BenchEmissionParsesAsCSharp9()
     {
         var (artifacts, diagnostics) = EmitBench();
-        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString())));
+        Assert.True(diagnostics.Count == 1 && diagnostics[0].Code == "TLGEN107", string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString())));
         var artifact = Assert.Single(artifacts);
         var parsed = CSharpSyntaxTree.ParseText(artifact.Content, new CSharpParseOptions(LanguageVersion.CSharp9), artifact.RelativePath);
         var errors = parsed.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToList();
@@ -44,7 +52,7 @@ public sealed class BenchGenTests
     public void BenchEmissionMatchesCommitted()
     {
         var (artifacts, diagnostics) = EmitBench();
-        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString())));
+        Assert.True(diagnostics.Count == 1 && diagnostics[0].Code == "TLGEN107", string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString())));
         var actual = Assert.Single(artifacts).Content.Replace("\r\n", "\n");
         var root = AppContext.BaseDirectory;
         for (var i = 0; i < 8 && !File.Exists(Path.Combine(root, "Tl.Systems.Tests.csproj")); i++) root = Path.GetDirectoryName(root)!;

@@ -407,14 +407,14 @@ internal static class SystemEmitter
     {
         var hasLegacy = HasLegacy(a);
         var init = new StringBuilder("var __st = new __PS { ");
-        W(w, "unsafe struct __PS { public global::System.GCHandle __w; public global::System.GCHandle __p;");
+        W(w, "unsafe struct __PS { public global::System.IntPtr __w; public global::System.IntPtr __p;");
         for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) { W(w, $"public {s.Columns[i].ElementTypeName}* __c{i};"); init.Append($"__c{i} = __c{i}, "); }
         W(w, "public int __n; public int __forward;");
         for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) W(w, $"public void* __x{i};");
         for (var i = 0; i < s.Requests.Count; i++) W(w, "public global::Tl.RequestQueue** __rq;");
         for (var i = 0; i < s.Events.Count; i++) W(w, $"public {s.Events[i].TypeName}* __ev{i};");
         W(w, "}");
-        W(w, "static void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (global::Tl.TimelineWorld)__s->__w.Target; var players = (global::Tl.PlaybackTable)__s->__p.Target; var forward = __s->__forward != 0;");
+        W(w, "static void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var __wh = global::System.Runtime.CompilerServices.Unsafe.As<global::System.IntPtr, global::System.GCHandle>(ref __s->__w); var world = (global::Tl.TimelineWorld)__wh.Target; var __ph = global::System.Runtime.CompilerServices.Unsafe.As<global::System.IntPtr, global::System.GCHandle>(ref __s->__p); var players = (global::Tl.PlaybackTable)__ph.Target; var forward = __s->__forward != 0;");
         for (var i = 0; i < s.Requests.Count; i++) W(w, $"global::Tl.Requests __sr{i} = new global::Tl.Requests(__s->__rq[__chunk], 0, 0);");
         for (var i = 0; i < s.Events.Count; i++) W(w, $"{s.Events[i].TypeName} __se{i} = __s->__ev{i}[__chunk].Writer;");
         if (hasLegacy) W(w, $"RunLegacyRange(world, players, forward{PArgs(s)});");
@@ -429,9 +429,9 @@ internal static class SystemEmitter
         for (var i = 0; i < s.Requests.Count; i++) { W(w, "var __rq = stackalloc global::Tl.RequestQueue*[__chunks]; for (var __i = 0; __i < __chunks; __i++) __rq[__i] = global::Tl.RequestQueue.Create();"); init.Append("__rq = __rq, "); }
         for (var i = 0; i < s.Events.Count; i++) { W(w, $"var __segs{i} = stackalloc {s.Events[i].TypeName}[__chunks]; for (var __i = 0; __i < __chunks; __i++) __segs{i}[__i] = new {s.Events[i].TypeName}(128);"); init.Append($"__ev{i} = __segs{i}, "); }
         for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) init.Append($"__x{i} = global::System.Runtime.CompilerServices.Unsafe.AsPointer(ref __ctx{i}), ");
-        init.Append("__n = __n, __forward = forward ? 1 : 0 } };");
+        init.Append("__n = __n, __forward = forward ? 1 : 0 };");
         W(w, init.ToString());
-        W(w, "__st.__w = global::System.GCHandle.Alloc(world); __st.__p = global::System.GCHandle.Alloc(players); try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { __st.__w.Free(); __st.__p.Free(); }");
+        W(w, "var __wh = global::System.GCHandle.Alloc(world); var __ph = global::System.GCHandle.Alloc(players); __st.__w = global::System.Runtime.CompilerServices.Unsafe.As<global::System.GCHandle, global::System.IntPtr>(ref __wh); __st.__p = global::System.Runtime.CompilerServices.Unsafe.As<global::System.GCHandle, global::System.IntPtr>(ref __ph); try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { __wh.Free(); __ph.Free(); }");
         for (var i = 0; i < s.Requests.Count; i++) { W(w, $"__req{i}.ConcatSegments(__rq, __chunks); for (var __i = 0; __i < __chunks; __i++) global::Tl.RequestQueue.Free(__rq[__i]);"); }
         for (var i = 0; i < s.Events.Count; i++) { W(w, $"__ev{i}.ConcatSegments(__segs{i}, __chunks); for (var __j = 0; __j < __chunks; __j++) __segs{i}[__j].Dispose();"); }
         W(w, "}");
@@ -639,7 +639,7 @@ internal static class SystemEmitter
 
     static string BaseSig(KernelShape s, string name, bool range, bool workers = false)
     {
-        var sb = new StringBuilder(name + "(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward" + (workers ? ", global::Tl.TlWorkers workers" : ""));
+        var sb = new StringBuilder("internal static void " + name + "(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward" + (workers ? ", global::Tl.TlWorkers workers" : ""));
         for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) sb.Append($", {s.Columns[i].ElementTypeName}* __c{i}");
         sb.Append(", int __n");
         if (range) sb.Append(", int __firstWord, int __endWord");

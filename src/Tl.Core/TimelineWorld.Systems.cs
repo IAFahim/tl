@@ -31,15 +31,7 @@ public sealed partial class TimelineWorld
         kinds.TickPass(forward);
     }
 
-    public unsafe void Tick(PlaybackTable players, bool forward, TlWorkers workers)
-    {
-        if (players is null) throw new ArgumentNullException(nameof(players));
-        if (workers is null) throw new ArgumentNullException(nameof(workers));
-        var kinds = players.Kinds ?? throw new InvalidOperationException("Tick needs a KindStore attached to the PlaybackTable; use Advance for kind-free playback.");
-        ClosingList.Clear(players.Closing);
-        ApplyRequests(players);
-        kinds.TickPassParallel(forward, workers);
-    }
+
 
     public unsafe void Advance(PlaybackTable players, bool forward = true)
     {
@@ -57,8 +49,7 @@ public sealed partial class TimelineWorld
     unsafe void AdvanceRange(PlaybackTable players, LibraryTimeline* timelines, int count, bool forward, int firstWord, int endWord)
     {
         var playing = players.Playing;
-        if (firstWord < 0) firstWord = 0;
-        if (endWord > players.PlayingWords) endWord = players.PlayingWords;
+        if (firstWord < 0) firstWord = 0; if (endWord > players.PlayingWords) endWord = players.PlayingWords;
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
