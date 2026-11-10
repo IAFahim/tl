@@ -8,7 +8,7 @@ Decision already made: keep 4.0 (`main`), PR #592 (5.0) does not merge, no budge
 
 ## Standing rules for every phase
 
-- **R0 receipt (every phase, every PR):** `dotnet build tl.slnx -c Release` 0 errors and 0 new warnings; all suites at least Bake 865, Core 31, Packs 38, Gen.CSharp 47, Tlb 17, Fuzz 11, Analyzers 11, Systems 113, Python 99 (a lower count only where the PR lists the deleted tests by name); all 13 pinned hashes unchanged (3 core, 4 packs, 6 scenes, see `ask-senior-dev.md` section 4); `python benchmarks/source_budget.py` passes with the printed src number recorded in the PR; no assertion loosened (a changed assertion is listed with old and new text).
+- **R0 receipt (every phase, every PR):** `dotnet build tl.slnx -c Release` 0 errors and 0 new warnings; all suites at least Bake 865, Core 31, Packs 38, Gen.CSharp 47, Tlb 17, Fuzz 11, Analyzers 11, Systems 113, Python 99 (a lower count only where the PR lists the deleted tests by name); all 13 pinned hashes unchanged (3 core, 4 packs, 6 scenes, see `ask-senior-dev.md` section 4; note hash 6607956939547305625 is asserted only in tl.unity tests (`EventsPinned`), so Core changes need the Unity gate to prove it); `python benchmarks/source_budget.py` passes with the printed src number recorded in the PR; no assertion loosened (a changed assertion is listed with old and new text).
 - Gate script: `bash D:\GitHub\_work\fin-gate-dotnet.sh <worktree> <tag>`; Unity: `bash D:\GitHub\_work\p6s-gate.sh <tag> full` and `TL_UNITY_PACKS=1|0 bash eng/test-com-tl-unity.sh`. One Unity process at a time.
 - Performance receipts: same machine, same worker count on both sides, median of 5, first run discarded, state machine and worker count. A **second agent reruns every headline number** before the phase is called done. Label every number measured / projected / not tested.
 - One phase = one issue = one claimed workstream (AGENTS.md claim process). Atoms are short: validate, commit, push, record on the issue, then the next.
@@ -27,7 +27,7 @@ U (Unity questions U1..U11) runs in parallel with everything and must be answere
 
 Phases 3, 4, 5 touch overlapping files (`KindStore`, `KindTable`, `PlaybackModel`): do them one after another. Phase 7b/7c/7d only touch `src/Tl.Gen.CSharp` and may run in parallel with 3 to 6.
 
-## Phase 0. Truth gate (no source change)  -- agent running 2026-11-11
+## Phase 0. Truth gate (no source change)  -- DONE 2026-11-11, `docs/senior-review/baseline-main.md` (8b872ad8)
 
 - [ ] Build `main` from a fresh clone; record suite counts, the budget lines, where the 13 pinned hashes are asserted.
 - [ ] Spot check 5 rows of plan Finding 1 against the real files; record paste-loss or real. Any real row outranks everything and becomes its own fix with a count-based regression test (append N+1 items, read back all N+1).
@@ -98,7 +98,7 @@ Generator:
 - [ ] 5c Dense dispatch: `SystemSteps` with `Bind(TimelineWorld, ulong system, ReadOnlySpan<ulong> pairKeys)`, native, freed in `Free()`; delete `SystemRegistry.Filters` and the body of `SystemDispatch.FilteredSteps`.
 - [ ] 5d `WindowSteps` record (16 B) replacing `_firstStage`, `_stageCount`, `_stepArrays`; `StepOf` returns `Steps[0]` when `StageCount == 1`.
 - [ ] 5e Marker tables move onto the world (native array by timeline id); the two public static methods stay as forwards.
-- [ ] 5f Stable O(n) sorts: `RequestQueue.Sort` = LSD radix (lift `Requests5.StableRadixSort`) over `(entity, slot)` with owned scratch and an already-sorted exit; `Events<T>.Drain` and `SortEvents` = bottom-up stable merge.
+- [ ] 5f (measured on main: 15,000 requests in descending entity order sort in 79 ms, 0.037 ms ascending) Stable O(n) sorts: `RequestQueue.Sort` = LSD radix (lift `Requests5.StableRadixSort`) over `(entity, slot)` with owned scratch and an already-sorted exit; `Events<T>.Drain` and `SortEvents` = bottom-up stable merge.
 - [ ] 5g `KindStore.Build` one pass per owner (no `List<int>`, `ToArray`, `int[] rowIn`); `ClearPulses` walks `Active` words.
 - [ ] Probe counter under `TL_CHECKED`: 1,000,000 entities, 10 playing: one `Advance` and one legacy `Run` each report 10 (main: 1,000,000). Sort test: 15,000 descending requests apply in the same order as `main` with at most 4 x 15,000 moves.
 - Public API change (owner approval): `SystemDispatch.FilteredSteps` replaced by `Bind`; `SystemSteps` new (generated-code only).
