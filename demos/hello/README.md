@@ -161,7 +161,7 @@ a player who never plays the timeline: False
 ```
 
 - Before the window the flag is false, because a column starts at its default (zero). Nothing is "baked as false"; it is computed every tick.
-- Keep the unticked clip. A column keeps the last value it was given when no clip covers a tick, so without the "off" clip the flag would stay true after the window. A kind can declare `Idle(ref Abilities player) => player.CanDoubleJump = false` to reset it on the plain .NET host, but Unity currently ignores `Idle` silently (IAFahim/tl#590), so the off clip is the form that works on both.
+- Keep the unticked clip, or give the kind an `Idle`. A column keeps the last value it was given when no clip covers a tick, so without one of the two the flag would stay true after the window. `Idle(ref Abilities player) => player.CanDoubleJump = false` resets it on the .NET host and in Unity (tl.unity from commit 939a8fb; earlier versions ignored it silently, IAFahim/tl#590). The unticked clip works on every version and host.
 - In Unity a player needs the timeline (a Playable Director) to get the `Abilities` column at all; a player without one is never matched by a query for it.
 
 The runnable, tested version is `demos/hello-ability` (`dotnet run --project demos/hello-ability -c Release`).
