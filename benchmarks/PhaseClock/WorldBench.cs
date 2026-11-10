@@ -119,4 +119,43 @@ public static class WorldBench
         Console.WriteLine($"kernel sink={sink:F0}");
         return samples[0];
     }
+    public static int RunWorldDensePlayer()
+    {
+        const int players = 100;
+        const int perPlayer = 150;
+        const int duration = 40;
+        var lane = Data.ConstantLane(duration, Value);
+        var specs = new Tl.TimelineSpec[perPlayer];
+        for (var t = 0; t < perPlayer; t++)
+        {
+            var step = new Tl.StepSpec(0u, (uint)duration, 0u, 1ul, lane, lane);
+            specs[t] = new Tl.TimelineSpec((uint)duration, true, new[] { step });
+        }
+        var blob = Tl.LibraryWriter.Write(specs);
+        var result = Tl.Library.Verify(blob);
+        using var library = result.Library!;
+        var expected = new float[players];
+        for (var i = 0; i < players; i++) expected[i] = perPlayer * OracleTicks * Value;
+        var oracleHash = Checker.HashSlice(expected, 0, players);
+        using var world = new Tl.World(library, players);
+        var req = world.Requests;
+        for (var r = 0; r < players; r++)
+            for (var t = 0; t < perPlayer; t++)
+                req.Start(new Tl.Row(r), new Tl.TimelineId((ushort)(t + 1)), 0);
+        for (var f = 0; f < OracleTicks; f++) world.Tick(Tl.Direction.Forward);
+        var worldHash = Checker.HashSlice(world.Accumulator, 0, players);
+        var pass = worldHash == oracleHash;
+        Console.WriteLine($"worldbench dense-player players={players} perPlayer={perPlayer} duration={duration} total={players * perPlayer}");
+        Console.WriteLine($"oracle={oracleHash:x16} world={worldHash:x16}");
+        Console.WriteLine(pass ? "WORLD PASS" : "WORLD FAIL");
+        var sw = Stopwatch.StartNew();
+        const int ticks = 2000;
+        for (var f = 0; f < ticks; f++) world.Tick(Tl.Direction.Forward);
+        sw.Stop();
+        var msPerTick = sw.Elapsed.TotalSeconds * 1e3 / ticks;
+        var visits = players * perPlayer;
+        var nsPerActive = msPerTick * 1e6 / visits;
+        Console.WriteLine($"world ms/tick={msPerTick:F4} ns/active-visit={nsPerActive:F3} visits={visits}");
+        return pass ? 0 : 1;
+    }
 }

@@ -13,5 +13,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
+    <ProjectReference Include="../../tools/Tl.Gen.Tlb/Tl.Gen.Tlb.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,58 @@
+timelinebench 4.0(TimelineWorld/PlaybackTable) vs 5.0(World) same-shape comparison
+timelinebench machine cores=12
+timelinebench method: shapes/rowOf/phaseOf/timelineOf/oracle/BenchParams reused from ScaleBench (SetupShape/MeasureShape/OracleHash); 5.0 arm is ScaleBench code verbatim
+timelinebench 4.0 tick = ApplyRequests + fold + Advance (benchmarks/Systems tick composition); 4.0 single-threaded, primary compare 5.0 @8, secondary @1; min of rounds ms/tick
+timelinebench 4.0 fold = entity x slot scan of PlaybackTable.View: acc[e] += lane[slot.Tick]; one full-window step per timeline (window checks vacuous); no ITlModule so fold reads the same harness lane the 5.0 arm folds
+timelinebench phase: 5.0 Start phase p folds lane[p+1] first (frame 1); 4.0 Tick is the current tick (fold before Advance), harness starts at (p+1)%1024; both arms fold p+1..p+5; exact-hash parity proves alignment
+timelinebench libraries: 5.0 LibraryWriter+Verify; 4.0 TimelineBaker TLB (TimelineBenchTrack/Clip, 1 full-window clip, duration 1024, loop) + LibraryAssembler (names t000.. sorted); payloads inert, logical spec identical
+timelinebench setup breakdown: library-bake ms / TimelineWorld-load ms (4.0 only; 5.0 world ctor excluded from setupMs by ScaleBench) / enqueue+first-tick ms; 4.0 duplicate check scans one entity's slots, no N^2 FindPlain analog
+shapeA-sparse-1M-1 setupMs=315.13 total=1000000 capacity=1000000 heapWorldBytes=190074280 active=1000000
+PASS shapeA-sparse-1M-1 oracle-vs-recorded-scale.txt recorded=d53184bfa4993025 actual=d53184bfa4993025
+PASS shapeA-sparse-1M-1 5.0 workers=1 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=22.097 nsPerActive=22.0967 visits=1000000 allocPerTick=160
+PASS shapeA-sparse-1M-1 5.0 workers=8 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=11.571 nsPerActive=11.5708 visits=1000000 allocPerTick=2120
+shapeA-sparse-1M-1 4.0 setupMs=79.62 loadMs=16.35 total=1000000 capacity=1000000 heapWorldBytesManaged=4016896 active=1000000
+PASS shapeA-sparse-1M-1 4.0 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=4.872 nsPerActive=4.8721 visits=1000000 allocPerTick=0 bakeMs=98.14 fiveBakeMs=17.68 gameTlibBytes=560
+SUMMARY shapeA-sparse-1M-1 4.0 msPerTick=4.872 nsPerActive=4.8721 alloc=0 setupMs=79.62 loadMs=16.35 bakeMs=98.14 | 5.0@8 msPerTick=11.571 nsPerActive=11.5708 alloc=2120 setupMs=315.13 bakeMs=17.68 | 5.0@1 msPerTick=22.097 nsPerActive=22.0967 alloc=160 | ratio5.0/4.0@8=2.37x ratio5.0/4.0@1=4.54x nsRatio@8=2.37x | hash=d53184bfa4993025 params=warmup=10/rounds=3/ticksPerRound=20
+shapeA-sparse-1M-4 setupMs=1143.23 total=4000000 capacity=1000000 heapWorldBytes=812461488 active=4000000
+PASS shapeA-sparse-1M-4 oracle-vs-recorded-scale.txt recorded=fa13635a6d993025 actual=fa13635a6d993025
+PASS shapeA-sparse-1M-4 5.0 workers=1 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=64.175 nsPerActive=16.0438 visits=4000000 allocPerTick=160
+PASS shapeA-sparse-1M-4 5.0 workers=8 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=56.313 nsPerActive=14.0783 visits=4000000 allocPerTick=2068
+shapeA-sparse-1M-4 4.0 setupMs=266.56 loadMs=0.06 total=4000000 capacity=1000000 heapWorldBytesManaged=4016848 active=4000000
+PASS shapeA-sparse-1M-4 4.0 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=17.766 nsPerActive=4.4416 visits=4000000 allocPerTick=0 bakeMs=0.82 fiveBakeMs=0.14 gameTlibBytes=664
+SUMMARY shapeA-sparse-1M-4 4.0 msPerTick=17.766 nsPerActive=4.4416 alloc=0 setupMs=266.56 loadMs=0.06 bakeMs=0.82 | 5.0@8 msPerTick=56.313 nsPerActive=14.0783 alloc=2068 setupMs=1143.23 bakeMs=0.14 | 5.0@1 msPerTick=64.175 nsPerActive=16.0438 alloc=160 | ratio5.0/4.0@8=3.17x ratio5.0/4.0@1=3.61x nsRatio@8=3.17x | hash=fa13635a6d993025 params=warmup=5/rounds=3/ticksPerRound=10
+shapeA-sparse-4M-1 setupMs=1280.07 total=4000000 capacity=4000000 heapWorldBytes=759011160 active=4000000
+PASS shapeA-sparse-4M-1 oracle-vs-recorded-scale.txt recorded=dc9a12f52ef85725 actual=dc9a12f52ef85725
+PASS shapeA-sparse-4M-1 5.0 workers=1 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=121.725 nsPerActive=30.4313 visits=4000000 allocPerTick=160
+PASS shapeA-sparse-4M-1 5.0 workers=8 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=68.198 nsPerActive=17.0495 visits=4000000 allocPerTick=2100
+shapeA-sparse-4M-1 4.0 setupMs=116.53 loadMs=0.03 total=4000000 capacity=4000000 heapWorldBytesManaged=16016472 active=4000000
+PASS shapeA-sparse-4M-1 4.0 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=21.346 nsPerActive=5.3364 visits=4000000 allocPerTick=0 bakeMs=0.59 fiveBakeMs=0.08 gameTlibBytes=560
+SUMMARY shapeA-sparse-4M-1 4.0 msPerTick=21.346 nsPerActive=5.3364 alloc=0 setupMs=116.53 loadMs=0.03 bakeMs=0.59 | 5.0@8 msPerTick=68.198 nsPerActive=17.0495 alloc=2100 setupMs=1280.07 bakeMs=0.08 | 5.0@1 msPerTick=121.725 nsPerActive=30.4313 alloc=160 | ratio5.0/4.0@8=3.19x ratio5.0/4.0@1=5.70x nsRatio@8=3.19x | hash=dc9a12f52ef85725 params=warmup=5/rounds=3/ticksPerRound=10
+shapeA-sparse-4M-4 setupMs=5395.63 total=16000000 capacity=4000000 heapWorldBytes=3248736440 active=16000000
+PASS shapeA-sparse-4M-4 oracle-vs-recorded-scale.txt recorded=b352044711105725 actual=b352044711105725
+PASS shapeA-sparse-4M-4 5.0 workers=1 oracle=b352044711105725 actual=b352044711105725 msPerTick=402.947 nsPerActive=25.1842 visits=16000000 allocPerTick=160
+PASS shapeA-sparse-4M-4 5.0 workers=8 oracle=b352044711105725 actual=b352044711105725 msPerTick=252.662 nsPerActive=15.7914 visits=16000000 allocPerTick=2132
+shapeA-sparse-4M-4 4.0 setupMs=532.21 loadMs=0.06 total=16000000 capacity=4000000 heapWorldBytesManaged=16016848 active=16000000
+PASS shapeA-sparse-4M-4 4.0 oracle=b352044711105725 actual=b352044711105725 msPerTick=67.599 nsPerActive=4.2249 visits=16000000 allocPerTick=0 bakeMs=0.70 fiveBakeMs=0.15 gameTlibBytes=664
+SUMMARY shapeA-sparse-4M-4 4.0 msPerTick=67.599 nsPerActive=4.2249 alloc=0 setupMs=532.21 loadMs=0.06 bakeMs=0.70 | 5.0@8 msPerTick=252.662 nsPerActive=15.7914 alloc=2132 setupMs=5395.63 bakeMs=0.15 | 5.0@1 msPerTick=402.947 nsPerActive=25.1842 alloc=160 | ratio5.0/4.0@8=3.74x ratio5.0/4.0@1=5.96x nsRatio@8=3.74x | hash=b352044711105725 params=warmup=3/rounds=3/ticksPerRound=5
+shapeB-dense-100x150 setupMs=2.39 total=15000 capacity=100 heapWorldBytes=4672488 active=15000
+PASS shapeB-dense-100x150 oracle-vs-recorded-scale.txt recorded=1d9ddea75d54bb75 actual=1d9ddea75d54bb75
+PASS shapeB-dense-100x150 5.0 workers=1 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.219 nsPerActive=14.6094 visits=15000 allocPerTick=0
+PASS shapeB-dense-100x150 5.0 workers=8 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.197 nsPerActive=13.1162 visits=15000 allocPerTick=0
+shapeB-dense-100x150 4.0 setupMs=1.64 loadMs=0.69 total=15000 capacity=100 heapWorldBytesManaged=32464 active=15000
+PASS shapeB-dense-100x150 4.0 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.089 nsPerActive=5.9561 visits=15000 allocPerTick=0 bakeMs=0.61 fiveBakeMs=2.39 gameTlibBytes=5920
+SUMMARY shapeB-dense-100x150 4.0 msPerTick=0.089 nsPerActive=5.9561 alloc=0 setupMs=1.64 loadMs=0.69 bakeMs=0.61 | 5.0@8 msPerTick=0.197 nsPerActive=13.1162 alloc=0 setupMs=2.39 bakeMs=2.39 | 5.0@1 msPerTick=0.219 nsPerActive=14.6094 alloc=0 | ratio5.0/4.0@8=2.20x ratio5.0/4.0@1=2.45x nsRatio@8=2.20x | hash=1d9ddea75d54bb75 params=warmup=30/rounds=3/ticksPerRound=100
+shapeB-dense-1000x150 setupMs=26.83 total=150000 capacity=1000 heapWorldBytes=32355608 active=150000
+PASS shapeB-dense-1000x150 oracle-vs-recorded-scale.txt recorded=899da8717fc0b745 actual=899da8717fc0b745
+PASS shapeB-dense-1000x150 5.0 workers=1 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=1.549 nsPerActive=10.3261 visits=150000 allocPerTick=0
+PASS shapeB-dense-1000x150 5.0 workers=8 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=1.642 nsPerActive=10.9468 visits=150000 allocPerTick=0
+shapeB-dense-1000x150 4.0 setupMs=12.81 loadMs=0.58 total=150000 capacity=1000 heapWorldBytesManaged=32464 active=150000
+PASS shapeB-dense-1000x150 4.0 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=0.887 nsPerActive=5.9134 visits=150000 allocPerTick=0 bakeMs=1.14 fiveBakeMs=2.02 gameTlibBytes=5920
+SUMMARY shapeB-dense-1000x150 4.0 msPerTick=0.887 nsPerActive=5.9134 alloc=0 setupMs=12.81 loadMs=0.58 bakeMs=1.14 | 5.0@8 msPerTick=1.642 nsPerActive=10.9468 alloc=0 setupMs=26.83 bakeMs=2.02 | 5.0@1 msPerTick=1.549 nsPerActive=10.3261 alloc=0 | ratio5.0/4.0@8=1.85x ratio5.0/4.0@1=1.75x nsRatio@8=1.85x | hash=899da8717fc0b745 params=warmup=20/rounds=3/ticksPerRound=50
+shapeB-dense-10000x150 setupMs=334.08 total=1500000 capacity=10000 heapWorldBytes=294919152 active=1500000
+PASS shapeB-dense-10000x150 oracle-vs-recorded-scale.txt recorded=00a627cec1b67865 actual=00a627cec1b67865
+PASS shapeB-dense-10000x150 5.0 workers=1 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=12.257 nsPerActive=8.1713 visits=1500000 allocPerTick=160
+PASS shapeB-dense-10000x150 5.0 workers=8 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=11.973 nsPerActive=7.9821 visits=1500000 allocPerTick=2088
+shapeB-dense-10000x150 4.0 setupMs=121.07 loadMs=0.12 total=1500000 capacity=10000 heapWorldBytesManaged=72512 active=1500000
+PASS shapeB-dense-10000x150 4.0 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=9.287 nsPerActive=6.1911 visits=1500000 allocPerTick=0 bakeMs=0.77 fiveBakeMs=1.78 gameTlibBytes=5920
+SUMMARY shapeB-dense-10000x150 4.0 msPerTick=9.287 nsPerActive=6.1911 alloc=0 setupMs=121.07 loadMs=0.12 bakeMs=0.77 | 5.0@8 msPerTick=11.973 nsPerActive=7.9821 alloc=2088 setupMs=334.08 bakeMs=1.78 | 5.0@1 msPerTick=12.257 nsPerActive=8.1713 alloc=160 | ratio5.0/4.0@8=1.29x ratio5.0/4.0@1=1.32x nsRatio@8=1.29x | hash=00a627cec1b67865 params=warmup=10/rounds=3/ticksPerRound=20
+TIMELINEBENCH VERIFY PASS

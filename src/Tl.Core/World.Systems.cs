@@ -74,6 +74,191 @@ public sealed unsafe partial class World
     ushort[] _nextTimeline = new ushort[0];
     bool[] _holdTimeline = new bool[0];
     byte[] _channelTimeline = new byte[0];
+    PlaybackIndex _plainTl = new PlaybackIndex();
+    PlaybackIndex _plainCh = new PlaybackIndex();
+    PlaybackIndex _soloTl = new PlaybackIndex();
+    PlaybackIndex _soloCh = new PlaybackIndex();
+
+    static ulong PackTimeline(int row, ushort timeline) => ((ulong)(uint)row << 32) | timeline;
+    static ulong PackChannel(int row, byte channel) => ((ulong)(uint)row << 32) | channel;
+
+    private sealed class PlaybackIndex
+    {
+        const ulong Tombstone = ulong.MaxValue;
+        internal ulong[] Keys = new ulong[128];
+        internal int[] Pos = new int[128];
+        internal int[] Cnt = new int[128];
+        internal int Mask = 127;
+        internal int Count;
+        internal int Tombs;
+
+        static uint Mix(ulong x)
+        {
+            x ^= x >> 33;
+            x *= 0xff51afd7ed558ccdUL;
+            x ^= x >> 33;
+            x *= 0xc4ceb9fe1a85ec53UL;
+            x ^= x >> 33;
+            return (uint)x;
+        }
+
+        internal bool TryGet(ulong key, out int pos, out int cnt)
+        {
+            pos = -1;
+            cnt = 0;
+            var h = (int)(Mix(key) & (uint)Mask);
+            while (true)
+            {
+                var k = Keys[h];
+                if (k == 0) return false;
+                if (k == key)
+                {
+                    pos = Pos[h];
+                    cnt = Cnt[h];
+                    return true;
+                }
+                h = (h + 1) & Mask;
+            }
+        }
+
+        internal int Find(ulong key)
+        {
+            return TryGet(key, out var pos, out _) ? pos : -1;
+        }
+
+        internal void Insert(ulong key, int value)
+        {
+            if ((Count + Tombs + 1) * 10 > (Mask + 1) * 7) Grow();
+            var h = (int)(Mix(key) & (uint)Mask);
+            var tomb = -1;
+            while (true)
+            {
+                var k = Keys[h];
+                if (k == 0)
+                {
+                    var slot = tomb >= 0 ? tomb : h;
+                    Keys[slot] = key;
+                    Pos[slot] = value;
+                    Cnt[slot] = 1;
+                    Count++;
+                    if (tomb >= 0) Tombs--;
+                    return;
+                }
+                if (k == Tombstone)
+                {
+                    if (tomb < 0) tomb = h;
+                }
+                else if (k == key)
+                {
+                    if (value < Pos[h]) Pos[h] = value;
+                    Cnt[h]++;
+                    return;
+                }
+                h = (h + 1) & Mask;
+            }
+        }
+
+        internal void Delete(ulong key)
+        {
+            var h = (int)(Mix(key) & (uint)Mask);
+            while (true)
+            {
+                var k = Keys[h];
+                if (k == 0) return;
+                if (k == key)
+                {
+                    Keys[h] = Tombstone;
+                    Pos[h] = -1;
+                    Cnt[h] = 0;
+                    Count--;
+                    Tombs++;
+                    return;
+                }
+                h = (h + 1) & Mask;
+            }
+        }
+
+        internal void Decrement(ulong key)
+        {
+            var h = (int)(Mix(key) & (uint)Mask);
+            while (true)
+            {
+                var k = Keys[h];
+                if (k == 0) return;
+                if (k == key)
+                {
+                    Cnt[h]--;
+                    return;
+                }
+                h = (h + 1) & Mask;
+            }
+        }
+
+        internal void SetCount(ulong key, int cnt)
+        {
+            var h = (int)(Mix(key) & (uint)Mask);
+            while (true)
+            {
+                var k = Keys[h];
+                if (k == 0) return;
+                if (k == key)
+                {
+                    Cnt[h] = cnt;
+                    return;
+                }
+                h = (h + 1) & Mask;
+            }
+        }
+
+        internal void SetPosIfFirst(ulong key, int oldPos, int newPos)
+        {
+            var h = (int)(Mix(key) & (uint)Mask);
+            while (true)
+            {
+                var k = Keys[h];
+                if (k == 0) return;
+                if (k == key)
+                {
+                    if (Pos[h] == oldPos) Pos[h] = newPos;
+                    return;
+                }
+                h = (h + 1) & Mask;
+            }
+        }
+
+        internal void Clear()
+        {
+            Array.Clear(Keys, 0, Keys.Length);
+            Array.Clear(Pos, 0, Pos.Length);
+            Array.Clear(Cnt, 0, Cnt.Length);
+            Count = 0;
+            Tombs = 0;
+        }
+
+        void Grow()
+        {
+            var newCap = (Mask + 1) * 2;
+            var nk = new ulong[newCap];
+            var np = new int[newCap];
+            var nc = new int[newCap];
+            var nmask = newCap - 1;
+            for (var i = 0; i < Keys.Length; i++)
+            {
+                var k = Keys[i];
+                if (k == 0 || k == Tombstone) continue;
+                var h = (int)(Mix(k) & (uint)nmask);
+                while (nk[h] != 0) h = (h + 1) & nmask;
+                nk[h] = k;
+                np[h] = Pos[i];
+                nc[h] = Cnt[i];
+            }
+            Keys = nk;
+            Pos = np;
+            Cnt = nc;
+            Mask = nmask;
+            Tombs = 0;
+        }
+    }
 
     void InitSystems(int timelineCount)
     {
@@ -261,10 +446,12 @@ public sealed unsafe partial class World
         if (looping)
         {
             EnsurePlaybackCapacity(_playbackCount + 1);
-            _pbRow[_playbackCount] = row.Value;
-            _pbTimeline[_playbackCount] = timeline.Value;
-            _pbPhase[_playbackCount] = (ushort)(phase & 65535);
+            var plainPos = _playbackCount;
+            _pbRow[plainPos] = row.Value;
+            _pbTimeline[plainPos] = timeline.Value;
+            _pbPhase[plainPos] = (ushort)(phase & 65535);
             _playbackCount++;
+            InsertPlain(plainPos);
             _sortedDirty = true;
         }
         else
@@ -278,14 +465,16 @@ public sealed unsafe partial class World
                 tick = at;
             }
             EnsureSoloCapacity(_soloCount + 1);
-            _soloRow[_soloCount] = row.Value;
-            _soloTimeline[_soloCount] = timeline.Value;
-            _soloTick[_soloCount] = (ushort)tick;
-            _soloChannel[_soloCount] = channel;
-            _soloFlags[_soloCount] = 0;
-            _soloRate[_soloCount] = 0;
-            _soloCarry[_soloCount] = 0;
+            var soloPos = _soloCount;
+            _soloRow[soloPos] = row.Value;
+            _soloTimeline[soloPos] = timeline.Value;
+            _soloTick[soloPos] = (ushort)tick;
+            _soloChannel[soloPos] = channel;
+            _soloFlags[soloPos] = 0;
+            _soloRate[soloPos] = 0;
+            _soloCarry[soloPos] = 0;
             _soloCount++;
+            InsertSolo(soloPos);
         }
     }
 
@@ -499,14 +688,16 @@ public sealed unsafe partial class World
         var channel = _channelTimeline[timeline - 1];
         RemovePlainAt(plain);
         EnsureSoloCapacity(_soloCount + 1);
-        _soloRow[_soloCount] = row;
-        _soloTimeline[_soloCount] = timeline;
-        _soloTick[_soloCount] = (ushort)tick;
-        _soloChannel[_soloCount] = channel;
-        _soloFlags[_soloCount] = 0;
-        _soloRate[_soloCount] = 0;
-        _soloCarry[_soloCount] = 0;
+        var promotedPos = _soloCount;
+        _soloRow[promotedPos] = row;
+        _soloTimeline[promotedPos] = timeline;
+        _soloTick[promotedPos] = (ushort)tick;
+        _soloChannel[promotedPos] = channel;
+        _soloFlags[promotedPos] = 0;
+        _soloRate[promotedPos] = 0;
+        _soloCarry[promotedPos] = 0;
         _soloCount++;
+        InsertSolo(promotedPos);
         return _soloCount - 1;
     }
 
@@ -521,14 +712,16 @@ public sealed unsafe partial class World
             if (tick < 0) tick = 0;
             RemovePlainAt(plain);
             EnsureSoloCapacity(_soloCount + 1);
-            _soloRow[_soloCount] = row;
-            _soloTimeline[_soloCount] = timeline;
-            _soloTick[_soloCount] = (ushort)tick;
-            _soloChannel[_soloCount] = channel;
-            _soloFlags[_soloCount] = 0;
-            _soloRate[_soloCount] = 0;
-            _soloCarry[_soloCount] = 0;
+            var channelPromotedPos = _soloCount;
+            _soloRow[channelPromotedPos] = row;
+            _soloTimeline[channelPromotedPos] = timeline;
+            _soloTick[channelPromotedPos] = (ushort)tick;
+            _soloChannel[channelPromotedPos] = channel;
+            _soloFlags[channelPromotedPos] = 0;
+            _soloRate[channelPromotedPos] = 0;
+            _soloCarry[channelPromotedPos] = 0;
             _soloCount++;
+            InsertSolo(channelPromotedPos);
             return _soloCount - 1;
         }
         return FindSoloChannel(row, channel);
@@ -536,46 +729,244 @@ public sealed unsafe partial class World
 
     int FindPlain(int row, ushort timeline)
     {
-        for (var i = 0; i < _playbackCount; i++)
-            if (_pbRow[i] == row && _pbTimeline[i] == timeline) return i;
-        return -1;
+        return _plainTl.Find(PackTimeline(row, timeline));
     }
 
     int FindPlainChannel(int row, byte channel)
     {
         if (channel == 0) return -1;
-        for (var i = 0; i < _playbackCount; i++)
-            if (_pbRow[i] == row && _channelTimeline[_pbTimeline[i] - 1] == channel) return i;
-        return -1;
+        return _plainCh.Find(PackChannel(row, channel));
     }
 
     int FindSolo(int row, ushort timeline)
     {
-        for (var i = 0; i < _soloCount; i++)
-            if (_soloRow[i] == row && _soloTimeline[i] == timeline) return i;
-        return -1;
+        return _soloTl.Find(PackTimeline(row, timeline));
     }
 
     int FindSoloChannel(int row, byte channel)
     {
         if (channel == 0) return -1;
+        return _soloCh.Find(PackChannel(row, channel));
+    }
+
+    void InsertPlain(int pos)
+    {
+        var row = _pbRow[pos];
+        var timeline = _pbTimeline[pos];
+        _plainTl.Insert(PackTimeline(row, timeline), pos);
+        var channel = _channelTimeline[timeline - 1];
+        if (channel != 0) _plainCh.Insert(PackChannel(row, channel), pos);
+    }
+
+    void InsertSolo(int pos)
+    {
+        var row = _soloRow[pos];
+        var timeline = _soloTimeline[pos];
+        _soloTl.Insert(PackTimeline(row, timeline), pos);
+        var channel = _soloChannel[pos];
+        if (channel != 0) _soloCh.Insert(PackChannel(row, channel), pos);
+    }
+
+    void RemovePlainTlKey(ulong key, int removedPos, bool sameAsSwapped)
+    {
+        if (sameAsSwapped)
+        {
+            _plainTl.Decrement(key);
+            return;
+        }
+        if (!_plainTl.TryGet(key, out var pos, out var cnt)) return;
+        if (pos != removedPos)
+        {
+            _plainTl.Decrement(key);
+            return;
+        }
+        if (cnt <= 1)
+        {
+            _plainTl.Delete(key);
+            return;
+        }
+        var first = -1;
+        var total = 0;
+        for (var i = 0; i < _playbackCount; i++)
+        {
+            if (PackTimeline(_pbRow[i], _pbTimeline[i]) != key) continue;
+            if (first < 0) first = i;
+            total++;
+        }
+        if (total == 0) _plainTl.Delete(key);
+        else
+        {
+            _plainTl.Delete(key);
+            _plainTl.Insert(key, first);
+            _plainTl.SetCount(key, total);
+        }
+    }
+
+    void RemovePlainChKey(ulong key, int removedPos, bool sameAsSwapped)
+    {
+        if (sameAsSwapped)
+        {
+            _plainCh.Decrement(key);
+            return;
+        }
+        if (!_plainCh.TryGet(key, out var pos, out var cnt)) return;
+        if (pos != removedPos)
+        {
+            _plainCh.Decrement(key);
+            return;
+        }
+        if (cnt <= 1)
+        {
+            _plainCh.Delete(key);
+            return;
+        }
+        var first = -1;
+        var total = 0;
+        for (var i = 0; i < _playbackCount; i++)
+        {
+            var timeline = _pbTimeline[i];
+            var channel = _channelTimeline[timeline - 1];
+            if (channel == 0 || PackChannel(_pbRow[i], channel) != key) continue;
+            if (first < 0) first = i;
+            total++;
+        }
+        if (total == 0) _plainCh.Delete(key);
+        else
+        {
+            _plainCh.Delete(key);
+            _plainCh.Insert(key, first);
+            _plainCh.SetCount(key, total);
+        }
+    }
+
+    void RemoveSoloTlKey(ulong key, int removedPos, bool sameAsSwapped)
+    {
+        if (sameAsSwapped)
+        {
+            _soloTl.Decrement(key);
+            return;
+        }
+        if (!_soloTl.TryGet(key, out var pos, out var cnt)) return;
+        if (pos != removedPos)
+        {
+            _soloTl.Decrement(key);
+            return;
+        }
+        if (cnt <= 1)
+        {
+            _soloTl.Delete(key);
+            return;
+        }
+        var first = -1;
+        var total = 0;
         for (var i = 0; i < _soloCount; i++)
-            if (_soloRow[i] == row && _soloChannel[i] == channel) return i;
-        return -1;
+        {
+            if (PackTimeline(_soloRow[i], _soloTimeline[i]) != key) continue;
+            if (first < 0) first = i;
+            total++;
+        }
+        if (total == 0) _soloTl.Delete(key);
+        else
+        {
+            _soloTl.Delete(key);
+            _soloTl.Insert(key, first);
+            _soloTl.SetCount(key, total);
+        }
+    }
+
+    void RemoveSoloChKey(ulong key, int removedPos, bool sameAsSwapped)
+    {
+        if (sameAsSwapped)
+        {
+            _soloCh.Decrement(key);
+            return;
+        }
+        if (!_soloCh.TryGet(key, out var pos, out var cnt)) return;
+        if (pos != removedPos)
+        {
+            _soloCh.Decrement(key);
+            return;
+        }
+        if (cnt <= 1)
+        {
+            _soloCh.Delete(key);
+            return;
+        }
+        var first = -1;
+        var total = 0;
+        for (var i = 0; i < _soloCount; i++)
+        {
+            var channel = _soloChannel[i];
+            if (channel == 0 || PackChannel(_soloRow[i], channel) != key) continue;
+            if (first < 0) first = i;
+            total++;
+        }
+        if (total == 0) _soloCh.Delete(key);
+        else
+        {
+            _soloCh.Delete(key);
+            _soloCh.Insert(key, first);
+            _soloCh.SetCount(key, total);
+        }
     }
 
     void RemovePlainAt(int index)
     {
+        var removedRow = _pbRow[index];
+        var removedTimeline = _pbTimeline[index];
+        var removedChannel = _channelTimeline[removedTimeline - 1];
+        var removedTimelineKey = PackTimeline(removedRow, removedTimeline);
+        var removedChannelKey = removedChannel != 0 ? PackChannel(removedRow, removedChannel) : 0;
+        var hasRemovedChannel = removedChannel != 0;
         var last = --_playbackCount;
+        var hasSwap = index != last;
+        var swappedTimelineKey = 0ul;
+        var swappedChannelKey = 0ul;
+        var hasSwappedChannel = false;
+        if (hasSwap)
+        {
+            var swappedRow = _pbRow[last];
+            var swappedTimeline = _pbTimeline[last];
+            swappedTimelineKey = PackTimeline(swappedRow, swappedTimeline);
+            var swappedChannel = _channelTimeline[swappedTimeline - 1];
+            hasSwappedChannel = swappedChannel != 0;
+            if (hasSwappedChannel) swappedChannelKey = PackChannel(swappedRow, swappedChannel);
+        }
         _pbRow[index] = _pbRow[last];
         _pbTimeline[index] = _pbTimeline[last];
         _pbPhase[index] = _pbPhase[last];
         _sortedDirty = true;
+        RemovePlainTlKey(removedTimelineKey, index, hasSwap && removedTimelineKey == swappedTimelineKey);
+        if (hasRemovedChannel) RemovePlainChKey(removedChannelKey, index, hasSwap && hasSwappedChannel && removedChannelKey == swappedChannelKey);
+        if (hasSwap)
+        {
+            if (removedTimelineKey != swappedTimelineKey) _plainTl.SetPosIfFirst(swappedTimelineKey, last, index);
+            if (hasSwappedChannel && (!hasRemovedChannel || removedChannelKey != swappedChannelKey)) _plainCh.SetPosIfFirst(swappedChannelKey, last, index);
+        }
     }
 
     void RemoveSoloAt(int index)
     {
+        var removedRow = _soloRow[index];
+        var removedTimeline = _soloTimeline[index];
+        var removedChannel = _soloChannel[index];
+        var removedTimelineKey = PackTimeline(removedRow, removedTimeline);
+        var removedChannelKey = removedChannel != 0 ? PackChannel(removedRow, removedChannel) : 0;
+        var hasRemovedChannel = removedChannel != 0;
         var last = --_soloCount;
+        var hasSwap = index != last;
+        var swappedTimelineKey = 0ul;
+        var swappedChannelKey = 0ul;
+        var hasSwappedChannel = false;
+        if (hasSwap)
+        {
+            var swappedRow = _soloRow[last];
+            var swappedTimeline = _soloTimeline[last];
+            swappedTimelineKey = PackTimeline(swappedRow, swappedTimeline);
+            var swappedChannel = _soloChannel[last];
+            hasSwappedChannel = swappedChannel != 0;
+            if (hasSwappedChannel) swappedChannelKey = PackChannel(swappedRow, swappedChannel);
+        }
         _soloRow[index] = _soloRow[last];
         _soloTimeline[index] = _soloTimeline[last];
         _soloTick[index] = _soloTick[last];
@@ -583,6 +974,13 @@ public sealed unsafe partial class World
         _soloFlags[index] = _soloFlags[last];
         _soloRate[index] = _soloRate[last];
         _soloCarry[index] = _soloCarry[last];
+        RemoveSoloTlKey(removedTimelineKey, index, hasSwap && removedTimelineKey == swappedTimelineKey);
+        if (hasRemovedChannel) RemoveSoloChKey(removedChannelKey, index, hasSwap && hasSwappedChannel && removedChannelKey == swappedChannelKey);
+        if (hasSwap)
+        {
+            if (removedTimelineKey != swappedTimelineKey) _soloTl.SetPosIfFirst(swappedTimelineKey, last, index);
+            if (hasSwappedChannel && (!hasRemovedChannel || removedChannelKey != swappedChannelKey)) _soloCh.SetPosIfFirst(swappedChannelKey, last, index);
+        }
     }
 
     void EnsureSoloCapacity(int needed)
@@ -711,6 +1109,13 @@ public sealed unsafe partial class World
     {
         if (timeline.Value == 0 || timeline.Value > _channelTimeline.Length) throw new ArgumentOutOfRangeException(nameof(timeline));
         _channelTimeline[timeline.Value - 1] = channel;
+        _plainCh.Clear();
+        for (var i = 0; i < _playbackCount; i++)
+        {
+            var playbackTimeline = _pbTimeline[i];
+            var playbackChannel = _channelTimeline[playbackTimeline - 1];
+            if (playbackChannel != 0) _plainCh.Insert(PackChannel(_pbRow[i], playbackChannel), i);
+        }
     }
 
     public byte ChannelOf(TimelineId timeline)
@@ -816,9 +1221,27 @@ public sealed unsafe partial class World
         var next = _nextTimeline[timeline - 1];
         if (next != 0 && next <= _duration.Length && _duration[next - 1] > 0)
         {
+            var row = _soloRow[index];
+            var oldTimeline = timeline;
+            var oldChannel = _soloChannel[index];
+            var nextChannel = _channelTimeline[next - 1];
+            var timelineChanged = next != oldTimeline;
+            var channelChanged = nextChannel != oldChannel;
             _soloTimeline[index] = next;
-            _soloChannel[index] = _channelTimeline[next - 1];
+            _soloChannel[index] = nextChannel;
             _soloTick[index] = (ushort)(effectiveDir > 0 ? 0 : _duration[next - 1] - 1);
+            if (timelineChanged || channelChanged)
+            {
+                var oldTimelineKey = PackTimeline(row, oldTimeline);
+                var nextTimelineKey = PackTimeline(row, next);
+                if (timelineChanged) RemoveSoloTlKey(oldTimelineKey, index, false);
+                if (channelChanged)
+                {
+                    if (oldChannel != 0) RemoveSoloChKey(PackChannel(row, oldChannel), index, false);
+                    if (nextChannel != 0) _soloCh.Insert(PackChannel(row, nextChannel), index);
+                }
+                if (timelineChanged) _soloTl.Insert(nextTimelineKey, index);
+            }
             return true;
         }
         if (_holdTimeline[timeline - 1])

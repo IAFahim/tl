@@ -348,7 +348,7 @@ public static class LargeBench
             Free(data);
             GC.Collect();
         }
-        emit("world-start-cost note: setup is O(active^2) via FindPlain linear scan; dense-active 1M/4M setup was NOT attempted (would be ~1e3-1e5x the 32768 setup)");
+        emit("world-start-cost note: setup is O(active) via packed hash index (measured; dense-active 1M/4M in ScaleBench)");
         return 0;
     }
 

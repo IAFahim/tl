@@ -4,6 +4,9 @@ Console.WriteLine($"Vector HW accel={System.Numerics.Vector.IsHardwareAccelerate
 if (args.Contains("--probe")) return Probe.Run();
 if (args.Contains("--large-verify")) return LargeBench.Run(true);
 if (args.Contains("--large")) return LargeBench.Run(false);
+if (args.Contains("--timelinebench")) return TimelineBench.Run();
+if (args.Contains("--scale")) return ScaleBench.Run();
+if (args.Contains("--worldbench-dense")) return WorldBench.RunWorldDensePlayer();
 if (args.Contains("--worldbench")) return WorldBench.RunWorld();
 
 if (args.Contains("--verify") || !args.Contains("--bench"))

@@ -133,6 +133,9 @@ public sealed unsafe partial class World : IDisposable
     private int _playbackCount;
     private TickReport _report;
     private bool _sortedDirty = true;
+    private int[] _activeRows = new int[0];
+    private int _activeRowCount;
+    internal int _workers;
 
     public World(Library library, int rowCapacity)
     {
@@ -305,7 +308,7 @@ public sealed unsafe partial class World : IDisposable
             var soloVisits = 0;
             if (_soloCount != 0) soloVisits = StepSolo(dir);
             if (soloVisits > _highWater) _highWater = soloVisits;
-            Array.Copy(_acc, _applied, _rowCapacity);
+            CopyActiveToApplied();
             _report = new TickReport(invalid, _highWater, n + _soloCount, _frame);
             return;
         }
@@ -318,14 +321,14 @@ public sealed unsafe partial class World : IDisposable
                 _workPhase[i] = _pbPhase[i];
             }
             SortCohort(n);
+            BuildActiveRows(n);
             _sortedDirty = false;
         }
         var runCount = BuildAndPrepareRuns(n, dir);
         var laneDir = dir < 0 ? LaneDirection.Backward : LaneDirection.Forward;
-        var totalVisits = 0;
-        if (_rowCapacity >= ParallelThresholdRows)
+        var totalVisits = CountVisits();
+        if (totalVisits >= ParallelThresholdRows && _activeRowCount >= ParallelThresholdRows)
         {
-            totalVisits = CountVisits();
             RunParallel(laneDir);
         }
         else
@@ -351,7 +354,6 @@ public sealed unsafe partial class World : IDisposable
                         if (tick < windowStart || tick >= windowEnd) continue;
                         var value = _library.LaneValue(globalStep, laneDir, tick);
                         var length = _runLength[runPos];
-                        totalVisits += length;
                         var offset = _runStart[runPos];
                         if (_runDense[runPos])
                         {
@@ -367,7 +369,7 @@ public sealed unsafe partial class World : IDisposable
         }
         if (_soloCount != 0) totalVisits += StepSolo(dir);
         if (totalVisits > _highWater) _highWater = totalVisits;
-        Array.Copy(_acc, _applied, _rowCapacity);
+        CopyActiveToApplied();
         _report = new TickReport(invalid, _highWater, n + _soloCount, _frame);
     }
 
@@ -469,52 +471,130 @@ public sealed unsafe partial class World : IDisposable
 
     private void RunParallel(LaneDirection laneDir)
     {
-        ParallelApply.ForEachChunk(_rowCapacity, 0, (rowStart, rowEnd) => AccumulateRowChunk(rowStart, rowEnd, laneDir));
-    }
-
-    private void AccumulateRowChunk(int rowStart, int rowEnd, LaneDirection laneDir)
-    {
-        if (rowStart >= rowEnd) return;
+        var activeCount = _activeRowCount;
+        if (activeCount == 0) return;
+        var workers = _workers;
         for (var k = 0; k < _kindSorted.Length; k++)
         {
-            var stepStart = _kindStepStart[k];
-            var stepEnd = _kindStepEnd[k];
-            for (var s = stepStart; s < stepEnd; s++)
+            var kindIndex = k;
+            ParallelApply.ForEachChunk(activeCount, workers, (chunkStart, chunkEnd) => ApplyKindChunk(chunkStart, chunkEnd, kindIndex, laneDir));
+        }
+    }
+
+    private void ApplyKindChunk(int chunkStart, int chunkEnd, int kindIndex, LaneDirection laneDir)
+    {
+        if (chunkStart >= chunkEnd) return;
+        var low = _activeRows[chunkStart];
+        var high = chunkEnd < _activeRowCount ? _activeRows[chunkEnd] : _activeRows[_activeRowCount - 1] + 1;
+        var stepStart = _kindStepStart[kindIndex];
+        var stepEnd = _kindStepEnd[kindIndex];
+        for (var s = stepStart; s < stepEnd; s++)
+        {
+            var flat = _stepSorted[s];
+            var timelineIndex = _stepTimeline[flat] - 1;
+            var runIndex = _timelineRunStart[timelineIndex];
+            if (runIndex < 0) continue;
+            var runsForTimeline = _timelineRunCount[timelineIndex];
+            var globalStep = _stepGlobal[flat];
+            var windowStart = _stepWindowStart[flat];
+            var windowEnd = _stepWindowEnd[flat];
+            for (var r = 0; r < runsForTimeline; r++)
             {
-                var flat = _stepSorted[s];
-                var timelineIndex = _stepTimeline[flat] - 1;
-                var runIndex = _timelineRunStart[timelineIndex];
-                if (runIndex < 0) continue;
-                var runsForTimeline = _timelineRunCount[timelineIndex];
-                var globalStep = _stepGlobal[flat];
-                var windowStart = _stepWindowStart[flat];
-                var windowEnd = _stepWindowEnd[flat];
-                for (var r = 0; r < runsForTimeline; r++)
+                var runPos = runIndex + r;
+                var tick = _runTick[runPos];
+                if (tick < windowStart || tick >= windowEnd) continue;
+                var value = _library.LaneValue(globalStep, laneDir, tick);
+                var length = _runLength[runPos];
+                var offset = _runStart[runPos];
+                if (_runDense[runPos])
                 {
-                    var runPos = runIndex + r;
-                    var tick = _runTick[runPos];
-                    if (tick < windowStart || tick >= windowEnd) continue;
-                    var value = _library.LaneValue(globalStep, laneDir, tick);
-                    var length = _runLength[runPos];
-                    var offset = _runStart[runPos];
-                    if (_runDense[runPos])
-                    {
-                        var firstRow = _groupRows[offset];
-                        var lastRow = firstRow + length - 1;
-                        var overlapStart = firstRow < rowStart ? rowStart : firstRow;
-                        var overlapEnd = lastRow + 1 < rowEnd ? lastRow + 1 : rowEnd;
-                        if (overlapStart < overlapEnd) Kernels.BroadcastDense(_acc, overlapStart, value, overlapEnd - overlapStart);
-                    }
-                    else
-                    {
-                        var segmentStart = 0;
-                        while (segmentStart < length && _groupRows[offset + segmentStart] < rowStart) segmentStart++;
-                        var segmentEnd = segmentStart;
-                        while (segmentEnd < length && _groupRows[offset + segmentEnd] < rowEnd) segmentEnd++;
-                        if (segmentStart < segmentEnd) Kernels.BroadcastSparse(_acc, 0, _groupRows, offset + segmentStart, segmentEnd - segmentStart, value);
-                    }
+                    var firstRow = _groupRows[offset];
+                    var lastRow = firstRow + length - 1;
+                    var overlapStart = firstRow < low ? low : firstRow;
+                    var overlapEnd = lastRow + 1 < high ? lastRow + 1 : high;
+                    if (overlapStart < overlapEnd) Kernels.BroadcastDense(_acc, overlapStart, value, overlapEnd - overlapStart);
+                }
+                else
+                {
+                    var segmentStart = LowerBound(_groupRows, offset, length, low);
+                    var segmentEnd = LowerBound(_groupRows, offset, length, high);
+                    if (segmentStart < segmentEnd) Kernels.BroadcastSparse(_acc, 0, _groupRows, offset + segmentStart, segmentEnd - segmentStart, value);
                 }
             }
+        }
+    }
+
+    private static int LowerBound(int[] rows, int start, int length, int value)
+    {
+        var lo = 0;
+        var hi = length;
+        while (lo < hi)
+        {
+            var mid = lo + ((hi - lo) >> 1);
+            if (rows[start + mid] < value) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
+    }
+
+    private void BuildActiveRows(int n)
+    {
+        if (_activeRows.Length < n)
+        {
+            var cap = n > _activeRows.Length * 2 ? n : _activeRows.Length * 2;
+            if (cap < 64) cap = 64;
+            Array.Resize(ref _activeRows, cap);
+        }
+        if (n == 0)
+        {
+            _activeRowCount = 0;
+            return;
+        }
+        Array.Copy(_pbRow, _activeRows, n);
+        var sorted = true;
+        for (var i = 1; i < n; i++)
+        {
+            if (_activeRows[i] < _activeRows[i - 1])
+            {
+                sorted = false;
+                break;
+            }
+        }
+        if (!sorted) Array.Sort(_activeRows, 0, n);
+        var m = 0;
+        for (var i = 0; i < n; i++)
+        {
+            var row = _activeRows[i];
+            if (m > 0 && _activeRows[m - 1] == row) continue;
+            _activeRows[m++] = row;
+        }
+        _activeRowCount = m;
+    }
+
+    private void CopyActiveToApplied()
+    {
+        if (_playbackCount > 0 && _activeRowCount > 0)
+        {
+            for (var i = 0; i < _activeRowCount; i++)
+            {
+                var row = _activeRows[i];
+                _applied[row] = _acc[row];
+            }
+        }
+        else if (_playbackCount > 0)
+        {
+            var plainCount = _playbackCount;
+            for (var i = 0; i < plainCount; i++)
+            {
+                var row = _pbRow[i];
+                _applied[row] = _acc[row];
+            }
+        }
+        var soloCount = _soloCount;
+        for (var i = 0; i < soloCount; i++)
+        {
+            var row = _soloRow[i];
+            _applied[row] = _acc[row];
         }
     }
 

@@ -7,10 +7,10 @@ PASS hostile-1024 LaneGatherScalar oracle=82a8e96a769cf325 actual=82a8e96a769cf3
 ALLOC hostile-1024 BroadcastSparse warm 50 ticks: 0 B
 ALLOC hostile-1024 RunBroadcast warm 50 ticks: 0 B
 ALLOC hostile-1024 LaneGatherScalar warm 50 ticks: 0 B
-hostile-1024 ScalarPhase | 0.854 ns/entity gain-vs-baseline=17.52x sink-check
-hostile-1024 BroadcastSparse | 0.406 ns/entity gain-vs-baseline=36.82x gain-vs-scalar=2.10x
-hostile-1024 RunBroadcast | 1.444 ns/entity gain-vs-baseline=10.36x gain-vs-scalar=0.59x
-hostile-1024 LaneGatherScalar | 0.833 ns/entity gain-vs-baseline=17.97x gain-vs-scalar=1.03x
+hostile-1024 ScalarPhase | 1.093 ns/entity gain-vs-baseline=13.69x sink-check
+hostile-1024 BroadcastSparse | 0.432 ns/entity gain-vs-baseline=34.62x gain-vs-scalar=2.53x
+hostile-1024 RunBroadcast | 1.656 ns/entity gain-vs-baseline=9.03x gain-vs-scalar=0.66x
+hostile-1024 LaneGatherScalar | 0.963 ns/entity gain-vs-baseline=15.53x gain-vs-scalar=1.13x
 --- N=1000000 data bytes: acc=4000000 row=4000000 phase=2000000 sortedRow=4000000 sortedPhase=2000000 total=16004096 heapTotal=14380832
 PASS hostile-1M BroadcastSparse oracle=de19a84362c63025 actual=de19a84362c63025
 PASS hostile-1M RunBroadcast oracle=a8b9a0a1dc37d025 actual=a8b9a0a1dc37d025
@@ -18,10 +18,10 @@ PASS hostile-1M LaneGatherScalar oracle=a8b9a0a1dc37d025 actual=a8b9a0a1dc37d025
 ALLOC hostile-1M BroadcastSparse warm 50 ticks: 0 B
 ALLOC hostile-1M RunBroadcast warm 50 ticks: 0 B
 ALLOC hostile-1M LaneGatherScalar warm 50 ticks: 0 B
-hostile-1M ScalarPhase | 1.307 ns/entity gain-vs-baseline=11.45x sink-check
-hostile-1M BroadcastSparse | 0.688 ns/entity gain-vs-baseline=21.73x gain-vs-scalar=1.90x
-hostile-1M RunBroadcast | 1.571 ns/entity gain-vs-baseline=9.52x gain-vs-scalar=0.83x
-hostile-1M LaneGatherScalar | 1.294 ns/entity gain-vs-baseline=11.56x gain-vs-scalar=1.01x
+hostile-1M ScalarPhase | 1.617 ns/entity gain-vs-baseline=9.25x sink-check
+hostile-1M BroadcastSparse | 0.825 ns/entity gain-vs-baseline=18.12x gain-vs-scalar=1.96x
+hostile-1M RunBroadcast | 1.771 ns/entity gain-vs-baseline=8.45x gain-vs-scalar=0.91x
+hostile-1M LaneGatherScalar | 1.488 ns/entity gain-vs-baseline=10.05x gain-vs-scalar=1.09x
 --- N=4000000 data bytes: acc=16000000 row=16000000 phase=8000000 sortedRow=16000000 sortedPhase=8000000 total=64004096 heapTotal=56388936
 PASS hostile-4M BroadcastSparse oracle=f1d41c2e43525725 actual=f1d41c2e43525725
 PASS hostile-4M RunBroadcast oracle=fe2cd14f08e9b725 actual=fe2cd14f08e9b725
@@ -29,32 +29,32 @@ PASS hostile-4M LaneGatherScalar oracle=fe2cd14f08e9b725 actual=fe2cd14f08e9b725
 ALLOC hostile-4M BroadcastSparse warm 50 ticks: 0 B
 ALLOC hostile-4M RunBroadcast warm 50 ticks: 0 B
 ALLOC hostile-4M LaneGatherScalar warm 50 ticks: 0 B
-hostile-4M ScalarPhase | 4.215 ns/entity gain-vs-baseline=3.55x sink-check
-hostile-4M BroadcastSparse | 2.898 ns/entity gain-vs-baseline=5.16x gain-vs-scalar=1.45x
-hostile-4M RunBroadcast | 11.428 ns/entity gain-vs-baseline=1.31x gain-vs-scalar=0.37x
-hostile-4M LaneGatherScalar | 4.562 ns/entity gain-vs-baseline=3.28x gain-vs-scalar=0.92x
-SUMMARY N=1024 ScalarPhase ns/entity=0.854 scalar=0.854 gainBaseline=17.52x gainScalar=1.00x
-SUMMARY N=1024 BroadcastSparse ns/entity=0.406 scalar=0.854 gainBaseline=36.82x gainScalar=2.10x
-SUMMARY N=1024 RunBroadcast ns/entity=1.444 scalar=0.854 gainBaseline=10.36x gainScalar=0.59x
-SUMMARY N=1024 LaneGatherScalar ns/entity=0.833 scalar=0.854 gainBaseline=17.97x gainScalar=1.03x
-SUMMARY N=1000000 ScalarPhase ns/entity=1.307 scalar=1.307 gainBaseline=11.45x gainScalar=1.00x
-SUMMARY N=1000000 BroadcastSparse ns/entity=0.688 scalar=1.307 gainBaseline=21.73x gainScalar=1.90x
-SUMMARY N=1000000 RunBroadcast ns/entity=1.571 scalar=1.307 gainBaseline=9.52x gainScalar=0.83x
-SUMMARY N=1000000 LaneGatherScalar ns/entity=1.294 scalar=1.307 gainBaseline=11.56x gainScalar=1.01x
-SUMMARY N=4000000 ScalarPhase ns/entity=4.215 scalar=4.215 gainBaseline=3.55x gainScalar=1.00x
-SUMMARY N=4000000 BroadcastSparse ns/entity=2.898 scalar=4.215 gainBaseline=5.16x gainScalar=1.45x
-SUMMARY N=4000000 RunBroadcast ns/entity=11.428 scalar=4.215 gainBaseline=1.31x gainScalar=0.37x
-SUMMARY N=4000000 LaneGatherScalar ns/entity=4.562 scalar=4.215 gainBaseline=3.28x gainScalar=0.92x
-world-start-cost dense-active=1024 setupFirstTickSec=0.008 tickNsPerEntity=8.249 visits=1024
-world-start-cost dense-active=8192 setupFirstTickSec=0.024 tickNsPerEntity=9.765 visits=8192
-world-start-cost dense-active=32768 setupFirstTickSec=0.193 tickNsPerEntity=6.214 visits=32768
+hostile-4M ScalarPhase | 5.904 ns/entity gain-vs-baseline=2.53x sink-check
+hostile-4M BroadcastSparse | 4.286 ns/entity gain-vs-baseline=3.49x gain-vs-scalar=1.38x
+hostile-4M RunBroadcast | 14.159 ns/entity gain-vs-baseline=1.06x gain-vs-scalar=0.42x
+hostile-4M LaneGatherScalar | 5.713 ns/entity gain-vs-baseline=2.62x gain-vs-scalar=1.03x
+SUMMARY N=1024 ScalarPhase ns/entity=1.093 scalar=1.093 gainBaseline=13.69x gainScalar=1.00x
+SUMMARY N=1024 BroadcastSparse ns/entity=0.432 scalar=1.093 gainBaseline=34.62x gainScalar=2.53x
+SUMMARY N=1024 RunBroadcast ns/entity=1.656 scalar=1.093 gainBaseline=9.03x gainScalar=0.66x
+SUMMARY N=1024 LaneGatherScalar ns/entity=0.963 scalar=1.093 gainBaseline=15.53x gainScalar=1.13x
+SUMMARY N=1000000 ScalarPhase ns/entity=1.617 scalar=1.617 gainBaseline=9.25x gainScalar=1.00x
+SUMMARY N=1000000 BroadcastSparse ns/entity=0.825 scalar=1.617 gainBaseline=18.12x gainScalar=1.96x
+SUMMARY N=1000000 RunBroadcast ns/entity=1.771 scalar=1.617 gainBaseline=8.45x gainScalar=0.91x
+SUMMARY N=1000000 LaneGatherScalar ns/entity=1.488 scalar=1.617 gainBaseline=10.05x gainScalar=1.09x
+SUMMARY N=4000000 ScalarPhase ns/entity=5.904 scalar=5.904 gainBaseline=2.53x gainScalar=1.00x
+SUMMARY N=4000000 BroadcastSparse ns/entity=4.286 scalar=5.904 gainBaseline=3.49x gainScalar=1.38x
+SUMMARY N=4000000 RunBroadcast ns/entity=14.159 scalar=5.904 gainBaseline=1.06x gainScalar=0.42x
+SUMMARY N=4000000 LaneGatherScalar ns/entity=5.713 scalar=5.904 gainBaseline=2.62x gainScalar=1.03x
+world-start-cost dense-active=1024 setupFirstTickSec=0.007 tickNsPerEntity=14.316 visits=1024
+world-start-cost dense-active=8192 setupFirstTickSec=0.014 tickNsPerEntity=12.336 visits=8192
+world-start-cost dense-active=32768 setupFirstTickSec=0.009 tickNsPerEntity=7.145 visits=32768
 world-start-cost note: setup is O(active^2) via FindPlain linear scan; dense-active 1M/4M setup was NOT attempted (would be ~1e3-1e5x the 32768 setup)
 PASS world-hostile-1M sparse-capacity-dense-window active=4096 oracle=1303e1f036d97025 world=1303e1f036d97025
-world-hostile-1M sparse-capacity-dense-window ns/capacity-row=0.124 ns/active-visit=30.392 visits/tick=4096 gainBaseline-perCapacity=120.17x heapWorldBytes=69558960 worldAllocPerTick=2162
+world-hostile-1M sparse-capacity-dense-window ns/capacity-row=0.089 ns/active-visit=21.847 visits/tick=4096 gainBaseline-perCapacity=167.18x heapWorldBytes=69829864 worldAllocPerTick=2187
 PASS world-hostile-1M sparse-capacity-sparse-window-40/1024 active=4096 oracle=a0dbd5b6c77b7025 world=a0dbd5b6c77b7025
-world-hostile-1M sparse-capacity-sparse-window-40/1024 ns/capacity-row=0.086 ns/active-visit=509.361 visits/tick=169 gainBaseline-perCapacity=173.79x heapWorldBytes=69542512 worldAllocPerTick=2280
+world-hostile-1M sparse-capacity-sparse-window-40/1024 ns/capacity-row=0.022 ns/active-visit=127.846 visits/tick=169 gainBaseline-perCapacity=692.40x heapWorldBytes=69764072 worldAllocPerTick=0
 PASS world-hostile-4M sparse-capacity-dense-window active=4096 oracle=99a3fae8a39bb725 world=99a3fae8a39bb725
-world-hostile-4M sparse-capacity-dense-window ns/capacity-row=0.124 ns/active-visit=121.003 visits/tick=4096 gainBaseline-perCapacity=120.74x heapWorldBytes=276534288 worldAllocPerTick=2177
+world-hostile-4M sparse-capacity-dense-window ns/capacity-row=0.025 ns/active-visit=24.784 visits/tick=4096 gainBaseline-perCapacity=589.46x heapWorldBytes=276813416 worldAllocPerTick=2182
 PASS world-hostile-4M sparse-capacity-sparse-window-40/1024 active=4096 oracle=04d39dfebb59d725 world=04d39dfebb59d725
-world-hostile-4M sparse-capacity-sparse-window-40/1024 ns/capacity-row=0.107 ns/active-visit=2587.414 visits/tick=165 gainBaseline-perCapacity=140.17x heapWorldBytes=276484944 worldAllocPerTick=2299
+world-hostile-4M sparse-capacity-sparse-window-40/1024 ns/capacity-row=0.008 ns/active-visit=187.515 visits/tick=165 gainBaseline-perCapacity=1934.07x heapWorldBytes=276762016 worldAllocPerTick=0
 LARGE VERIFY PASS
