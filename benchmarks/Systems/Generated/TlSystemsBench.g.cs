@@ -175,8 +175,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -245,6 +255,7 @@ break;
 }
 }
 }
+}
 internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, float* __c0, int __n)
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
@@ -289,8 +300,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -371,6 +392,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -444,8 +466,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -508,6 +540,7 @@ break;
 }
 }
 }
+}
 internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n)
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
@@ -552,8 +585,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -628,6 +671,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -701,8 +745,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -761,6 +815,7 @@ break;
 }
 }
 }
+}
 internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, int* __c0, float* __c1, int __n)
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
@@ -805,8 +860,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -877,6 +942,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -1046,8 +1112,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -1194,6 +1270,7 @@ break;
 }
 }
 }
+}
 internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, short* __c2, sbyte* __c3, int __n)
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
@@ -1283,8 +1360,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -1443,6 +1530,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -1548,8 +1636,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -1616,6 +1714,7 @@ break;
 }
 }
 }
+}
 internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, int* __c0, short* __c1, int __n)
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
@@ -1675,8 +1774,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -1755,6 +1864,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -3844,8 +3954,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -4904,6 +5024,7 @@ break;
 }
 }
 }
+}
 internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, int __n, ref global::Bench.Shared __ctx0)
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
@@ -5893,8 +6014,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -6965,6 +7096,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }

@@ -480,6 +480,8 @@ type Tl.PlaybackTable
   Method Void Pause(Int32, UInt16)
   Method Void PauseChannel(Int32, Byte)
   Property Tl.RequestQueue* Pending
+  Property UInt64* Playing
+  Property Int32 PlayingWords
   Method Void Resume(Int32, UInt16)
   Method Void ResumeChannel(Int32, Byte)
   Method Void Reverse(Int32, UInt16, Boolean)
