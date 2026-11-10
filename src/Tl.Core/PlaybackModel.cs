@@ -127,26 +127,9 @@ public sealed unsafe class PlaybackTable : IDisposable
         return PlaybackRules.IsPlaying(ref slots, timeline);
     }
 
-    void EnterGate()
-    {
-        var spin = new SpinWait();
-        while (Interlocked.CompareExchange(ref _growGate, 1, 0) != 0) spin.SpinOnce();
-    }
-
+    void EnterGate() { var spin = new SpinWait(); while (Interlocked.CompareExchange(ref _growGate, 1, 0) != 0) spin.SpinOnce(); }
     void ExitGate() => Volatile.Write(ref _growGate, 0);
-
-    void Grow()
-    {
-        EnterGate();
-        try
-        {
-            GrowLocked();
-        }
-        finally
-        {
-            ExitGate();
-        }
-    }
+    void Grow() { EnterGate(); try { GrowLocked(); } finally { ExitGate(); } }
 
     void GrowLocked()
     {

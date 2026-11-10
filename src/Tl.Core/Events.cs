@@ -161,16 +161,7 @@ public unsafe struct Events<T> : IDisposable
     {
         if (segs == null || chunks <= 0) return;
         var self = this;
-        for (var c = 0; c < chunks; c++)
-        {
-            var seg = &segs[c];
-            for (var i = 0; i < seg->Count; i++)
-            {
-                ref readonly var record = ref seg->Item(i);
-                self.Bind(record.Entity.Index, record.Slot);
-                self.Raise(in record.Value);
-            }
-        }
+        for (var c = 0; c < chunks; c++) { var seg = &segs[c]; for (var i = 0; i < seg->Count; i++) { ref readonly var r = ref seg->Item(i); self.Bind(r.Entity.Index, r.Slot); self.Raise(in r.Value); } }
     }
 
     public void Dispose()

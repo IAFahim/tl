@@ -251,11 +251,7 @@ public readonly unsafe struct Requests
         {
             var seg = segs[c];
             if (seg == null) continue;
-            for (var i = 0; i < seg->Count; i++)
-            {
-                ref readonly var record = ref seg->Item(i);
-                RequestQueue.Add(_queue, record.Entity, record.Slot, record.Timeline, record.At, record.Op);
-            }
+            for (var i = 0; i < seg->Count; i++) { ref readonly var r = ref seg->Item(i); RequestQueue.Add(_queue, r.Entity, r.Slot, r.Timeline, r.At, r.Op); }
         }
     }
 }

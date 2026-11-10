@@ -118,23 +118,8 @@ public unsafe struct KindTable
         _capacity[row] = (ushort)capacity;
     }
 
-    internal int ColdMaxLength()
-    {
-        var max = 0;
-        for (var r = 0; r < Rows; r++)
-        {
-            var length = Length[r];
-            if (length > max) max = length;
-        }
-        return max;
-    }
-
-    internal int ColdOverflows()
-    {
-        var spilled = 0;
-        for (var r = 0; r < Rows; r++) if (_heap[r] != null) spilled++;
-        return spilled;
-    }
+    internal int ColdMaxLength() { var m = 0; for (var r = 0; r < Rows; r++) if (Length[r] > m) m = Length[r]; return m; }
+    internal int ColdOverflows() { var s = 0; for (var r = 0; r < Rows; r++) if (_heap[r] != null) s++; return s; }
 
     public ushort KindOf(KindEntry* entry) => Grouped ? *(ushort*)((byte*)entry + 8) : (ushort)Kind;
 

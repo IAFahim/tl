@@ -434,57 +434,22 @@ public sealed unsafe class KindStore : IDisposable
         }
     }
 
-    struct TickState
-    {
-        public ulong* Playing;
-        public Playback* Slots;
-        public int* Counts;
-        public int SlotsPerEntity;
-        public KindTables T;
-        public KindTable** Tables;
-        public ulong* Mask;
-        public int* Offset;
-        public int* Row;
-        public int StepDir;
-    }
-
+    struct TickState { public ulong* Playing; public Playback* Slots; public int* Counts; public int SlotsPerEntity; public KindTables T; public KindTable** Tables; public ulong* Mask; public int* Offset; public int* Row; public int StepDir; }
     internal void TickPassParallel(bool forward, TlWorkers workers)
     {
         Sync();
         var stepDir = forward ? 1 : -1;
-        if (workers.WorkerCount == 1 || HasRated())
-        {
-            TickPassRange(stepDir, 0, _players.PlayingWords);
-            MergePulses();
-            return;
-        }
+        if (workers.WorkerCount == 1 || HasRated()) { TickPassRange(stepDir, 0, _players.PlayingWords); MergePulses(); return; }
         var words = _players.PlayingWords;
         var chunks = Math.Min(workers.WorkerCount * 8, words);
-        if (chunks <= 0)
-        {
-            MergePulses();
-            return;
-        }
+        if (chunks <= 0) { MergePulses(); return; }
         var ends = stackalloc int[chunks];
         TlWorkers.Split(_players.Playing, words, ends, chunks);
         var view = _players.View;
-        var state = new TickState
-        {
-            Playing = _players.Playing,
-            Slots = view.Slots,
-            Counts = view.Counts,
-            SlotsPerEntity = view.SlotsPerEntity,
-            T = _t,
-            Tables = _tables,
-            Mask = _mask,
-            Offset = _offset,
-            Row = _rows,
-            StepDir = stepDir,
-        };
+        var state = new TickState { Playing = _players.Playing, Slots = view.Slots, Counts = view.Counts, SlotsPerEntity = view.SlotsPerEntity, T = _t, Tables = _tables, Mask = _mask, Offset = _offset, Row = _rows, StepDir = stepDir };
         workers.Run(&TickChunk, &state, ends, chunks);
         MergePulses();
     }
-
     bool HasRated()
     {
         var view = _players.View;
@@ -503,20 +468,12 @@ public sealed unsafe class KindStore : IDisposable
         }
         return false;
     }
-
     static void TickChunk(void* p, int firstWord, int endWord, int chunk)
     {
         var s = (TickState*)p;
         var t = s->T;
         var stepDir = s->StepDir;
-        var rows = new Rows
-        {
-            Tables = s->Tables,
-            Mask = s->Mask,
-            Offset = s->Offset,
-            Row = s->Row,
-            Players = null!,
-        };
+        var rows = new Rows { Tables = s->Tables, Mask = s->Mask, Offset = s->Offset, Row = s->Row, Players = null! };
         var playing = s->Playing;
         var slotsBase = s->Slots;
         var counts = s->Counts;
@@ -529,8 +486,7 @@ public sealed unsafe class KindStore : IDisposable
                 var e = (w << 6) + Tz(bits);
                 bits &= bits - 1;
                 var slots = slotsBase + (nuint)e * (nuint)per;
-                if (!KindRules.TickEntity(in t, slots, counts[e], ref rows, e, stepDir))
-                    playing[w] &= ~(1ul << (e & 63));
+                if (!KindRules.TickEntity(in t, slots, counts[e], ref rows, e, stepDir)) playing[w] &= ~(1ul << (e & 63));
             }
         }
     }
