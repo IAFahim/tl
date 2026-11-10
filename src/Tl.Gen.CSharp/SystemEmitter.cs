@@ -41,7 +41,7 @@ internal static class SystemEmitter
 
     static void W(StringBuilder writer, string text)
     {
-        writer.Append(text).Append('\n');
+        writer.Append(text.Replace("global::Tl.", "Tl.").Replace("global::System.", "System.").Replace("global::TlSystems.", "TlSystems.")).Append('\n');
     }
 
     static void EmitModule(StringBuilder writer, IReadOnlyList<SystemAssignment> assignments, string id)
@@ -324,8 +324,7 @@ internal static class SystemEmitter
         foreach (var batch in BatchConsumers(consumers))
             EmitFlush(writer, assignment, shape, batch.consumer, batch.index);
         EmitKindMethods(writer, assignment, shape, feedKey);
-        if (HasLegacy(assignment)) { EmitCloseMethod(writer, assignment, shape); EmitLegacyRangeMethod(writer, assignment, shape); EmitFusedKernel(writer, assignment, shape, id, true); EmitFusedWrapper(writer, assignment, shape); }
-        if (assignment.Parallel) EmitParallelMethod(writer, assignment, shape);
+        if (HasLegacy(assignment)) { EmitCloseMethod(writer, assignment, shape); EmitLegacyRangeMethod(writer, assignment, shape); EmitFusedKernel(writer, assignment, shape, id, true); }
         W(writer, "}");
     }
 
@@ -334,7 +333,7 @@ internal static class SystemEmitter
         EmitLocalDecls(writer, shape);
         if (!ranged) EmitCloseLoop(writer, assignment, shape);
         EmitBatchDecls(writer, assignment);
-        if (ranged) W(writer, "var __tw = (__n + 63) >> 6; var __e0 = __firstWord <= 0 ? 0 : (__firstWord >= __tw ? __n : __firstWord * 64); var __e1 = __endWord >= __tw ? __n : (__endWord <= 0 ? 0 : __endWord * 64); if (__e1 < __e0) __e1 = __e0; for (var __e = __e0; __e < __e1; __e++)");
+        if (ranged) W(writer, "int __e0; int __e1; global::Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)");
         else W(writer, "for (var __e = 0; __e < __n; __e++)");
         W(writer, "{");
         W(writer, "var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
@@ -390,51 +389,16 @@ internal static class SystemEmitter
         return args.ToString();
     }
 
-    static void EmitCloseMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunClose", false)); W(w, "{"); W(w, "if (world is null) throw new global::System.ArgumentNullException(nameof(world)); if (players is null) throw new global::System.ArgumentNullException(nameof(players));"); W(w, "var __view = world.View; var __pview = players.View;"); EmitLocalDecls(w, s); EmitCloseLoop(w, a, s); W(w, "}"); }
-    static void EmitLegacyRangeMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunLegacyRange", true)); W(w, "{"); W(w, "if (world is null) throw new global::System.ArgumentNullException(nameof(world)); if (players is null) throw new global::System.ArgumentNullException(nameof(players));"); W(w, "var __view = world.View; var __pview = players.View;"); EmitLegacyLoop(w, a, s, true); W(w, "}"); }
-    static void EmitFusedWrapper(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunFused", false)); W(w, "{"); W(w, "if (world is null) throw new global::System.ArgumentNullException(nameof(world)); if (players is null) throw new global::System.ArgumentNullException(nameof(players)); if (players.Kinds != null) throw new global::System.InvalidOperationException(\"RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached.\");"); W(w, $"RunClose(world, players, forward{FullArgs(s, false)}); RunFusedRange(world, players, forward{FullArgs(s, true)}); global::Tl.ClosingList.Clear(players.Closing);"); W(w, "}"); }
-    static string PArgs(KernelShape s)
+    static void EmitCloseMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunClose", false)); W(w, "{"); W(w, "var __view = world.View; var __pview = players.View;"); EmitLocalDecls(w, s); EmitCloseLoop(w, a, s); W(w, "}"); }
+    static void EmitLegacyRangeMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunLegacyRange", true)); W(w, "{"); W(w, "var __view = world.View; var __pview = players.View;"); EmitLegacyLoop(w, a, s, true); W(w, "}"); }
+    static string PArgs(KernelShape s, bool tail = true)
     {
         var sb = new StringBuilder();
         for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) sb.Append($", __s->__c{i}");
         sb.Append(", __s->__n, __fw, __ew");
         for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) sb.Append($", ref *({s.Contexts[i].ElementTypeName}*)__s->__x{i}");
-        for (var i = 0; i < s.Requests.Count; i++) sb.Append(", __sr" + i);
-        for (var i = 0; i < s.Events.Count; i++) sb.Append($", __se{i}");
+        if (tail) { for (var i = 0; i < s.Requests.Count; i++) sb.Append(", __sr" + i); for (var i = 0; i < s.Events.Count; i++) sb.Append($", __se{i}"); }
         return sb.ToString();
-    }
-    static void EmitParallelMethod(StringBuilder w, SystemAssignment a, KernelShape s)
-    {
-        var hasLegacy = HasLegacy(a);
-        var init = new StringBuilder("var __st = new __PS { ");
-        W(w, "unsafe struct __PS { public global::System.IntPtr __w; public global::System.IntPtr __p;");
-        for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) { W(w, $"public {s.Columns[i].ElementTypeName}* __c{i};"); init.Append($"__c{i} = __c{i}, "); }
-        W(w, "public int __n; public int __forward;");
-        for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) W(w, $"public void* __x{i};");
-        for (var i = 0; i < s.Requests.Count; i++) W(w, "public global::Tl.RequestQueue** __rq;");
-        for (var i = 0; i < s.Events.Count; i++) W(w, $"public {s.Events[i].TypeName}* __ev{i};");
-        W(w, "}");
-        W(w, "static void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var __wh = global::System.Runtime.CompilerServices.Unsafe.As<global::System.IntPtr, global::System.GCHandle>(ref __s->__w); var world = (global::Tl.TimelineWorld)__wh.Target; var __ph = global::System.Runtime.CompilerServices.Unsafe.As<global::System.IntPtr, global::System.GCHandle>(ref __s->__p); var players = (global::Tl.PlaybackTable)__ph.Target; var forward = __s->__forward != 0;");
-        for (var i = 0; i < s.Requests.Count; i++) W(w, $"global::Tl.Requests __sr{i} = new global::Tl.Requests(__s->__rq[__chunk], 0, 0);");
-        for (var i = 0; i < s.Events.Count; i++) W(w, $"{s.Events[i].TypeName} __se{i} = __s->__ev{i}[__chunk].Writer;");
-        if (hasLegacy) W(w, $"RunLegacyRange(world, players, forward{PArgs(s)});");
-        if (a.Kinds.Count > 0) { W(w, "var __ks = players.Kinds; if (__ks != null) {"); for (var i = 0; i < a.Kinds.Count; i++) W(w, $"Kind_{i}(world, players, __ks, forward{PArgs(s)});"); W(w, "}"); }
-        W(w, "}");
-        W(w, BaseSig(s, "RunParallel", false, true));
-        W(w, "{");
-        W(w, "if (world is null) throw new global::System.ArgumentNullException(nameof(world)); if (players is null) throw new global::System.ArgumentNullException(nameof(players)); if (workers is null) throw new global::System.ArgumentNullException(nameof(workers));");
-        W(w, $"if (workers.WorkerCount == 1) {{ Run(world, players, forward{FullArgs(s, false)}); return; }}");
-        if (hasLegacy) W(w, $"RunClose(world, players, forward{FullArgs(s, false)});");
-        W(w, "var __words = players.PlayingWords; var __chunks = global::System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; global::Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);");
-        for (var i = 0; i < s.Requests.Count; i++) { W(w, "var __rq = stackalloc global::Tl.RequestQueue*[__chunks]; for (var __i = 0; __i < __chunks; __i++) __rq[__i] = global::Tl.RequestQueue.Create();"); init.Append("__rq = __rq, "); }
-        for (var i = 0; i < s.Events.Count; i++) { W(w, $"var __segs{i} = stackalloc {s.Events[i].TypeName}[__chunks]; for (var __i = 0; __i < __chunks; __i++) __segs{i}[__i] = new {s.Events[i].TypeName}(128);"); init.Append($"__ev{i} = __segs{i}, "); }
-        for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) init.Append($"__x{i} = global::System.Runtime.CompilerServices.Unsafe.AsPointer(ref __ctx{i}), ");
-        init.Append("__n = __n, __forward = forward ? 1 : 0 };");
-        W(w, init.ToString());
-        W(w, "var __wh = global::System.GCHandle.Alloc(world); var __ph = global::System.GCHandle.Alloc(players); __st.__w = global::System.Runtime.CompilerServices.Unsafe.As<global::System.GCHandle, global::System.IntPtr>(ref __wh); __st.__p = global::System.Runtime.CompilerServices.Unsafe.As<global::System.GCHandle, global::System.IntPtr>(ref __ph); try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { __wh.Free(); __ph.Free(); }");
-        for (var i = 0; i < s.Requests.Count; i++) { W(w, $"__req{i}.ConcatSegments(__rq, __chunks); for (var __i = 0; __i < __chunks; __i++) global::Tl.RequestQueue.Free(__rq[__i]);"); }
-        for (var i = 0; i < s.Events.Count; i++) { W(w, $"__ev{i}.ConcatSegments(__segs{i}, __chunks); for (var __j = 0; __j < __chunks; __j++) __segs{i}[__j].Dispose();"); }
-        W(w, "}");
     }
     static void EmitKindMethods(StringBuilder writer, SystemAssignment assignment, KernelShape shape, int feedKey)
     {
@@ -637,9 +601,9 @@ internal static class SystemEmitter
         W(writer, "}");
     }
 
-    static string BaseSig(KernelShape s, string name, bool range, bool workers = false)
+    static string BaseSig(KernelShape s, string name, bool range)
     {
-        var sb = new StringBuilder("internal static void " + name + "(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward" + (workers ? ", global::Tl.TlWorkers workers" : ""));
+        var sb = new StringBuilder("internal static void " + name + "(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward");
         for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) sb.Append($", {s.Columns[i].ElementTypeName}* __c{i}");
         sb.Append(", int __n");
         if (range) sb.Append(", int __firstWord, int __endWord");
@@ -663,13 +627,12 @@ internal static class SystemEmitter
     {
         W(writer, BaseSig(shape, ranged ? "RunFusedRange" : "RunFused", ranged));
         W(writer, "{");
-        W(writer, "if (world is null) throw new global::System.ArgumentNullException(nameof(world)); if (players is null) throw new global::System.ArgumentNullException(nameof(players));");
         if (!ranged) W(writer, "if (players.Kinds != null) throw new global::System.InvalidOperationException(\"RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached.\");");
         W(writer, "var __view = world.View; var __pview = players.View;");
         EmitLocalDecls(writer, shape);
         if (!ranged) EmitCloseLoop(writer, assignment, shape);
         EmitBatchDecls(writer, assignment);
-        if (ranged) W(writer, "var __tw = (__n + 63) >> 6; var __e0 = __firstWord <= 0 ? 0 : (__firstWord >= __tw ? __n : __firstWord * 64); var __e1 = __endWord >= __tw ? __n : (__endWord <= 0 ? 0 : __endWord * 64); if (__e1 < __e0) __e1 = __e0; for (var __e = __e0; __e < __e1; __e++)");
+        if (ranged) W(writer, "int __e0; int __e1; global::Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)");
         else W(writer, "for (var __e = 0; __e < __n; __e++)");
         W(writer, "{");
         W(writer, "var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
@@ -1226,18 +1189,42 @@ internal static class SystemEmitter
         var pins = new List<string>();
         var ptrs = new List<string>();
         for (var i = 0; i < shape.Columns.Count; i++) { if (!shape.UsedColumns[i]) continue; pins.Add($"fixed ({shape.Columns[i].ElementTypeName}* __p{i} = this.{shape.Columns[i].Name})"); ptrs.Add($"__p{i}"); }
+        string Args(bool range)
+        {
+            var a = new StringBuilder();
+            foreach (var ptr in ptrs) a.Append($", {ptr}");
+            a.Append(range ? ", __len, 0, 2147483647" : ", __len");
+            for (var i = 0; i < shape.Contexts.Count; i++) if (shape.UsedContexts[i]) a.Append($", ref this.{shape.Contexts[i].Name}");
+            foreach (var field in system.Fields) { if (field.Kind == SystemFieldKind.Requests) a.Append($", this.{field.Name}"); if (field.Kind == SystemFieldKind.Events) a.Append($", this.{field.Name}"); }
+            return a.ToString();
+        }
         var call = new StringBuilder();
-        call.Append($"global::TlSystems.TlSystem_{safe}.{name}(world, players, forward");
-        foreach (var ptr in ptrs) call.Append($", {ptr}");
-        call.Append(", __len");
-        for (var i = 0; i < shape.Contexts.Count; i++) if (shape.UsedContexts[i]) call.Append($", ref this.{shape.Contexts[i].Name}");
-        foreach (var field in system.Fields) { if (field.Kind == SystemFieldKind.Requests) call.Append($", this.{field.Name}"); if (field.Kind == SystemFieldKind.Events) call.Append($", this.{field.Name}"); }
-        call.Append(");");
+        if (fused)
+        {
+            call.Append("if (players.Kinds != null) throw new global::System.InvalidOperationException(\"RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached.\"); ");
+            call.Append($"global::TlSystems.TlSystem_{safe}.RunClose(world, players, forward{Args(false)}); global::TlSystems.TlSystem_{safe}.RunFusedRange(world, players, forward{Args(true)}); global::Tl.ClosingList.Clear(players.Closing);");
+        }
+        else call.Append($"global::TlSystems.TlSystem_{safe}.{name}(world, players, forward{Args(false)});");
         if (pins.Count == 0) W(writer, call.ToString());
         else { foreach (var pin in pins) { W(writer, pin); W(writer, "{"); } W(writer, call.ToString()); foreach (var pin in pins) W(writer, "}"); }
         W(writer, "}");
         if (!fused && assignment.Parallel)
         {
+            var hasLegacy = HasLegacy(assignment);
+            var init = new StringBuilder("var __st = new __PS { ");
+            W(writer, "unsafe struct __PS { public global::System.IntPtr __w; public global::System.IntPtr __p;");
+            for (var i = 0; i < shape.Columns.Count; i++) if (shape.UsedColumns[i]) { W(writer, $"public {shape.Columns[i].ElementTypeName}* __c{i};"); init.Append($"__c{i} = __p{i}, "); }
+            W(writer, "public int __n; public int __forward;");
+            for (var i = 0; i < shape.Contexts.Count; i++) if (shape.UsedContexts[i]) W(writer, $"public void* __x{i};");
+            for (var i = 0; i < shape.Requests.Count; i++) W(writer, "public global::Tl.RequestQueue** __rq;");
+            for (var i = 0; i < shape.Events.Count; i++) W(writer, $"public {shape.Events[i].TypeName}* __ev{i};");
+            W(writer, "}");
+            W(writer, "static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (global::Tl.TimelineWorld)global::Tl.TlWorkers.Target(__s->__w); var players = (global::Tl.PlaybackTable)global::Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;");
+            for (var i = 0; i < shape.Requests.Count; i++) W(writer, $"global::Tl.Requests __sr{i} = new global::Tl.Requests(__s->__rq[__chunk], 0, 0);");
+            for (var i = 0; i < shape.Events.Count; i++) W(writer, $"{shape.Events[i].TypeName} __se{i} = __s->__ev{i}[__chunk].Writer;");
+            if (hasLegacy) W(writer, $"global::TlSystems.TlSystem_{safe}.RunLegacyRange(world, players, forward{PArgs(shape)});");
+            if (assignment.Kinds.Count > 0) { W(writer, "var __ks = players.Kinds; if (__ks != null) {"); for (var i = 0; i < assignment.Kinds.Count; i++) W(writer, $"global::TlSystems.TlSystem_{safe}.Kind_{i}(world, players, __ks, forward{PArgs(shape, false)});"); W(writer, "}"); }
+            W(writer, "}");
             W(writer, "public unsafe void Run(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, global::Tl.TlWorkers workers)");
             W(writer, "{");
             W(writer, "if (world is null) throw new global::System.ArgumentNullException(nameof(world)); if (players is null) throw new global::System.ArgumentNullException(nameof(players)); if (workers is null) throw new global::System.ArgumentNullException(nameof(workers));");
@@ -1245,17 +1232,22 @@ internal static class SystemEmitter
             first = true;
             foreach (var field in system.Fields) { if (field.Kind is (SystemFieldKind.Column or SystemFieldKind.ColumnReadOnly)) { if (first) { W(writer, $"__len = this.{field.Name}.Length;"); first = false; } else W(writer, $"if (this.{field.Name}.Length != __len) throw new global::System.ArgumentException(\"{system.TypeName}: column {field.Name} lengths differ.\");"); } }
             W(writer, $"if (__len > players.EntityCapacity) throw new global::System.ArgumentException(\"{system.TypeName}: column length exceeds table capacity.\");");
-            var pcall = new StringBuilder();
-            pcall.Append($"global::TlSystems.TlSystem_{safe}.RunParallel(world, players, forward, workers");
-            foreach (var ptr in ptrs) pcall.Append($", {ptr}");
-            pcall.Append(", __len");
-            for (var i = 0; i < shape.Contexts.Count; i++) if (shape.UsedContexts[i]) pcall.Append($", ref this.{shape.Contexts[i].Name}");
-            foreach (var field in system.Fields) { if (field.Kind == SystemFieldKind.Requests) pcall.Append($", this.{field.Name}"); if (field.Kind == SystemFieldKind.Events) pcall.Append($", this.{field.Name}"); }
-            pcall.Append(");");
-            if (pins.Count == 0) W(writer, pcall.ToString());
-            else { foreach (var pin in pins) { W(writer, pin); W(writer, "{"); } W(writer, pcall.ToString()); foreach (var pin in pins) W(writer, "}"); }
+            if (pins.Count > 0) { foreach (var pin in pins) { W(writer, pin); W(writer, "{"); } }
+            W(writer, $"if (workers.WorkerCount == 1) {{ global::TlSystems.TlSystem_{safe}.Run(world, players, forward{Args(false)}); return; }}");
+            if (hasLegacy) W(writer, $"global::TlSystems.TlSystem_{safe}.RunClose(world, players, forward{Args(false)});");
+            W(writer, "var __words = players.PlayingWords; var __chunks = global::System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; global::Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);");
+            for (var i = 0; i < shape.Requests.Count; i++) { W(writer, "var __rq = stackalloc global::Tl.RequestQueue*[__chunks]; for (var __i = 0; __i < __chunks; __i++) __rq[__i] = global::Tl.RequestQueue.Create();"); init.Append("__rq = __rq, "); }
+            for (var i = 0; i < shape.Events.Count; i++) { W(writer, $"var __segs{i} = stackalloc {shape.Events[i].TypeName}[__chunks]; for (var __i = 0; __i < __chunks; __i++) __segs{i}[__i] = new {shape.Events[i].TypeName}(128);"); init.Append($"__ev{i} = __segs{i}, "); }
+            for (var i = 0; i < shape.Contexts.Count; i++) if (shape.UsedContexts[i]) init.Append($"__x{i} = global::System.Runtime.CompilerServices.Unsafe.AsPointer(ref this.{shape.Contexts[i].Name}), ");
+            init.Append("__n = __len, __forward = forward ? 1 : 0 };");
+            W(writer, init.ToString());
+            W(writer, "var __wh = global::Tl.TlWorkers.Pin(world); var __ph = global::Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { global::Tl.TlWorkers.Free(__wh); global::Tl.TlWorkers.Free(__ph); }");
+            for (var i = 0; i < shape.Requests.Count; i++) { W(writer, $"this.{shape.Requests[i].Name}.ConcatSegments(__rq, __chunks); for (var __i = 0; __i < __chunks; __i++) global::Tl.RequestQueue.Free(__rq[__i]);"); }
+            for (var i = 0; i < shape.Events.Count; i++) { W(writer, $"this.{shape.Events[i].Name}.ConcatSegments(__segs{i}, __chunks); for (var __j = 0; __j < __chunks; __j++) __segs{i}[__j].Dispose();"); }
+            if (pins.Count > 0) { foreach (var pin in pins) W(writer, "}"); }
             W(writer, "}");
         }
         W(writer, "}");
+        if (ns.Length > 0) W(writer, "}");
     }
 }

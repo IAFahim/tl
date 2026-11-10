@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 namespace Tl;
 public sealed unsafe class TlWorkers : IDisposable
@@ -26,6 +27,16 @@ public sealed unsafe class TlWorkers : IDisposable
         }
     }
     public int WorkerCount => _w;
+    public static IntPtr Pin(object o) => GCHandle.ToIntPtr(GCHandle.Alloc(o));
+    public static object? Target(IntPtr h) => GCHandle.FromIntPtr(h).Target;
+    public static void Free(IntPtr h) => GCHandle.FromIntPtr(h).Free();
+    public static void ClampRange(int n, int first, int last, out int firstEntity, out int endEntity)
+    {
+        var words = (n + 63) >> 6;
+        firstEntity = first <= 0 ? 0 : first >= words ? n : first * 64;
+        endEntity = last >= words ? n : last <= 0 ? 0 : last * 64;
+        if (endEntity < firstEntity) endEntity = firstEntity;
+    }
     public static void Split(ulong* bits, int words, int* ends, int chunks)
     {
         if (bits == null) throw new ArgumentNullException(nameof(bits));

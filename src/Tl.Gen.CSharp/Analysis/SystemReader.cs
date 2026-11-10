@@ -1142,7 +1142,7 @@ internal static class SystemReader
         {
             if (parameter.Kind != ConsumerParamKind.Column || parameter.Modifier != "ref ") continue;
             if (system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) continue;
-            if (system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) return (parameter.Name, parameter.TypeName);
+            foreach (var field in system.Fields) if (field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal)) return (field.Name, parameter.TypeName);
         }
         return null;
     }

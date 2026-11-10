@@ -29,6 +29,7 @@ type Tl.EventRecord`1
   Field T Value
 type Tl.Events`1
   Method Void Bind(Int32, Int32)
+  Method Void ConcatSegments(Tl.Events`1[T]*, Int32)
   Property Int32 Count
   Method Void Dispose()
   Method System.Span`1[Tl.EventRecord`1[T]] Drain()
@@ -480,6 +481,8 @@ type Tl.PlaybackTable
   Method Void Pause(Int32, UInt16)
   Method Void PauseChannel(Int32, Byte)
   Property Tl.RequestQueue* Pending
+  Property UInt64* Playing
+  Property Int32 PlayingWords
   Method Void Resume(Int32, UInt16)
   Method Void ResumeChannel(Int32, Byte)
   Method Void Reverse(Int32, UInt16, Boolean)
@@ -537,6 +540,7 @@ type Tl.RequestRecord
   Field Int32 Slot
   Field UInt16 Timeline
 type Tl.Requests
+  Method Void ConcatSegments(Tl.RequestQueue**, Int32)
   Method Tl.Requests For(Int32, Int32)
   Method Void Pause(UInt16)
   Method Void PauseChannel(Byte)
@@ -645,5 +649,14 @@ type Tl.TlTimeline
   Method Boolean Equals(System.Object)
   Method Int32 GetHashCode()
   Property Boolean IsValid
+type Tl.TlWorkers
+  Method Void ClampRange(Int32, Int32, Int32, Int32 ByRef, Int32 ByRef)
+  Method Void Dispose()
+  Method Void Free(IntPtr)
+  Method IntPtr Pin(System.Object)
+  Method Void Run(System.Void(System.Void*, System.Int32, System.Int32, System.Int32), Void*, Int32*, Int32)
+  Method Void Split(UInt64*, Int32, Int32*, Int32)
+  Method System.Object Target(IntPtr)
+  Property Int32 WorkerCount
 type Tl.TypeKey`1
   Field UInt64 Value

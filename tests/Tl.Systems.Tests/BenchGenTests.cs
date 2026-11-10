@@ -33,7 +33,6 @@ public sealed class BenchGenTests
         Assert.Contains("Shared", warning.Message);
         var content = Assert.Single(artifacts).Content;
         Assert.DoesNotContain("RunParallel", content);
-        Assert.DoesNotContain("TlWorkers", content);
         Assert.Contains("RunLegacyRange", content);
     }
 
