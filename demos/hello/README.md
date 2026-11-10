@@ -109,6 +109,63 @@ In this console host a player is a row number. `StopAll(row)` on a player that i
 
 So stop the old player in one step, and reset the column and `Start` the new player after that step's `Tick` (it then starts a step later). In Unity a new entity is a new row, and a destroy-and-respawn in the same frame did not leak (tested). See issue #594.
 
+## An ability window: "can double jump now"
+
+A clip can switch a flag on the player for as long as it plays. Tl only keeps the flag; your own system makes the decision (`if (abilities.ValueRO.CanDoubleJump && jumpPressed)`).
+
+```csharp
+using Tl;
+
+namespace HelloAbility
+{
+    [TlClip("Hello/DoubleJumpWindow")]
+    public struct DoubleJumpWindowClip
+    {
+        public bool CanDoubleJump;
+    }
+
+    public struct DoubleJumpWindowTrack : ITlTrack<DoubleJumpWindowClip>
+    {
+        [Feeds(typeof(DoubleJumpKind))]
+        public static bool WhetherDoubleJumpIsAllowed(in TlFrame<DoubleJumpWindowClip> frame)
+            => frame.Clip.CanDoubleJump;
+    }
+
+    [TlKind]
+    public struct DoubleJumpKind
+    {
+        public static void Combine(ref bool total, in bool next) => total |= next;
+
+        public static void Apply(in bool allowed, ref Abilities player)
+            => player.CanDoubleJump = allowed;
+    }
+
+    [TlState]
+    public partial struct Abilities
+    {
+        public bool CanDoubleJump;
+    }
+}
+```
+
+Where each thing lives: the clips (when the window starts and ends, and its value) are in the baked timeline, shared by everyone who plays it. The flag itself is the `CanDoubleJump` field of the player's own `Abilities` column. A `[Feeds]` method runs every tick while its clip plays and its result is combined (`Combine`, here OR) and written once by `Apply`.
+
+The timeline has two clips: ticks 30 to 60 with `CanDoubleJump` ticked, and ticks 60 to 150 with it unticked. Result:
+
+```
+step  can double jump
+   0  False
+  30  True
+  60  False
+a player who never plays the timeline: False
+```
+
+- Before the window the flag is false, because a column starts at its default (zero). Nothing is "baked as false"; it is computed every tick.
+- Keep the unticked clip. A column keeps the last value it was given when no clip covers a tick, so without the "off" clip the flag would stay true after the window. A kind can declare `Idle(ref Abilities player) => player.CanDoubleJump = false` to reset it on the plain .NET host, but Unity currently ignores `Idle` silently (IAFahim/tl#590), so the off clip is the form that works on both.
+- In Unity a player needs the timeline (a Playable Director) to get the `Abilities` column at all; a player without one is never matched by a query for it.
+
+The runnable, tested version is `demos/hello-ability` (`dotnet run --project demos/hello-ability -c Release`).
+
 ## Files
 
 - `Teleport.cs`: all of Tl's part. The generator turns it into `Tl.Generated.TlAuto_HelloTl` at build time (the name is the assembly name `HelloTl`).
@@ -124,5 +181,7 @@ So stop the old player in one step, and reset the column and `Start` the new pla
 `tests/Tl.Packs.Tests/HelloTests.cs`: the three changes above, the committed library equal to the JSON bake, and the `tl run` hash.
 
 `tests/Tl.Packs.Tests/HelloSideTests.cs`: the sideways-move version in `demos/hello-side` prints `(5, 0, -2)`, `(13, 0, 1)`, `(5, 0, -2)`.
+
+`tests/Tl.Packs.Tests/HelloAbilityTests.cs`: the flag in `demos/hello-ability` turns true at tick 30 and false at tick 60, and stays false for a player who never plays the timeline.
 
 Full course: https://github.com/IAFahim/tl.unity#readme

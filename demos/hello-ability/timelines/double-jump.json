@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "name": "double-jump",
+  "duration": 150,
+  "tracks": [
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<HelloAbility.DoubleJumpWindowClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "HelloAbility",
+          "type": "DoubleJumpWindowClip",
+          "start": 30,
+          "end": 60,
+          "data": {
+            "CanDoubleJump": true
+          }
+        },
+        {
+          "namespace": "HelloAbility",
+          "type": "DoubleJumpWindowClip",
+          "start": 60,
+          "end": 150,
+          "data": {
+            "CanDoubleJump": false
+          }
+        }
+      ]
+    }
+  ]
+}
