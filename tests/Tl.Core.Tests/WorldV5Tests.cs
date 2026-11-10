@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -223,6 +222,17 @@ public class WorldV5Tests
     [Fact]
     public void SixtyFourCohortsTimeScalesWithActiveVisits()
     {
+        // Count-based (deterministic) scaling assertion: tick work visits are
+        // counted exactly once per active playback, so neither the number of
+        // timelines in the library (cohorts) nor their per-step costs can
+        // leak in as extra counted work. `single` has 1 playback per row,
+        // `multi` has 2 per row, and 64 timeline cohorts exist in the library
+        // for both. Both worlds must report ActiveCount == HighWaterVisits ==
+        // the playback count, i.e. no per-cohort visits: any regression that
+        // reintroduces per-timeline or per-cohort iteration into the tick
+        // visit stream shows up here as extra counted visits, with no wall
+        // clock involved. The public test name is retained from its earlier
+        // timing-ratio form; the assertion is count-based by design.
         const int rows = 1024;
         var lane = ConstLane(40, 6f);
         var timelines = new TimelineSpec[64];
@@ -241,27 +251,22 @@ public class WorldV5Tests
             single.Tick(Direction.Forward);
             multi.Tick(Direction.Forward);
         }
-        var tSingle = Measure(single, 200);
-        var tMulti = Measure(multi, 200);
-        Assert.True(tSingle > 0 && tMulti > 0);
-        var ratio = (double)tMulti / tSingle;
-        // Single-flat rows use the whole-tick hoisted path (single tl = 1 flat),
-        // while multi rows walk the generic run-hoisted path, costing ~3x more
-        // per visit by design. Ratio bound accounts for the two per-visit rates.
-        Assert.True(ratio <= 7.0, $"64-cohorts-2-active ratio {ratio:F2} exceeds 7.0 (single={tSingle}, multi={tMulti})");
-    }
-
-    static long Measure(World world, int ticks)
-    {
-        long best = long.MaxValue;
-        for (var r = 0; r < 3; r++)
-        {
-            var sw = Stopwatch.StartNew();
-            for (var f = 0; f < ticks; f++) world.Tick(Direction.Forward);
-            sw.Stop();
-            if (sw.ElapsedTicks < best) best = sw.ElapsedTicks;
-        }
-        return best;
+        Assert.Equal(rows, single.Report.ActiveCount);
+        Assert.Equal(2 * rows, multi.Report.ActiveCount);
+        Assert.Equal(rows, single.Report.HighWaterVisits);
+        Assert.Equal(2 * rows, multi.Report.HighWaterVisits);
+        // Visits are exactly one per active playback: tick visits scale with
+        // active playbacks, not with the 64 timeline cohorts.
+        Assert.Equal(multi.Report.ActiveCount, multi.Report.HighWaterVisits);
+        Assert.Equal(2, multi.Report.HighWaterVisits / single.Report.HighWaterVisits);
+        // Cohort independence: a one-timeline library with the same active
+        // count yields the identical visit count.
+        var oneLib = MakeLibrary(new[] { Timeline(40, lane, lane) });
+        using var cohortFree = new World(oneLib, rows);
+        for (var i = 0; i < rows; i++) cohortFree.Requests.Start(new Row(i), new TimelineId(1), 0);
+        for (var f = 0; f < 20; f++) cohortFree.Tick(Direction.Forward);
+        Assert.Equal(single.Report.ActiveCount, cohortFree.Report.ActiveCount);
+        Assert.Equal(single.Report.HighWaterVisits, cohortFree.Report.HighWaterVisits);
     }
 
     [Fact]

@@ -270,7 +270,7 @@ public sealed unsafe partial class World
 
     void InitSystems(int timelineCount)
     {
-        _pending = new Requests5();
+        _pending.Clear();
         var cap = _rowCapacity < 64 ? 64 : _rowCapacity;
         _soloRow = new int[cap];
         _soloTimeline = new ushort[cap];
@@ -364,24 +364,38 @@ public sealed unsafe partial class World
     {
         var pendingCount = _pending.Count;
         if (pendingCount == 0) return;
-        // One pass classifies the batch: already in stable (row, slot) order
-        // (bulk setups enqueue that way) and/or pure Starts. A sorted batch
-        // needs no radix sort at all; allStarts is permutation-invariant.
+        // Classification of the batch: whether it is already in stable
+        // (row, slot) order (bulk setups enqueue that way) and/or pure
+        // Starts. A sorted batch needs no radix sort at all; allStarts is
+        // permutation-invariant. Requests5 maintains these flags incrementally
+        // on Add, so no re-scan pass is needed for the common case; if the
+        // flags were invalidated (indexer mutation), fall back to a scan.
         var batchSorted = true;
         var allStarts = true;
-        var prevRow = 0;
-        var prevSlot = 0;
-        for (var i = 0; i < pendingCount; i++)
+        if (!_pending.ClassifyDirty)
         {
-            var pending = _pending[i];
-            if (pending.Op != RequestOp.Start) allStarts = false;
-            var row = pending.Row.Value;
-            if (i != 0 && (row < prevRow || (row == prevRow && pending.Slot < prevSlot)))
-                batchSorted = false;
-            prevRow = row;
-            prevSlot = pending.Slot;
+            batchSorted = _pending.IsSorted;
+            allStarts = _pending.AllStarts;
+        }
+        else
+        {
+            var prevRow = 0;
+            var prevSlot = 0;
+            for (var i = 0; i < pendingCount; i++)
+            {
+                var pending = _pending[i];
+                if (pending.Op != RequestOp.Start) allStarts = false;
+                var row = pending.Row.Value;
+                if (i != 0 && (row < prevRow || (row == prevRow && pending.Slot < prevSlot)))
+                    batchSorted = false;
+                prevRow = row;
+                prevSlot = pending.Slot;
+            }
         }
         if (!batchSorted) _pending.Sort();
+        // Pre-size playback storage once for the whole batch (live + pending
+        // is the upper bound) instead of growing it request by request.
+        EnsurePlaybackCapacity(_playbackCount + pendingCount);
         // Cold bulk fast path: a pure-bulk Start load into an empty world
         // (the setup case) is applied in row order without maintaining the
         // hash indexes per request. Duplicates are tracked with a rolling
@@ -404,10 +418,61 @@ public sealed unsafe partial class World
                 var seenSlice = seen.Slice(0, words);
                 seenSlice.Clear();
                 var bulkRow = -1;
+                var items = _pending.AsSpan();
+                // Inlined per-request apply: hoisted tables, no per-request
+                // method call or capacity re-check (playback capacity was
+                // pre-sized above for the whole batch). The batch is known
+                // sorted here (Sort ran just above), so appends keep _pbRow
+                // ascending and _pbOrderSorted stays valid.
+                _pbOrderSorted = true;
+                var duration = _duration;
+                var looping = _looping;
+                var rowCapacity = _rowCapacity;
                 for (var i = 0; i < pendingCount; i++)
                 {
-                    var request = _pending[i];
-                    StartPlaybackBulk(request.Row, request.Timeline, request.At, seenSlice, ref bulkRow);
+                    var request = items[i];
+                    var rowValue = request.Row.Value;
+                    var timelineValue = request.Timeline.Value;
+                    var timelineIndex = timelineValue - 1;
+                    if ((uint)rowValue >= (uint)rowCapacity || timelineValue == 0 || timelineValue > duration.Length || duration[timelineIndex] <= 0)
+                    {
+                        _invalidPending++;
+                        continue;
+                    }
+                    if (rowValue != bulkRow)
+                    {
+                        bulkRow = rowValue;
+                        seenSlice.Clear();
+                    }
+                    var bit = 1UL << (timelineIndex & 63);
+                    var word = timelineIndex >> 6;
+                    if ((seenSlice[word] & bit) != 0) continue;
+                    seenSlice[word] |= bit;
+                    if (looping[timelineIndex] != 0)
+                    {
+                        var plainPos = _playbackCount;
+                        _pbRow[plainPos] = rowValue;
+                        _pbTimeline[plainPos] = timelineValue;
+                        _pbPhase[plainPos] = request.At;
+                        _playbackCount++;
+                        _sortedDirty = true;
+                    }
+                    else
+                    {
+                        var dur = duration[timelineIndex];
+                        var at = request.At;
+                        if (at >= dur) at = (ushort)(dur - 1);
+                        EnsureSoloCapacity(_soloCount + 1);
+                        var soloPos = _soloCount;
+                        _soloRow[soloPos] = rowValue;
+                        _soloTimeline[soloPos] = timelineValue;
+                        _soloTick[soloPos] = at;
+                        _soloChannel[soloPos] = 0;
+                        _soloFlags[soloPos] = 0;
+                        _soloRate[soloPos] = 0;
+                        _soloCarry[soloPos] = 0;
+                        _soloCount++;
+                    }
                 }
                 _pending.Clear();
                 if (_playbackCount != 0 || _soloCount != 0) _indexesStale = true;
@@ -501,11 +566,12 @@ public sealed unsafe partial class World
             }
         }
         var duration = _duration[index];
-        var looping = _library.Loops(index);
+        var looping = _looping[index] != 0;
         if (looping)
         {
             EnsurePlaybackCapacity(_playbackCount + 1);
             var plainPos = _playbackCount;
+            if (plainPos > 0 && row.Value < _pbRow[plainPos - 1]) _pbOrderSorted = false;
             _pbRow[plainPos] = row.Value;
             _pbTimeline[plainPos] = timeline.Value;
             _pbPhase[plainPos] = (ushort)(phase & 65535);
@@ -537,62 +603,6 @@ public sealed unsafe partial class World
         }
     }
 
-    void StartPlaybackBulk(Row row, TimelineId timeline, int phase, Span<ulong> seen, ref int bulkRow)
-    {
-        if (!ValidRow(row) || !ValidTimeline(timeline))
-        {
-            _invalidPending++;
-            return;
-        }
-        var rowValue = row.Value;
-        var timelineValue = timeline.Value;
-        // No pre-existing playbacks (cold world) and the batch is row-sorted,
-        // so duplicates are tracked with a rolling per-row bitmask.
-        if (rowValue != bulkRow)
-        {
-            bulkRow = rowValue;
-            seen.Clear();
-        }
-        var timelineIndex = timelineValue - 1;
-        var bit = 1UL << (timelineIndex & 63);
-        var word = timelineIndex >> 6;
-        if ((seen[word] & bit) != 0) return;
-        seen[word] |= bit;
-        var index = timelineIndex;
-        var duration = _duration[index];
-        var looping = _library.Loops(index);
-        if (looping)
-        {
-            EnsurePlaybackCapacity(_playbackCount + 1);
-            var plainPos = _playbackCount;
-            _pbRow[plainPos] = rowValue;
-            _pbTimeline[plainPos] = timelineValue;
-            _pbPhase[plainPos] = (ushort)(phase & 65535);
-            _playbackCount++;
-            _sortedDirty = true;
-        }
-        else
-        {
-            var tick = 0;
-            if (duration > 0)
-            {
-                var at = phase;
-                if (at < 0) at = 0;
-                if (at >= duration) at = duration - 1;
-                tick = at;
-            }
-            EnsureSoloCapacity(_soloCount + 1);
-            var soloPos = _soloCount;
-            _soloRow[soloPos] = rowValue;
-            _soloTimeline[soloPos] = timelineValue;
-            _soloTick[soloPos] = (ushort)tick;
-            _soloChannel[soloPos] = 0;
-            _soloFlags[soloPos] = 0;
-            _soloRate[soloPos] = 0;
-            _soloCarry[soloPos] = 0;
-            _soloCount++;
-        }
-    }
 
     void StopPlayback(Row row, TimelineId timeline)
     {
@@ -1082,6 +1092,7 @@ public sealed unsafe partial class World
         _pbTimeline[index] = _pbTimeline[last];
         _pbPhase[index] = _pbPhase[last];
         _sortedDirty = true;
+        if (hasSwap) _pbOrderSorted = false;
         RemovePlainTlKey(removedTimelineKey, index, hasSwap && removedTimelineKey == swappedTimelineKey);
         if (hasRemovedChannel) RemovePlainChKey(removedChannelKey, index, hasSwap && hasSwappedChannel && removedChannelKey == swappedChannelKey);
         if (hasSwap)

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Runtime.InteropServices;
 
 namespace Tl;
@@ -23,27 +24,68 @@ public struct RequestOutcome
     public int Total => Applied + InvalidRow + InvalidTimeline;
 }
 
-public sealed class Requests5
+// The pending-request queue is a native (off-heap) buffer, mirroring the 4.0
+// PlaybackTable/RequestQueue design: bulk setups enqueue millions of starts,
+// and a managed backing array that doubles from 16 to N entries allocates
+// ~2x the final size in large-object-heap arrays (zeroed, copied, and
+// collected during setup). The native buffer allocates ~0 managed bytes on
+// the bulk path; doubling reallocs are plain memcpy (no zeroing, no GC scan).
+public sealed unsafe class Requests5
 {
-    private Request5[] _items = new Request5[16];
+    private Request5* _items;
+    private int _capacity;
     private int _count;
+    // Incremental classification of the pending batch, maintained on Add so
+    // ApplyPendingRequests does not need a full re-scan of a bulk batch.
+    // The public indexer setter invalidates the flags (ClassifyDirty), and
+    // Sort() re-validates the sorted flag (stable radix output is sorted).
+    private bool _allStarts = true;
+    private bool _sorted = true;
+    private bool _classifyDirty;
+    private int _prevRow;
+    private int _prevSlot;
+
+    public Requests5()
+    {
+        _capacity = 16;
+        _items = (Request5*)NativeMemory.AlignedAlloc((nuint)_capacity * (nuint)sizeof(Request5), 8u);
+    }
+
+    ~Requests5()
+    {
+        if (_items != null) NativeMemory.AlignedFree(_items);
+    }
 
     public int Count => _count;
 
     public Request5 this[int index]
     {
         get => _items[index];
-        set => _items[index] = value;
+        set
+        {
+            _items[index] = value;
+            _classifyDirty = true;
+        }
     }
+
+    internal bool AllStarts => _allStarts;
+    internal bool IsSorted => _sorted;
+    internal bool ClassifyDirty => _classifyDirty;
+
+    internal Span<Request5> AsSpan() => new Span<Request5>(_items, _count);
 
     public void Add(Row row, int slot, RequestOp op, TimelineId timeline, ushort at)
     {
-        if (_count == _items.Length)
+        if (_count == _capacity) Grow();
+        if (op != RequestOp.Start) _allStarts = false;
+        if (_count > 0)
         {
-            var grown = new Request5[_items.Length * 2];
-            Array.Copy(_items, grown, _items.Length);
-            _items = grown;
+            var prevRow = _prevRow;
+            var prevSlot = _prevSlot;
+            if (row.Value < prevRow || (row.Value == prevRow && slot < prevSlot)) _sorted = false;
         }
+        _prevRow = row.Value;
+        _prevSlot = slot;
         _items[_count] = new Request5
         {
             Row = row,
@@ -55,9 +97,33 @@ public sealed class Requests5
         _count++;
     }
 
-    public void Clear() => _count = 0;
+    void Grow()
+    {
+        var next = _capacity * 2;
+        var grown = (Request5*)NativeMemory.AlignedAlloc((nuint)next * (nuint)sizeof(Request5), 8u);
+        if (_count > 0)
+            Buffer.MemoryCopy(_items, grown, (nuint)_count * (nuint)sizeof(Request5), (nuint)_count * (nuint)sizeof(Request5));
+        NativeMemory.AlignedFree(_items);
+        _items = grown;
+        _capacity = next;
+    }
 
-    public void Sort() => StableRadixSort(new Span<Request5>(_items, 0, _count));
+    public void Clear()
+    {
+        _count = 0;
+        _allStarts = true;
+        _sorted = true;
+        _classifyDirty = false;
+    }
+
+    public void Sort()
+    {
+        StableRadixSort(AsSpan());
+        // Stable radix output is exactly (row, slot)-sorted, so the batch is
+        // sorted afterwards regardless of the incremental flag's prior value.
+        _sorted = true;
+        _classifyDirty = false;
+    }
 
     public RequestOutcome Apply(int rowCapacity, Func<TimelineId, bool>? timelineValid, Action<Request5>? sink)
     {
@@ -114,16 +180,24 @@ public sealed class Requests5
         }
         if (sorted)
             return;
-        var scratch = new Request5[items.Length];
-        var counts = new int[65536];
-        var source = items;
-        var destination = new Span<Request5>(scratch, 0, scratch.Length);
-        for (var pass = 0; pass < 4; pass++)
+        var scratch = (Request5*)NativeMemory.AlignedAlloc((nuint)items.Length * (nuint)sizeof(Request5), 8u);
+        var counts = ArrayPool<int>.Shared.Rent(65536);
+        try
         {
-            RadixPass(source, destination, counts, pass);
-            var tmp = source;
-            source = destination;
-            destination = tmp;
+            var source = items;
+            var destination = new Span<Request5>(scratch, items.Length);
+            for (var pass = 0; pass < 4; pass++)
+            {
+                RadixPass(source, destination, counts, pass);
+                var tmp = source;
+                source = destination;
+                destination = tmp;
+            }
+        }
+        finally
+        {
+            NativeMemory.AlignedFree(scratch);
+            ArrayPool<int>.Shared.Return(counts);
         }
     }
 

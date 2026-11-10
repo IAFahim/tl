@@ -113,6 +113,7 @@ public sealed unsafe partial class World : IDisposable
     private readonly float[] _acc;
     private readonly float[] _applied;
     private readonly int[] _duration;
+    private readonly byte[] _looping;
     private readonly int[] _durationMask;
     private readonly int[] _stepGlobal;
     private readonly int[] _stepWindowStart;
@@ -128,16 +129,26 @@ public sealed unsafe partial class World : IDisposable
     private readonly TickFlat[] _tickFlat;
     private LaneDirection _planesDir;
     private bool _planesFresh;
+    // Playback storage stays managed (rowCapacity-sized at ctor; see
+    // EnsurePlaybackCapacity). Visit/row-major work buffers are native
+    // (off-heap): the first Tick builds them at exact size instead of
+    // doubling managed arrays from zero inside the setup window, so a bulk
+    // setup allocates ~0 large-object bytes on the visit path.
     private int[] _pbRow;
     private ushort[] _pbTimeline;
     private ushort[] _pbPhase;
     private int[] _countByRow = new int[0];
     private int[] _rowToActive = new int[0];
-    private int[] _rowStart = new int[1];
-    private int[] _visitCursor = new int[0];
-    private int[] _visitFlat = new int[0];
-    private int[] _visitPhaseMod = new int[0];
-    private int[] _rowFlat = new int[0];
+    private int* _rowStart;
+    private int _rowStartCap;
+    private int* _visitCursor;
+    private int _visitCursorCap;
+    private int* _visitFlat;
+    private int _visitFlatCap;
+    private ushort* _visitPhaseMod;
+    private int _visitPhaseModCap;
+    private int* _rowFlat;
+    private int _rowFlatCap;
     private int _singleFlatWord = -1;
     private int _visitCount;
     private readonly int[] _timelineDelta;
@@ -149,9 +160,11 @@ public sealed unsafe partial class World : IDisposable
     private int _invalidPending;
     private int _highWater;
     private int _playbackCount;
+    private bool _pbOrderSorted = true;
     private TickReport _report;
     private bool _sortedDirty = true;
-    private int[] _activeRows = new int[0];
+    private int* _activeRows;
+    private int _activeRowsCap;
     private int _activeRowCount;
     internal int _workers;
 
@@ -180,6 +193,10 @@ public sealed unsafe partial class World : IDisposable
             totalSteps += stepCount[i];
         }
         _duration = duration;
+        var looping = new byte[timelineCount];
+        for (var i = 0; i < timelineCount; i++)
+            looping[i] = (byte)(_library.Loops(i) ? 1 : 0);
+        _looping = looping;
         var durationMask = new int[timelineCount];
         for (var i = 0; i < timelineCount; i++)
         {
@@ -284,6 +301,20 @@ public sealed unsafe partial class World : IDisposable
         _pbPhase = new ushort[cap];
         _countByRow = new int[rowCapacity];
         _rowToActive = new int[rowCapacity];
+        // Visit work buffers start small and grow exact-fit (single realloc)
+        // on first build; every slot is written before it is read.
+        _activeRows = AllocInts(64);
+        _activeRowsCap = 64;
+        _visitFlat = AllocInts(64);
+        _visitFlatCap = 64;
+        _visitPhaseMod = AllocUshorts(64);
+        _visitPhaseModCap = 64;
+        _rowStart = AllocInts(64);
+        _rowStartCap = 64;
+        _visitCursor = AllocInts(64);
+        _visitCursorCap = 64;
+        _rowFlat = AllocInts(64);
+        _rowFlatCap = 64;
         InitSystems(timelineCount);
         _eventHolders = new object?[4];
         _report = new TickReport(0, 0, 0, 0);
@@ -369,8 +400,39 @@ public sealed unsafe partial class World : IDisposable
         _report = new TickReport(invalid, _highWater, n + _soloCount, _frame);
     }
 
+    ~World() => ReleaseNative();
+
     public void Dispose()
     {
+        ReleaseNative();
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
+        if (_activeRows != null) { NativeMemory.AlignedFree(_activeRows); _activeRows = null; }
+        if (_visitFlat != null) { NativeMemory.AlignedFree(_visitFlat); _visitFlat = null; }
+        if (_visitPhaseMod != null) { NativeMemory.AlignedFree(_visitPhaseMod); _visitPhaseMod = null; }
+        if (_rowStart != null) { NativeMemory.AlignedFree(_rowStart); _rowStart = null; }
+        if (_visitCursor != null) { NativeMemory.AlignedFree(_visitCursor); _visitCursor = null; }
+        if (_rowFlat != null) { NativeMemory.AlignedFree(_rowFlat); _rowFlat = null; }
+    }
+
+    private static int* AllocInts(int count) => (int*)NativeMemory.AlignedAlloc((nuint)count * 4u, 8u);
+
+    private static ushort* AllocUshorts(int count) => (ushort*)NativeMemory.AlignedAlloc((nuint)count * 2u, 8u);
+
+    // Exact-fit native growth (single realloc + memcpy, no zeroing): sized
+    // once on first build, unlike the managed doubling series it replaces.
+    private static void EnsureNative<T>(ref T* buffer, ref int capacity, int needed) where T : unmanaged
+    {
+        if ((uint)capacity >= (uint)needed) return;
+        var grown = (T*)NativeMemory.AlignedAlloc((nuint)needed * (nuint)sizeof(T), 8u);
+        if (capacity > 0)
+            Buffer.MemoryCopy(buffer, grown, (nuint)capacity * (nuint)sizeof(T), (nuint)capacity * (nuint)sizeof(T));
+        NativeMemory.AlignedFree(buffer);
+        buffer = grown;
+        capacity = needed;
     }
 
     private void BuildRowMajor(int n)
@@ -379,40 +441,70 @@ public sealed unsafe partial class World : IDisposable
         if (n == 0)
         {
             _activeRowCount = 0;
-            if (_rowStart.Length < 1) _rowStart = new int[1];
+            EnsureNative(ref _rowStart, ref _rowStartCap, 1);
             _rowStart[0] = 0;
             return;
         }
-        var sorted = true;
-        for (var i = 1; i < n; i++)
+        // Sortedness of _pbRow is maintained incrementally (appends that
+        // would break it and swap-removals clear _pbOrderSorted), so the
+        // row-major build does not need a full scan to prove it.
+        if (_pbOrderSorted)
         {
-            if (_pbRow[i] < _pbRow[i - 1]) { sorted = false; break; }
-        }
-        if (sorted)
-        {
-            if (_activeRows.Length < n)
+            if (_activeRowsCap < n) EnsureNative(ref _activeRows, ref _activeRowsCap, n);
+            var rowCap = n < _rowCapacity ? n : _rowCapacity;
+            EnsureNative(ref _rowStart, ref _rowStartCap, rowCap + 1);
+            // Fused count+prefix+fill. Playback order is visit order here, so
+            // visits are appended in one pass while per-row segment
+            // boundaries are recorded; no separate _countByRow/_visitCursor/
+            // _rowToActive pass is needed. Distinct rows are deduped exactly
+            // as in the three-pass path (including rows with zero visits),
+            // and visits land in the same order the fill pass produces.
+            void EnsureVisitCapacity(int needed)
             {
-                var cap = n > _activeRows.Length * 2 ? n : _activeRows.Length * 2;
-                if (cap < 64) cap = 64;
-                Array.Resize(ref _activeRows, cap);
+                if (needed <= _visitFlatCap) return;
+                var growTo = _visitFlatCap < 64 ? 64 : _visitFlatCap * 2;
+                while (growTo < needed) growTo *= 2;
+                EnsureNative(ref _visitFlat, ref _visitFlatCap, growTo);
+                EnsureNative(ref _visitPhaseMod, ref _visitPhaseModCap, growTo);
             }
-            if (_countByRow.Length < _rowCapacity) Array.Resize(ref _countByRow, _rowCapacity);
-            Array.Clear(_countByRow, 0, _rowCapacity);
+            var cursor = 0;
             var m = 0;
             var prevRow = 0;
+            var stepCount = _timelineStepCount;
+            var durationArr = _duration;
+            var durationMaskArr = _durationMask;
+            var flatBaseArr = _timelineFlatBase;
             for (var i = 0; i < n; i++)
             {
                 var row = _pbRow[i];
-                var tlIdx = _pbTimeline[i] - 1;
-                var steps = (tlIdx >= 0 && tlIdx < _timelineStepCount.Length) ? _timelineStepCount[tlIdx] : 0;
-                _countByRow[row] += steps;
                 if (m == 0 || row != prevRow)
                 {
-                    _activeRows[m++] = row;
+                    _activeRows[m] = row;
+                    _rowStart[m] = cursor;
+                    m++;
                     prevRow = row;
+                }
+                var tlIdx = _pbTimeline[i] - 1;
+                if (tlIdx < 0 || tlIdx >= stepCount.Length) continue;
+                var steps = stepCount[tlIdx];
+                if (steps == 0) continue;
+                var duration = durationArr[tlIdx];
+                var mask = durationMaskArr[tlIdx];
+                var phase = _pbPhase[i];
+                var phaseMod = duration > 0 ? (mask >= 0 ? (ushort)(phase & mask) : (ushort)(phase % duration)) : (ushort)0;
+                var flatBase = flatBaseArr[tlIdx];
+                var needed = cursor + steps;
+                if (needed > _visitFlatCap) EnsureVisitCapacity(needed);
+                for (var s = 0; s < steps; s++)
+                {
+                    _visitFlat[cursor] = flatBase + s;
+                    _visitPhaseMod[cursor] = phaseMod;
+                    cursor++;
                 }
             }
             _activeRowCount = m;
+            _rowStart[m] = cursor;
+            _visitCount = cursor;
         }
         else
         {
@@ -426,106 +518,107 @@ public sealed unsafe partial class World : IDisposable
                 var steps = (tlIdx >= 0 && tlIdx < _timelineStepCount.Length) ? _timelineStepCount[tlIdx] : 0;
                 _countByRow[row] += steps;
             }
-        }
-        if (_activeRowCount == 0)
-        {
-            if (_rowStart.Length < 1) _rowStart = new int[1];
-            _rowStart[0] = 0;
-            return;
-        }
-        if (_rowStart.Length < _activeRowCount + 1) Array.Resize(ref _rowStart, _activeRowCount + 1);
-        if (_visitCursor.Length < _activeRowCount + 1) Array.Resize(ref _visitCursor, _activeRowCount + 1);
-        if (_rowFlat.Length < _activeRowCount) Array.Resize(ref _rowFlat, _activeRowCount);
-        if (_rowToActive.Length < _rowCapacity) Array.Resize(ref _rowToActive, _rowCapacity);
-        var total = 0;
-        for (var ai = 0; ai < _activeRowCount; ai++)
-        {
-            var row = _activeRows[ai];
-            _rowToActive[row] = ai;
-            _rowStart[ai] = total;
-            total += _countByRow[row];
-        }
-        _rowStart[_activeRowCount] = total;
-        _visitCount = total;
-        if (_visitFlat.Length < total) Array.Resize(ref _visitFlat, total);
-        if (_visitPhaseMod.Length < total) Array.Resize(ref _visitPhaseMod, total);
-        Array.Copy(_rowStart, _visitCursor, _activeRowCount);
-        for (var i = 0; i < n; i++)
-        {
-            var row = _pbRow[i];
-            var ai = _rowToActive[row];
-            var tlIdx = _pbTimeline[i] - 1;
-            if (tlIdx < 0 || tlIdx >= _timelineStepCount.Length) continue;
-            var steps = _timelineStepCount[tlIdx];
-            if (steps == 0) continue;
-            var duration = _duration[tlIdx];
-            var phase = _pbPhase[i];
-            var mask = _durationMask[tlIdx];
-            var phaseMod = duration > 0 ? (mask >= 0 ? (ushort)(phase & mask) : (ushort)(phase % duration)) : (ushort)0;
-            var flatBase = _timelineFlatBase[tlIdx];
-            var cursor = _visitCursor[ai];
-            for (var s = 0; s < steps; s++)
+            if (_activeRowCount == 0)
             {
-                _visitFlat[cursor] = flatBase + s;
-                _visitPhaseMod[cursor] = phaseMod;
-                cursor++;
+                EnsureNative(ref _rowStart, ref _rowStartCap, 1);
+                _rowStart[0] = 0;
+                return;
             }
-            _visitCursor[ai] = cursor;
+            EnsureNative(ref _rowStart, ref _rowStartCap, _activeRowCount + 1);
+            EnsureNative(ref _visitCursor, ref _visitCursorCap, _activeRowCount + 1);
+            if (_rowToActive.Length < _rowCapacity) Array.Resize(ref _rowToActive, _rowCapacity);
+            var total = 0;
+            for (var ai = 0; ai < _activeRowCount; ai++)
+            {
+                var row = _activeRows[ai];
+                _rowToActive[row] = ai;
+                _rowStart[ai] = total;
+                total += _countByRow[row];
+            }
+            _rowStart[_activeRowCount] = total;
+            _visitCount = total;
+            EnsureNative(ref _visitFlat, ref _visitFlatCap, total);
+            EnsureNative(ref _visitPhaseMod, ref _visitPhaseModCap, total);
+            Buffer.MemoryCopy(_rowStart, _visitCursor, (nuint)_activeRowCount * 4u, (nuint)_activeRowCount * 4u);
+            for (var i = 0; i < n; i++)
+            {
+                var row = _pbRow[i];
+                var ai = _rowToActive[row];
+                var tlIdx = _pbTimeline[i] - 1;
+                if (tlIdx < 0 || tlIdx >= _timelineStepCount.Length) continue;
+                var steps = _timelineStepCount[tlIdx];
+                if (steps == 0) continue;
+                var duration = _duration[tlIdx];
+                var phase = _pbPhase[i];
+                var mask = _durationMask[tlIdx];
+                var phaseMod = duration > 0 ? (mask >= 0 ? (ushort)(phase & mask) : (ushort)(phase % duration)) : (ushort)0;
+                var flatBase = _timelineFlatBase[tlIdx];
+                var cursor = _visitCursor[ai];
+                for (var s = 0; s < steps; s++)
+                {
+                    _visitFlat[cursor] = flatBase + s;
+                    _visitPhaseMod[cursor] = phaseMod;
+                    cursor++;
+                }
+                _visitCursor[ai] = cursor;
+            }
         }
+        EnsureNative(ref _rowFlat, ref _rowFlatCap, _activeRowCount);
+        // Per-row: rank-sort visits, classify the row word, and track the
+        // whole-tick single-flat candidate in one pass. After rank-sorting,
+        // all visits in a row are equal iff the first and last match
+        // (flatRank is injective), and the single-flat word can be tracked
+        // as rows are classified (empty rows never touch it).
         var visitFlat = _visitFlat;
         var visitPhaseMod = _visitPhaseMod;
         var flatRank = _flatRank;
-        for (var ai = 0; ai < _activeRowCount; ai++)
-        {
-            var start = _rowStart[ai];
-            var length = _rowStart[ai + 1] - start;
-            if (length <= 1) continue;
-            for (var i = 1; i < length; i++)
-            {
-                var idx = start + i;
-                var flat = visitFlat[idx];
-                var rank = flatRank[flat];
-                var phase = visitPhaseMod[idx];
-                var j = i - 1;
-                while (j >= 0 && flatRank[visitFlat[start + j]] > rank)
-                {
-                    visitFlat[start + j + 1] = visitFlat[start + j];
-                    visitPhaseMod[start + j + 1] = visitPhaseMod[start + j];
-                    j--;
-                }
-                visitFlat[start + j + 1] = flat;
-                visitPhaseMod[start + j + 1] = phase;
-            }
-        }
         var rowFlat = _rowFlat;
-        for (var ai = 0; ai < _activeRowCount; ai++)
-        {
-            var start = _rowStart[ai];
-            var end = _rowStart[ai + 1];
-            if (start >= end)
-            {
-                rowFlat[ai] = -1; // empty rows take the generic path (no visits run)
-                continue;
-            }
-            var flat = visitFlat[start];
-            var uniform = 1;
-            for (var v = start + 1; v < end; v++)
-            {
-                if (visitFlat[v] != flat) { uniform = 0; break; }
-            }
-            rowFlat[ai] = uniform != 0 ? flat : ~flat;
-        }
-        // Whole-tick single-flat cache: when every non-empty row is uniform
-        // on one step, loop-invariant hoisting applies to all chunks.
         var single = -1;
         var ok = 1;
         for (var ai = 0; ai < _activeRowCount; ai++)
         {
-            if (_rowStart[ai] >= _rowStart[ai + 1]) continue;
-            var w = rowFlat[ai];
-            if (w < 0) { ok = 0; break; }
-            if (single < 0) single = w;
-            else if (w != single) { ok = 0; break; }
+            var start = _rowStart[ai];
+            var end = _rowStart[ai + 1];
+            var length = end - start;
+            if (length <= 0)
+            {
+                rowFlat[ai] = -1; // empty rows take the generic path (no visits run)
+                continue;
+            }
+            if (length > 1)
+            {
+                for (var i = 1; i < length; i++)
+                {
+                    var idx = start + i;
+                    var flat = visitFlat[idx];
+                    var rank = flatRank[flat];
+                    var phase = visitPhaseMod[idx];
+                    var j = i - 1;
+                    while (j >= 0 && flatRank[visitFlat[start + j]] > rank)
+                    {
+                        visitFlat[start + j + 1] = visitFlat[start + j];
+                        visitPhaseMod[start + j + 1] = visitPhaseMod[start + j];
+                        j--;
+                    }
+                    visitFlat[start + j + 1] = flat;
+                    visitPhaseMod[start + j + 1] = phase;
+                }
+            }
+            var firstFlat = visitFlat[start];
+            if (visitFlat[end - 1] != firstFlat)
+            {
+                rowFlat[ai] = ~firstFlat;
+                ok = 0;
+            }
+            else
+            {
+                rowFlat[ai] = firstFlat;
+                if (ok != 0)
+                {
+                    if (single < 0) single = firstFlat;
+                    else if (firstFlat != single) ok = 0;
+                }
+            }
         }
         _singleFlatWord = ok != 0 && single >= 0 ? single : -1;
     }
@@ -571,12 +664,12 @@ public sealed unsafe partial class World : IDisposable
     {
         var visits = 0;
         var accP = (float*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_acc));
-        var rowsP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_activeRows));
-        var startP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_rowStart));
-        var flatP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_visitFlat));
-        var phaseP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_visitPhaseMod));
+        var rowsP = _activeRows;
+        var startP = _rowStart;
+        var flatP = _visitFlat;
+        var phaseP = _visitPhaseMod;
+        var rowWordP = _rowFlat;
         var tickFlatP = (TickFlat*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_tickFlat));
-        var rowWordP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_rowFlat));
         var globalP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_stepGlobal));
         var start = chunkStart < chunkEnd ? startP[chunkStart] : 0;
         for (var ai = chunkStart; ai < chunkEnd; ai++)
@@ -660,9 +753,9 @@ public sealed unsafe partial class World : IDisposable
     {
         var visits = 0;
         var accP = (float*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_acc));
-        var rowsP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_activeRows));
-        var startP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_rowStart));
-        var phaseP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_visitPhaseMod));
+        var rowsP = _activeRows;
+        var startP = _rowStart;
+        var phaseP = _visitPhaseMod;
         ref var tf = ref _tickFlat[singleFlat];
         var dur = tf.Dur;
         var delta = tf.Delta;
@@ -709,18 +802,13 @@ public sealed unsafe partial class World : IDisposable
 
     private void BuildActiveRows(int n)
     {
-        if (_activeRows.Length < n)
-        {
-            var cap = n > _activeRows.Length * 2 ? n : _activeRows.Length * 2;
-            if (cap < 64) cap = 64;
-            Array.Resize(ref _activeRows, cap);
-        }
+        if (_activeRowsCap < n) EnsureNative(ref _activeRows, ref _activeRowsCap, n);
         if (n == 0)
         {
             _activeRowCount = 0;
             return;
         }
-        Array.Copy(_pbRow, _activeRows, n);
+        new ReadOnlySpan<int>(_pbRow, 0, n).CopyTo(new Span<int>(_activeRows, n));
         // Nearly-sorted input (single swap-remove churn) is repaired by
         // insertion sort with a shift budget; random order falls back to
         // Array.Sort. Both produce the identical sorted+deduped sequence.
@@ -749,7 +837,15 @@ public sealed unsafe partial class World : IDisposable
                 }
                 sorted = shifts <= 4L * n;
             }
-            if (!sorted) Array.Sort(_activeRows, 0, n);
+            if (!sorted)
+            {
+                // Span.Sort is not available on the netstandard2.1 target, so
+                // the rare unsorted fallback sorts through a managed temp.
+                var tmp = new int[n];
+                new Span<int>(_activeRows, n).CopyTo(tmp);
+                Array.Sort(tmp, 0, n);
+                tmp.AsSpan().CopyTo(new Span<int>(_activeRows, n));
+            }
         }
         var m = 0;
         for (var i = 0; i < n; i++)
