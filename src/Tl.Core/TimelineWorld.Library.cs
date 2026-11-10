@@ -400,13 +400,53 @@ namespace Tl
 
         static unsafe void SortEvents(LibraryEvent* a, int n)
         {
+            if (n <= 1) return;
+            var sorted = true;
             for (var i = 1; i < n; i++)
             {
-                var key = a[i];
-                var j = i - 1;
-                while (j >= 0 && Greater(a[j], key)) { a[j + 1] = a[j]; j--; }
-                a[j + 1] = key;
+                if (Greater(a[i - 1], a[i])) { sorted = false; break; }
             }
+            if (sorted) return;
+            var scratch = (LibraryEvent*)NativeMemory.AlignedAlloc((nuint)n * (nuint)sizeof(LibraryEvent), 64);
+            try
+            {
+                var target = new Span<LibraryEvent>(a, n);
+                var source = target;
+                var destination = new Span<LibraryEvent>(scratch, n);
+                var width = 1;
+                while (width < n)
+                {
+                    for (var left = 0; left < n; left += width * 2)
+                    {
+                        var mid = Math.Min(left + width, n);
+                        var right = Math.Min(left + width * 2, n);
+                        MergeRun(source.Slice(left, mid - left), source.Slice(mid, right - mid), destination.Slice(left, right - left));
+                    }
+                    var tmp = source;
+                    source = destination;
+                    destination = tmp;
+                    width <<= 1;
+                }
+                if (!source.Overlaps(target)) source.CopyTo(target);
+            }
+            finally
+            {
+                NativeMemory.AlignedFree(scratch);
+            }
+        }
+
+        static void MergeRun(Span<LibraryEvent> leftRun, Span<LibraryEvent> rightRun, Span<LibraryEvent> merged)
+        {
+            var i = 0;
+            var j = 0;
+            var k = 0;
+            while (i < leftRun.Length && j < rightRun.Length)
+            {
+                if (Greater(leftRun[i], rightRun[j])) merged[k++] = rightRun[j++];
+                else merged[k++] = leftRun[i++];
+            }
+            while (i < leftRun.Length) merged[k++] = leftRun[i++];
+            while (j < rightRun.Length) merged[k++] = rightRun[j++];
         }
 
         static bool Greater(LibraryEvent a, LibraryEvent b)
