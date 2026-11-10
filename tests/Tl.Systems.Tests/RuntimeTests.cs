@@ -217,7 +217,7 @@ public sealed unsafe class RuntimeTests : IDisposable
         players.Start(0, 2);
         players.Start(0, 4);
         _world.ApplyRequests(players);
-        Assert.Equal(4, players.SlotsPerEntity);
+        Assert.Equal(2, players.SlotsPerEntity); // inline capacity is fixed; the entity spills per entity
         Assert.Equal(3, players.CountOf(0));
         players.Stop(0, 1);
         _world.ApplyRequests(players);

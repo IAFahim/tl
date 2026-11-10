@@ -33,7 +33,7 @@ public sealed unsafe class KindTableTests
             Assert.Equal(0, table->Length[r]);
         }
         Assert.Equal(0b111ul, table->Enabled[0]);
-        Assert.Equal(16 + 2 * 8, table->StorageBytesPerRow);
+        Assert.Equal(6 + 2 * 8, table->StorageBytesPerRow);
     });
 
     [Fact]
@@ -47,6 +47,22 @@ public sealed unsafe class KindTableTests
         Assert.Equal(9, table->MaxLength);
         Assert.Equal(3, table->Overflows);
         Assert.True(table->IsActive(0));
+        Assert.True((table->Spilled[0] & 1ul) != 0);
+        Assert.True((table->Spilled[0] & 2ul) == 0);
+    });
+
+    [Fact]
+    public void InlineZeroRowsSpillThroughTheDensePointerArray() => With([0, 1], 0, 8, p =>
+    {
+        var table = (KindTable*)p;
+        for (ushort i = 0; i < 5; i++) Add(table, 0, 1, i);
+        Add(table, 1, 1, 7);
+        Assert.Equal(Enumerable.Range(0, 5).Select(i => (ushort)i), Steps(table, 0));
+        Assert.Equal([(ushort)7], Steps(table, 1));
+        Assert.True((table->Spilled[0] & 1ul) != 0);
+        Assert.True((table->Spilled[0] & 2ul) != 0);
+        Assert.True(table->RemoveSpan(0, 0, 1, 2));
+        Assert.Equal([(ushort)0, (ushort)1, (ushort)3, (ushort)4], Steps(table, 0));
     });
 
     [Fact]
