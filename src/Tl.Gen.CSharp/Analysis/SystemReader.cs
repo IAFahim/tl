@@ -20,19 +20,25 @@ internal static class SystemReader
         INamedTypeSymbol Events,
         INamedTypeSymbol BatchItem,
         INamedTypeSymbol System,
-        INamedTypeSymbol SystemMember);
+        INamedTypeSymbol SystemMember,
+        INamedTypeSymbol? TlFrame,
+        INamedTypeSymbol? NoSettings);
 
-    internal sealed record KindContracts(INamedTypeSymbol Kind, INamedTypeSymbol Feeds, INamedTypeSymbol Pulse);
+    internal sealed record KindContracts(INamedTypeSymbol? TimelineKind, INamedTypeSymbol? TlKind, INamedTypeSymbol Feeds, INamedTypeSymbol Pulse);
+
+    static bool IsKindContract(KindContracts contracts, ISymbol? attribute)
+        => Symbols.Same(attribute, contracts.TimelineKind) || Symbols.Same(attribute, contracts.TlKind);
 
     static KindContracts? KindContractsOf(Compilation compilation)
     {
-        var kind = compilation.GetTypeByMetadataName("Tl.TimelineKindAttribute");
+        var timelineKind = compilation.GetTypeByMetadataName("Tl.TimelineKindAttribute");
+        var tlKind = compilation.GetTypeByMetadataName("Tl.TlKindAttribute");
         var feeds = compilation.GetTypeByMetadataName("Tl.FeedsAttribute");
         var pulse = compilation.GetTypeByMetadataName("Tl.PulseAttribute");
-        return kind is null || feeds is null || pulse is null ? null : new KindContracts(kind, feeds, pulse);
+        return feeds is null || pulse is null || timelineKind is null && tlKind is null ? null : new KindContracts(timelineKind, tlKind, feeds, pulse);
     }
 
-    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation)
+    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation, SystemDecl? autoSystem = null, ISet<string>? autoMembers = null)
     {
         var systems = new List<SystemDecl>();
         var consumers = new List<SystemConsumer>();
@@ -56,14 +62,17 @@ internal static class SystemReader
                     kinds.Add(kind);
                     kindSites[kind.TypeName] = node;
                 }
-                var consumer = ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign);
-                if (consumer is not null)
+                if (ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign) is { } consumer)
                 {
-                    consumers.Add(consumer);
-                    sites[consumer.ConsumerTypeName] = node;
+                    var owned = autoSystem is not null && autoMembers is not null && autoMembers.Contains(consumer.ConsumerTypeName)
+                        ? consumer with { MemberSystems = [autoSystem.TypeName] }
+                        : consumer;
+                    consumers.Add(owned);
+                    sites[owned.ConsumerTypeName] = node;
                 }
             }
         }
+        if (autoSystem is not null) systems.Add(autoSystem);
         foreach (var pair in foreign)
         {
             if (kindSites.ContainsKey(pair.Key)) continue;
@@ -92,9 +101,9 @@ internal static class SystemReader
             compilation.GetTypeByMetadataName("Tl.TimelineSystemAttribute"),
             compilation.GetTypeByMetadataName("Tl.TimelineSystemMemberAttribute"),
         ];
-        return types.Any(static type => type is null)
-            ? null
-            : new ContractSet(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!, types[9]!);
+        if (types.Any(static type => type is null)) return null;
+        return new ContractSet(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!, types[9]!,
+            compilation.GetTypeByMetadataName("Tl.TlFrame`1"), compilation.GetTypeByMetadataName("Tl.TlNoSettings`1"));
     }
 
     static bool IsSystem(INamedTypeSymbol type, ContractSet contracts)
@@ -102,6 +111,22 @@ internal static class SystemReader
         foreach (var attribute in type.GetAttributes())
             if (Symbols.Same(attribute.AttributeClass?.OriginalDefinition, contracts.System))
                 return true;
+        return false;
+    }
+
+    static bool IsFrame(ITypeSymbol type, ContractSet contracts, ITypeSymbol track, ITypeSymbol clip, out bool tlFrame)
+    {
+        tlFrame = false;
+        if (Symbols.Same(type, contracts.Frame.Construct(track, clip))) return true;
+        if (type is INamedTypeSymbol named && contracts.TlFrame is not null && contracts.NoSettings is not null
+            && Symbols.Same(named.OriginalDefinition, contracts.TlFrame) && named.TypeArguments.Length == 1
+            && Symbols.Same(named.TypeArguments[0], clip)
+            && track is INamedTypeSymbol trackNamed && Symbols.Same(trackNamed.OriginalDefinition, contracts.NoSettings)
+            && trackNamed.TypeArguments.Length == 1 && Symbols.Same(trackNamed.TypeArguments[0], clip))
+        {
+            tlFrame = true;
+            return true;
+        }
         return false;
     }
 
@@ -314,9 +339,9 @@ internal static class SystemReader
             else
             {
                 var frame = contracts.Frame.Construct(track!, clip!);
-                if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
+                if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && IsFrame(method.Parameters[0].Type, contracts, track!, clip!, out var tlFrame))
                 {
-                    parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
+                    parameters.Add(new(method.Parameters[0].Name, tlFrame ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
                     index = 1;
                 }
                 var feed = 0;
@@ -352,7 +377,7 @@ internal static class SystemReader
     {
         AttributeData? attribute = null;
         foreach (var candidate in type.GetAttributes())
-            if (Symbols.Same(candidate.AttributeClass, kc.Kind)) attribute = candidate;
+            if (IsKindContract(kc, candidate.AttributeClass)) attribute = candidate;
         if (attribute is null) return null;
         var name = Symbols.Name(type);
         if (type.TypeKind != TypeKind.Struct)
@@ -695,7 +720,7 @@ internal static class SystemReader
         var frame = contracts.Frame.Construct(track, clip);
         var parameters = new List<ConsumerParam>();
         var index = 0;
-        if (method.Parameters.Length > 0 && Symbols.Same(method.Parameters[0].Type, frame))
+        if (method.Parameters.Length > 0 && IsFrame(method.Parameters[0].Type, contracts, track, clip, out _))
             index = 1;
         else if (method.Parameters.Length > 0)
         {
@@ -736,9 +761,9 @@ internal static class SystemReader
         var frame = contracts.Frame.Construct(track, clip);
         var parameters = new List<ConsumerParam>();
         var index = 0;
-        if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
+        if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && IsFrame(method.Parameters[0].Type, contracts, track, clip, out var activeTl))
         {
-            parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
+            parameters.Add(new(method.Parameters[0].Name, activeTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
             index = 1;
         }
         var feed = 0;
@@ -765,12 +790,12 @@ internal static class SystemReader
         var name = Symbols.Name(type);
         var frame = contracts.Frame.Construct(track, clip);
         var parameters = new List<ConsumerParam>();
-        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Symbols.Same(method.Parameters[0].Type, frame))
+        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !IsFrame(method.Parameters[0].Type, contracts, track, clip, out var batchTl))
         {
             Symbols.Error(diagnostics, site, "TLGEN96", $"Consumer '{name}' ExecuteBatch must begin with in {Symbols.Name(frame)}.");
             return null;
         }
-        parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
+        parameters.Add(new(method.Parameters[0].Name, batchTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
         if (method.Parameters.Length < 2 || !IsBatchItems(method.Parameters[1].Type, contracts, out var element))
         {
             Symbols.Error(diagnostics, site, "TLGEN96", $"Consumer '{name}' ExecuteBatch must take ReadOnlySpan<Tl.BatchItem<R>> after the frame.");
@@ -796,12 +821,12 @@ internal static class SystemReader
         if (method is null) return null;
         var name = Symbols.Name(type);
         var frame = contracts.Frame.Construct(track, clip);
-        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Symbols.Same(method.Parameters[0].Type, frame))
+        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !IsFrame(method.Parameters[0].Type, contracts, track, clip, out var eventTl))
         {
             Symbols.Error(diagnostics, site, "TLGEN92", $"Consumer '{name}' {methodName} must begin with in {Symbols.Name(frame)}.");
             return null;
         }
-        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, "") };
+        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, eventTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, "") };
         for (var index = 1; index < method.Parameters.Length; index++)
         {
             var parameter = method.Parameters[index];
@@ -934,10 +959,12 @@ internal static class SystemReader
         return hash | 1UL;
     }
 
-    internal static ulong StableKey(ITypeSymbol type)
+    internal static ulong StableKey(ITypeSymbol type) => StableKey(StableName(type));
+
+    internal static ulong StableKey(string stableName)
     {
         var hash = 14695981039346656037UL;
-        foreach (var c in StableName(type)) hash = (hash ^ c) * 1099511628211UL;
+        foreach (var c in stableName) hash = (hash ^ c) * 1099511628211UL;
         return hash | 1UL;
     }
 
