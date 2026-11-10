@@ -39,7 +39,7 @@ public sealed class NewStyleAnalyzerTests
         Assert.Contains("global::Portable.PushKind.Apply", generated);
         Assert.Contains("world.Tick(__direction);", generated);
         Assert.Contains("float __v = __acc[__e];", generated);
-        Assert.DoesNotContain("global::Portable.PushTrack.Evaluate", generated);
+        Assert.Contains("global::Portable.PushTrack.Evaluate", generated);
         Assert.NotNull(output.GetTypeByMetadataName("Tl.Generated.TlAuto_Portable_Pack"));
         using var bytes = new MemoryStream();
         Assert.True(output.Emit(bytes).Success);
@@ -86,8 +86,8 @@ public sealed class NewStyleAnalyzerTests
         Assert.Contains("Tl.Events<Portable.Ring>", fields);
         var generated = string.Join("\n", driver.GetRunResult().GeneratedTrees.Select(tree => tree.ToString()));
         Assert.Contains("world.Tick(__direction);", generated);
-        Assert.DoesNotContain("global::Portable.PushTrack.OnClipStart", generated);
-        Assert.DoesNotContain("global::Portable.BellTrack.OnClipEnd", generated);
+        Assert.Contains("global::Portable.PushTrack.OnClipStart", generated);
+        Assert.Contains("global::Portable.BellTrack.OnClipEnd", generated);
         using var bytes = new MemoryStream();
         Assert.True(output.Emit(bytes).Success);
     }

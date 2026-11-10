@@ -236,7 +236,7 @@ internal static class TypeAnalyzer
                 if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.Ref or RefKind.Out))
                     return Err(Symbols.Site(p, site), "TLGEN76", $"'{name}.Fold' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
                 var typeName = Symbols.Name(p.Type);
-                var size = ResultSize(p.Type);
+                var size = Symbols.ResultSize(p.Type);
                 if (size == 0 || slots.Count >= MemoResults)
                     return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.Fold' folds at most {MemoResults} unmanaged results of at most 8 bytes each ('{Symbols.Name(p.Type)} {p.Name}' is not one).");
                 slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size, Integral(p.Type)));
@@ -282,7 +282,7 @@ internal static class TypeAnalyzer
                         && Symbols.Name(active.Parameters[index].Type) == ResultName(feed))
                     {
                         var fed = active.Parameters[index++];
-                        live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed, (byte)ResultSize(fed.Type)));
+                        live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed, (byte)Symbols.ResultSize(fed.Type)));
                         feed++;
                     }
                 for (; index < active.Parameters.Length; index++)
@@ -310,16 +310,7 @@ internal static class TypeAnalyzer
             => slots.Where(static slot => slot.Mode == SlotMode.Output).Select(static slot => slot.TypeName).ElementAtOrDefault(ordinal) ?? "";
     }
 
-    private static byte ResultSize(ITypeSymbol t)
-        => t switch
-        {
-            INamedTypeSymbol { EnumUnderlyingType: { } u } => ResultSize(u),
-            { SpecialType: SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte } => 1,
-            { SpecialType: SpecialType.System_Char or SpecialType.System_Int16 or SpecialType.System_UInt16 } => 2,
-            { SpecialType: SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single } => 4,
-            { SpecialType: SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double } => 8,
-            _ => 0,
-        };
+
 
     private static bool Integral(ITypeSymbol t)
         => t.SpecialType is not (SpecialType.System_Single or SpecialType.System_Double);

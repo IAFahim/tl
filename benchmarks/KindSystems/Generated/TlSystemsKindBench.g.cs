@@ -7301,6 +7301,1950 @@ else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_1());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_2());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_3());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_4());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_5());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_6());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_7());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_8());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_9());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_10());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_11());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_12());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_13());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_14());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_15());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_16());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_17());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_18());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_19());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_20());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_21());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_22());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_23());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_24());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_25());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_26());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_27());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_28());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_29());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_30());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_31());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_32());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_33());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_34());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_35());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_36());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_37());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_38());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_39());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_40());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_41());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_42());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_43());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_44());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_45());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_46());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_47());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_48());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_49());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_50());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_51());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_52());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_53());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_54());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_55());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_56());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_57());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_58());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_59());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_60());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_61());
+if (!world.TryKindTable<float>(1, out _)) world.RegisterKind<float>(new TlKindBinder_62());
+world.Tick(__direction);
+Kind_0(world, __c0, __c1, __n);
+Kind_1(world, __c0, __c1, __n);
+Kind_2(world, __c0, __c1, __n);
+Kind_3(world, __c0, __c1, __n);
+Kind_4(world, __c0, __c1, __n);
+Kind_5(world, __c0, __c1, __n);
+Kind_6(world, __c0, __c1, __n);
+Kind_7(world, __c0, __c1, __n);
+Kind_8(world, __c0, __c1, __n);
+Kind_9(world, __c0, __c1, __n);
+Kind_10(world, __c0, __c1, __n);
+Kind_11(world, __c0, __c1, __n);
+Kind_12(world, __c0, __c1, __n);
+Kind_13(world, __c0, __c1, __n);
+Kind_14(world, __c0, __c1, __n);
+Kind_15(world, __c0, __c1, __n);
+Kind_16(world, __c0, __c1, __n);
+Kind_17(world, __c0, __c1, __n);
+Kind_18(world, __c0, __c1, __n);
+Kind_19(world, __c0, __c1, __n);
+Kind_20(world, __c0, __c1, __n);
+Kind_21(world, __c0, __c1, __n);
+Kind_22(world, __c0, __c1, __n);
+Kind_23(world, __c0, __c1, __n);
+Kind_24(world, __c0, __c1, __n);
+Kind_25(world, __c0, __c1, __n);
+Kind_26(world, __c0, __c1, __n);
+Kind_27(world, __c0, __c1, __n);
+Kind_28(world, __c0, __c1, __n);
+Kind_29(world, __c0, __c1, __n);
+Kind_30(world, __c0, __c1, __n);
+Kind_31(world, __c0, __c1, __n);
+Kind_32(world, __c0, __c1, __n);
+Kind_33(world, __c0, __c1, __n);
+Kind_34(world, __c0, __c1, __n);
+Kind_35(world, __c0, __c1, __n);
+Kind_36(world, __c0, __c1, __n);
+Kind_37(world, __c0, __c1, __n);
+Kind_38(world, __c0, __c1, __n);
+Kind_39(world, __c0, __c1, __n);
+Kind_40(world, __c0, __c1, __n);
+Kind_41(world, __c0, __c1, __n);
+Kind_42(world, __c0, __c1, __n);
+Kind_43(world, __c0, __c1, __n);
+Kind_44(world, __c0, __c1, __n);
+Kind_45(world, __c0, __c1, __n);
+Kind_46(world, __c0, __c1, __n);
+Kind_47(world, __c0, __c1, __n);
+Kind_48(world, __c0, __c1, __n);
+Kind_49(world, __c0, __c1, __n);
+Kind_50(world, __c0, __c1, __n);
+Kind_51(world, __c0, __c1, __n);
+Kind_52(world, __c0, __c1, __n);
+Kind_53(world, __c0, __c1, __n);
+Kind_54(world, __c0, __c1, __n);
+Kind_55(world, __c0, __c1, __n);
+Kind_56(world, __c0, __c1, __n);
+Kind_57(world, __c0, __c1, __n);
+Kind_58(world, __c0, __c1, __n);
+Kind_59(world, __c0, __c1, __n);
+Kind_60(world, __c0, __c1, __n);
+Kind_61(world, __c0, __c1, __n);
+Kind_62(world, __c0, __c1, __n);
+}
+internal static int TlKind_0_Combine(int __total, int __v)
+{
+global::KindBench.Dmg.Combine(ref __total, in __v);
+return __total;
+}
+internal static float TlKind_1_Combine(float __total, float __v)
+{
+global::KindBench.K0.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_1_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_1 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_1_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_1_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_2_Combine(float __total, float __v)
+{
+global::KindBench.K1.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_2_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_2 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_2_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_2_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_3_Combine(float __total, float __v)
+{
+global::KindBench.K10.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_3_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_3 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_3_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_3_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_4_Combine(float __total, float __v)
+{
+global::KindBench.K11.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_4_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_4 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_4_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_4_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_5_Combine(float __total, float __v)
+{
+global::KindBench.K12.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_5_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_5 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_5_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_5_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_6_Combine(float __total, float __v)
+{
+global::KindBench.K13.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_6_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_6 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_6_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_6_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_7_Combine(float __total, float __v)
+{
+global::KindBench.K14.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_7_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_7 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_7_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_7_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_8_Combine(float __total, float __v)
+{
+global::KindBench.K15.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_8_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_8 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_8_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_8_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_9_Combine(float __total, float __v)
+{
+global::KindBench.K16.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_9_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_9 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_9_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_9_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_10_Combine(float __total, float __v)
+{
+global::KindBench.K17.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_10_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_10 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_10_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_10_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_11_Combine(float __total, float __v)
+{
+global::KindBench.K18.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_11_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_11 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_11_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_11_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_12_Combine(float __total, float __v)
+{
+global::KindBench.K19.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_12_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_12 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_12_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_12_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_13_Combine(float __total, float __v)
+{
+global::KindBench.K2.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_13_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_13 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_13_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_13_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_14_Combine(float __total, float __v)
+{
+global::KindBench.K20.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_14_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_14 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_14_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_14_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_15_Combine(float __total, float __v)
+{
+global::KindBench.K21.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_15_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_15 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_15_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_15_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_16_Combine(float __total, float __v)
+{
+global::KindBench.K22.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_16_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_16 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_16_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_16_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_17_Combine(float __total, float __v)
+{
+global::KindBench.K23.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_17_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_17 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_17_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_17_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_18_Combine(float __total, float __v)
+{
+global::KindBench.K24.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_18_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_18 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_18_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_18_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_19_Combine(float __total, float __v)
+{
+global::KindBench.K25.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_19_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_19 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_19_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_19_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_20_Combine(float __total, float __v)
+{
+global::KindBench.K26.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_20_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_20 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_20_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_20_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_21_Combine(float __total, float __v)
+{
+global::KindBench.K27.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_21_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_21 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_21_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_21_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_22_Combine(float __total, float __v)
+{
+global::KindBench.K28.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_22_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_22 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_22_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_22_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_23_Combine(float __total, float __v)
+{
+global::KindBench.K29.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_23_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_23 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_23_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_23_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_24_Combine(float __total, float __v)
+{
+global::KindBench.K3.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_24_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_24 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_24_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_24_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_25_Combine(float __total, float __v)
+{
+global::KindBench.K30.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_25_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_25 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_25_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_25_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_26_Combine(float __total, float __v)
+{
+global::KindBench.K31.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_26_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_26 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_26_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_26_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_27_Combine(float __total, float __v)
+{
+global::KindBench.K32.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_27_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_27 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_27_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_27_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_28_Combine(float __total, float __v)
+{
+global::KindBench.K33.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_28_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_28 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_28_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_28_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_29_Combine(float __total, float __v)
+{
+global::KindBench.K34.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_29_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_29 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_29_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_29_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_30_Combine(float __total, float __v)
+{
+global::KindBench.K35.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_30_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_30 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_30_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_30_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_31_Combine(float __total, float __v)
+{
+global::KindBench.K36.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_31_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_31 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_31_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_31_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_32_Combine(float __total, float __v)
+{
+global::KindBench.K37.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_32_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_32 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_32_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_32_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_33_Combine(float __total, float __v)
+{
+global::KindBench.K38.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_33_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_33 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_33_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_33_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_34_Combine(float __total, float __v)
+{
+global::KindBench.K39.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_34_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_34 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_34_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_34_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_35_Combine(float __total, float __v)
+{
+global::KindBench.K4.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_35_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_35 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_35_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_35_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_36_Combine(float __total, float __v)
+{
+global::KindBench.K40.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_36_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_36 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_36_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_36_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_37_Combine(float __total, float __v)
+{
+global::KindBench.K41.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_37_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_37 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_37_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_37_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_38_Combine(float __total, float __v)
+{
+global::KindBench.K42.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_38_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_38 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_38_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_38_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_39_Combine(float __total, float __v)
+{
+global::KindBench.K43.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_39_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_39 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_39_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_39_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_40_Combine(float __total, float __v)
+{
+global::KindBench.K44.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_40_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_40 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_40_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_40_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_41_Combine(float __total, float __v)
+{
+global::KindBench.K45.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_41_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_41 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_41_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_41_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_42_Combine(float __total, float __v)
+{
+global::KindBench.K46.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_42_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_42 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_42_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_42_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_43_Combine(float __total, float __v)
+{
+global::KindBench.K47.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_43_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_43 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_43_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_43_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_44_Combine(float __total, float __v)
+{
+global::KindBench.K48.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_44_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_44 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_44_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_44_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_45_Combine(float __total, float __v)
+{
+global::KindBench.K49.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_45_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_45 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_45_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_45_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_46_Combine(float __total, float __v)
+{
+global::KindBench.K5.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_46_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_46 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_46_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_46_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_47_Combine(float __total, float __v)
+{
+global::KindBench.K50.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_47_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_47 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_47_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_47_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_48_Combine(float __total, float __v)
+{
+global::KindBench.K51.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_48_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_48 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_48_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_48_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_49_Combine(float __total, float __v)
+{
+global::KindBench.K52.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_49_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_49 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_49_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_49_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_50_Combine(float __total, float __v)
+{
+global::KindBench.K53.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_50_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_50 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_50_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_50_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_51_Combine(float __total, float __v)
+{
+global::KindBench.K54.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_51_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_51 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_51_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_51_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_52_Combine(float __total, float __v)
+{
+global::KindBench.K55.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_52_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_52 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_52_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_52_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_53_Combine(float __total, float __v)
+{
+global::KindBench.K56.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_53_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_53 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_53_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_53_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_54_Combine(float __total, float __v)
+{
+global::KindBench.K57.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_54_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_54 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_54_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_54_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_55_Combine(float __total, float __v)
+{
+global::KindBench.K58.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_55_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_55 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_55_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_55_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_56_Combine(float __total, float __v)
+{
+global::KindBench.K59.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_56_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_56 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_56_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_56_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_57_Combine(float __total, float __v)
+{
+global::KindBench.K6.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_57_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_57 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_57_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_57_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_58_Combine(float __total, float __v)
+{
+global::KindBench.K60.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_58_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_58 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_58_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_58_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_59_Combine(float __total, float __v)
+{
+global::KindBench.K61.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_59_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_59 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_59_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_59_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_60_Combine(float __total, float __v)
+{
+global::KindBench.K7.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_60_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_60 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_60_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_60_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_61_Combine(float __total, float __v)
+{
+global::KindBench.K8.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_61_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_61 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_61_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_61_ApplyAffine(in value, ref column);
+}
+internal static float TlKind_62_Combine(float __total, float __v)
+{
+global::KindBench.K9.Combine(ref __total, in __v);
+return __total;
+}
+internal static void TlKind_62_ApplyAffine(in float __value, ref float __column)
+{
+__column = __column + __value;
+}
+internal sealed class TlKindBinder_62 : global::Tl.Kind<float>
+{
+public override int Id => 1;
+public override int Order => 0;
+public override float Idle => default;
+public override float Combine(float acc, float value) => TlKind_62_Combine(acc, value);
+public override void Apply(in float value, ref float column) => TlKind_62_ApplyAffine(in value, ref column);
+}
+internal static void Kind_0(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+int __v = (int)__acc[__e];
+int __total = __v;
+global::KindBench.Dmg.Apply(in __total, ref __c1[__e]);
+}
+}
+internal static void Kind_1(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_2(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_3(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_4(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_5(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_6(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_7(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_8(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_9(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_10(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_11(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_12(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_13(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_14(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_15(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_16(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_17(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_18(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_19(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_20(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_21(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_22(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_23(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_24(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_25(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_26(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_27(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_28(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_29(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_30(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_31(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_32(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_33(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_34(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_35(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_36(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_37(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_38(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_39(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_40(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_41(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_42(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_43(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_44(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_45(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_46(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_47(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_48(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_49(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_50(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_51(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_52(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_53(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_54(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_55(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_56(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_57(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_58(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_59(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_60(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_61(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
+internal static void Kind_62(global::Tl.World world, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+var __table = world.KindTable<float>(1);
+var __acc = world.Accumulator;
+for (var __r = 0; __r < __n; ++__r)
+{
+if (__r >= __table.Rows) break;
+__table.Add(__r, __acc[__r]);
+}
+__table.ApplyAll(__c0);
+__table.Reset();
+}
 }
 internal static unsafe class TlSystem_KindBench_global__KindBench_LSys
 {
@@ -7550,6 +9494,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<float> __c0, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 }
 namespace KindBench
@@ -7572,6 +9521,14 @@ global::TlSystems.TlSystem_KindBench_global__KindBench_KSys.Run(world, players, 
 }
 }
 }
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Fx.Length != __len) throw new global::System.ArgumentException("global::KindBench.KSys: column Fx lengths differ.");
+if (this.Hp.Length != __len) throw new global::System.ArgumentException("global::KindBench.KSys: column Hp lengths differ.");
+global::TlSystems.TlSystem_KindBench_global__KindBench_KSys.RunWorld(world, direction, this.Fx, this.Hp, __len);
+}
 }
 }
 namespace KindBench
@@ -7589,6 +9546,13 @@ fixed (float* __p0 = this.Fx)
 {
 global::TlSystems.TlSystem_KindBench_global__KindBench_LSys.Run(world, players, forward, __p0, __len);
 }
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Fx.Length != __len) throw new global::System.ArgumentException("global::KindBench.LSys: column Fx lengths differ.");
+global::TlSystems.TlSystem_KindBench_global__KindBench_LSys.RunWorld(world, direction, this.Fx, __len);
 }
 }
 }

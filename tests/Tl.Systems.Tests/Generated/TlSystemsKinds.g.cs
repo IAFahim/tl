@@ -944,6 +944,85 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<global::KindGame.Motion> __c0, global::System.Span<global::KindGame.LegacyMotion> __c1, global::System.ReadOnlySpan<global::KindGame.WalkStat> __c2, global::System.ReadOnlySpan<global::KindGame.JumpPower> __c3, global::System.Span<global::KindGame.Stamina> __c4, global::System.Span<global::KindGame.Heat> __c5, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+Kind_0(world, __c0, __c1, __c2, __c3, __c4, __c5, __n);
+Kind_1(world, __c0, __c1, __c2, __c3, __c4, __c5, __n);
+Kind_2(world, __c0, __c1, __c2, __c3, __c4, __c5, __n);
+Kind_3(world, __c0, __c1, __c2, __c3, __c4, __c5, __n);
+Kind_4(world, __c0, __c1, __c2, __c3, __c4, __c5, __n);
+}
+internal static float TlKind_0_Combine(float __total, float __v)
+{
+global::KindGame.Burn.Combine(ref __total, in __v);
+return __total;
+}
+internal static int TlKind_1_Combine(int __total, int __v)
+{
+global::KindGame.Chill.Combine(ref __total, in __v);
+return __total;
+}
+internal static float TlKind_2_Combine(float __total, float __v)
+{
+global::KindGame.Lift.Combine(ref __total, in __v);
+return __total;
+}
+internal static void Kind_0(global::Tl.World world, global::System.Span<global::KindGame.Motion> __c0, global::System.Span<global::KindGame.LegacyMotion> __c1, global::System.ReadOnlySpan<global::KindGame.WalkStat> __c2, global::System.ReadOnlySpan<global::KindGame.JumpPower> __c3, global::System.Span<global::KindGame.Stamina> __c4, global::System.Span<global::KindGame.Heat> __c5, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+float __v = __acc[__e];
+float __total = __v;
+global::KindGame.Burn.Apply(in __total, ref __c5[__e]);
+}
+}
+internal static void Kind_1(global::Tl.World world, global::System.Span<global::KindGame.Motion> __c0, global::System.Span<global::KindGame.LegacyMotion> __c1, global::System.ReadOnlySpan<global::KindGame.WalkStat> __c2, global::System.ReadOnlySpan<global::KindGame.JumpPower> __c3, global::System.Span<global::KindGame.Stamina> __c4, global::System.Span<global::KindGame.Heat> __c5, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+int __v = (int)__acc[__e];
+int __total = __v;
+global::KindGame.Chill.Apply(in __total, ref __c4[__e]);
+}
+}
+internal static void Kind_2(global::Tl.World world, global::System.Span<global::KindGame.Motion> __c0, global::System.Span<global::KindGame.LegacyMotion> __c1, global::System.ReadOnlySpan<global::KindGame.WalkStat> __c2, global::System.ReadOnlySpan<global::KindGame.JumpPower> __c3, global::System.Span<global::KindGame.Stamina> __c4, global::System.Span<global::KindGame.Heat> __c5, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+float __v = __acc[__e];
+float __total = __v;
+global::KindGame.Lift.Apply(in __total, ref __c0[__e]);
+}
+}
+internal static void Kind_3(global::Tl.World world, global::System.Span<global::KindGame.Motion> __c0, global::System.Span<global::KindGame.LegacyMotion> __c1, global::System.ReadOnlySpan<global::KindGame.WalkStat> __c2, global::System.ReadOnlySpan<global::KindGame.JumpPower> __c3, global::System.Span<global::KindGame.Stamina> __c4, global::System.Span<global::KindGame.Heat> __c5, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+global::KindGame.Speed __v = default;
+global::KindGame.Speed __total = __v;
+global::KindGame.Locomotion.Apply(in __total, ref __c0[__e]);
+}
+}
+internal static void Kind_4(global::Tl.World world, global::System.Span<global::KindGame.Motion> __c0, global::System.Span<global::KindGame.LegacyMotion> __c1, global::System.ReadOnlySpan<global::KindGame.WalkStat> __c2, global::System.ReadOnlySpan<global::KindGame.JumpPower> __c3, global::System.Span<global::KindGame.Stamina> __c4, global::System.Span<global::KindGame.Heat> __c5, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+int __v = (int)__acc[__e];
+global::KindGame.StatChange.Apply(in __v, ref __c4[__e]);
+}
+}
 }
 internal static unsafe class TlSystem_Kinds_global__KindGame_Vitals
 {
@@ -1075,6 +1154,28 @@ else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<global::KindGame.Health> __c0, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+Kind_0(world, __c0, __n);
+}
+internal static int TlKind_0_Combine(int __total, int __v)
+{
+global::KindGame.Damage.Combine(ref __total, in __v);
+return __total;
+}
+internal static void Kind_0(global::Tl.World world, global::System.Span<global::KindGame.Health> __c0, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+int __v = (int)__acc[__e];
+int __total = __v;
+global::KindGame.Damage.Apply(in __total, ref __c0[__e]);
+}
+}
 }
 }
 namespace KindGame
@@ -1113,6 +1214,18 @@ global::TlSystems.TlSystem_Kinds_global__KindGame_Movement.Run(world, players, f
 }
 }
 }
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Motion.Length != __len) throw new global::System.ArgumentException("global::KindGame.Movement: column Motion lengths differ.");
+if (this.Legacy.Length != __len) throw new global::System.ArgumentException("global::KindGame.Movement: column Legacy lengths differ.");
+if (this.WalkStat.Length != __len) throw new global::System.ArgumentException("global::KindGame.Movement: column WalkStat lengths differ.");
+if (this.JumpPower.Length != __len) throw new global::System.ArgumentException("global::KindGame.Movement: column JumpPower lengths differ.");
+if (this.Stamina.Length != __len) throw new global::System.ArgumentException("global::KindGame.Movement: column Stamina lengths differ.");
+if (this.Heat.Length != __len) throw new global::System.ArgumentException("global::KindGame.Movement: column Heat lengths differ.");
+global::TlSystems.TlSystem_Kinds_global__KindGame_Movement.RunWorld(world, direction, this.Motion, this.Legacy, this.WalkStat, this.JumpPower, this.Stamina, this.Heat, __len);
+}
 }
 }
 namespace KindGame
@@ -1130,6 +1243,13 @@ fixed (global::KindGame.Health* __p0 = this.Health)
 {
 global::TlSystems.TlSystem_Kinds_global__KindGame_Vitals.Run(world, players, forward, __p0, __len);
 }
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Health.Length != __len) throw new global::System.ArgumentException("global::KindGame.Vitals: column Health lengths differ.");
+global::TlSystems.TlSystem_Kinds_global__KindGame_Vitals.RunWorld(world, direction, this.Health, __len);
 }
 }
 }

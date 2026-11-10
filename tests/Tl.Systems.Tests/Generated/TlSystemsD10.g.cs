@@ -304,6 +304,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 }
 namespace D10
@@ -325,6 +330,14 @@ fixed (int* __p1 = this.Runs)
 global::TlSystems.TlSystem_D10_global__D10_TwoTrack.Run(world, players, forward, __p0, __p1, __len);
 }
 }
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Total.Length != __len) throw new global::System.ArgumentException("global::D10.TwoTrack: column Total lengths differ.");
+if (this.Runs.Length != __len) throw new global::System.ArgumentException("global::D10.TwoTrack: column Runs lengths differ.");
+global::TlSystems.TlSystem_D10_global__D10_TwoTrack.RunWorld(world, direction, this.Total, this.Runs, __len);
 }
 }
 }

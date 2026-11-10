@@ -305,29 +305,13 @@ internal static class SystemReader
             if (trigger == FeederTrigger.Marker)
             {
                 var frame = contracts.MarkerFrame.Construct(marker!);
-                if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
-                {
-                    parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.MarkerFrame, -1, ""));
-                    index = 1;
-                }
+                index = ReadFrameParam(method, frame, ConsumerParamKind.MarkerFrame, parameters);
             }
             else
             {
                 var frame = contracts.Frame.Construct(track!, clip!);
-                if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
-                {
-                    parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
-                    index = 1;
-                }
-                var feed = 0;
-                while (index < method.Parameters.Length && feed < foldTypes.Count
-                    && method.Parameters[index].RefKind == RefKind.In
-                    && string.Equals(Symbols.Name(method.Parameters[index].Type), foldTypes[feed], StringComparison.Ordinal))
-                {
-                    parameters.Add(new(method.Parameters[index].Name, foldTypes[feed], "in ", ConsumerParamKind.FoldFeed, feed, ""));
-                    index++;
-                    feed++;
-                }
+                index = ReadFrameParam(method, frame, ConsumerParamKind.Frame, parameters);
+                index = ReadFoldFeeds(method, index, foldTypes, parameters);
             }
             for (; index < method.Parameters.Length && ok; index++)
             {
@@ -714,7 +698,7 @@ internal static class SystemReader
                 Symbols.Error(diagnostics, site, "TLGEN96", $"Consumer '{name}' Fold results must be required unmanaged out/ref ('{Symbols.Name(parameter.Type)} {parameter.Name}' is not).");
                 return null;
             }
-            var size = ResultSize(parameter.Type);
+            var size = Symbols.ResultSize(parameter.Type);
             if (size is 0 or > 8 || foldTypes.Count >= 10)
             {
                 Symbols.Error(diagnostics, site, "TLGEN96", $"Consumer '{name}' Fold folds at most 10 unmanaged results of at most 8 bytes.");
@@ -732,19 +716,15 @@ internal static class SystemReader
         return new(ConsumerMethodKind.Fold, parameters, [.. foldTypes], [.. foldSizes]);
     }
 
-    static ConsumerMethod? ReadActive(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, ITypeSymbol track, ITypeSymbol clip, List<DeclarationDiagnostic> diagnostics, List<string> foldTypes)
+    static int ReadFrameParam(IMethodSymbol method, ITypeSymbol frame, ConsumerParamKind kind, List<ConsumerParam> parameters)
     {
-        var method = Pick(type, "ExecuteActive", type.ContainingAssembly, diagnostics, site);
-        if (method is null) return null;
-        var name = Symbols.Name(type);
-        var frame = contracts.Frame.Construct(track, clip);
-        var parameters = new List<ConsumerParam>();
-        var index = 0;
-        if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
-        {
-            parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
-            index = 1;
-        }
+        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Symbols.Same(method.Parameters[0].Type, frame)) return 0;
+        parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", kind, -1, ""));
+        return 1;
+    }
+
+    static int ReadFoldFeeds(IMethodSymbol method, int index, List<string> foldTypes, List<ConsumerParam> parameters)
+    {
         var feed = 0;
         while (index < method.Parameters.Length && feed < foldTypes.Count
             && method.Parameters[index].RefKind == RefKind.In
@@ -754,6 +734,43 @@ internal static class SystemReader
             index++;
             feed++;
         }
+        return index;
+    }
+
+    static ConsumerMethod? ReadLifecycle(INamedTypeSymbol type, string methodName, ConsumerMethodKind kind, string code, ITypeSymbol frame, ConsumerParamKind frameKind, SyntaxNode site, ContractSet contracts, List<DeclarationDiagnostic> diagnostics, List<string> foldTypes, bool rejectFoldFeeds)
+    {
+        var method = Pick(type, methodName, type.ContainingAssembly, diagnostics, site);
+        if (method is null) return null;
+        var name = Symbols.Name(type);
+        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Symbols.Same(method.Parameters[0].Type, frame))
+        {
+            Symbols.Error(diagnostics, site, code, $"Consumer '{name}' {methodName} must begin with in {Symbols.Name(frame)}.");
+            return null;
+        }
+        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, Symbols.Name(frame), "in ", frameKind, -1, "") };
+        for (var index = 1; index < method.Parameters.Length; index++)
+        {
+            var parameter = method.Parameters[index];
+            if (rejectFoldFeeds && foldTypes.Contains(Symbols.Name(parameter.Type), StringComparer.Ordinal))
+            {
+                Symbols.Error(diagnostics, site, code, $"Consumer '{name}' {methodName} takes a fold result; folds exist only at load.");
+                return null;
+            }
+            if (!BindValue(type, methodName, parameter, contracts, diagnostics, site, out var bound, eventMethod: true)) return null;
+            parameters.Add(bound);
+        }
+        return new(kind, parameters, rejectFoldFeeds ? [.. foldTypes] : [], []);
+    }
+
+    static ConsumerMethod? ReadActive(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, ITypeSymbol track, ITypeSymbol clip, List<DeclarationDiagnostic> diagnostics, List<string> foldTypes)
+    {
+        var method = Pick(type, "ExecuteActive", type.ContainingAssembly, diagnostics, site);
+        if (method is null) return null;
+        var name = Symbols.Name(type);
+        var frame = contracts.Frame.Construct(track, clip);
+        var parameters = new List<ConsumerParam>();
+        var index = ReadFrameParam(method, frame, ConsumerParamKind.Frame, parameters);
+        index = ReadFoldFeeds(method, index, foldTypes, parameters);
         for (; index < method.Parameters.Length; index++)
         {
             if (!BindValue(type, method.Name, method.Parameters[index], contracts, diagnostics, site, out var bound)) return null;
@@ -795,50 +812,10 @@ internal static class SystemReader
     }
 
     static ConsumerMethod? ReadEvent(INamedTypeSymbol type, string methodName, ConsumerMethodKind kind, SyntaxNode site, ContractSet contracts, ITypeSymbol track, ITypeSymbol clip, List<DeclarationDiagnostic> diagnostics, List<string> foldTypes)
-    {
-        var method = Pick(type, methodName, type.ContainingAssembly, diagnostics, site);
-        if (method is null) return null;
-        var name = Symbols.Name(type);
-        var frame = contracts.Frame.Construct(track, clip);
-        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Symbols.Same(method.Parameters[0].Type, frame))
-        {
-            Symbols.Error(diagnostics, site, "TLGEN92", $"Consumer '{name}' {methodName} must begin with in {Symbols.Name(frame)}.");
-            return null;
-        }
-        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, "") };
-        for (var index = 1; index < method.Parameters.Length; index++)
-        {
-            var parameter = method.Parameters[index];
-            if (foldTypes.Contains(Symbols.Name(parameter.Type), StringComparer.Ordinal))
-            {
-                Symbols.Error(diagnostics, site, "TLGEN92", $"Consumer '{name}' {methodName} takes a fold result; folds exist only at load.");
-                return null;
-            }
-            if (!BindValue(type, methodName, parameter, contracts, diagnostics, site, out var bound, eventMethod: true)) return null;
-            parameters.Add(bound);
-        }
-        return new(kind, parameters, [.. foldTypes], []);
-    }
+        => ReadLifecycle(type, methodName, kind, "TLGEN92", contracts.Frame.Construct(track, clip), ConsumerParamKind.Frame, site, contracts, diagnostics, foldTypes, true);
 
     static ConsumerMethod? ReadMarker(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, ITypeSymbol marker, List<DeclarationDiagnostic> diagnostics)
-    {
-        var method = Pick(type, "OnMarker", type.ContainingAssembly, diagnostics, site);
-        if (method is null) return null;
-        var name = Symbols.Name(type);
-        var frame = contracts.MarkerFrame.Construct(marker);
-        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Symbols.Same(method.Parameters[0].Type, frame))
-        {
-            Symbols.Error(diagnostics, site, "TLGEN97", $"Consumer '{name}' OnMarker must begin with in {Symbols.Name(frame)}.");
-            return null;
-        }
-        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.MarkerFrame, -1, "") };
-        for (var index = 1; index < method.Parameters.Length; index++)
-        {
-            if (!BindValue(type, method.Name, method.Parameters[index], contracts, diagnostics, site, out var bound, eventMethod: true)) return null;
-            parameters.Add(bound);
-        }
-        return new(ConsumerMethodKind.OnMarker, parameters, [], []);
-    }
+        => ReadLifecycle(type, "OnMarker", ConsumerMethodKind.OnMarker, "TLGEN97", contracts.MarkerFrame.Construct(marker), ConsumerParamKind.MarkerFrame, site, contracts, diagnostics, [], false);
 
     static bool BindValue(INamedTypeSymbol type, string methodName, IParameterSymbol parameter, ContractSet contracts, List<DeclarationDiagnostic> diagnostics, SyntaxNode site, out ConsumerParam bound, bool eventMethod = false, bool batchColumns = false)
     {
@@ -918,16 +895,7 @@ internal static class SystemReader
         return true;
     }
 
-    static byte ResultSize(ITypeSymbol type)
-        => type switch
-        {
-            INamedTypeSymbol { EnumUnderlyingType: { } u } => ResultSize(u),
-            { SpecialType: SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte } => 1,
-            { SpecialType: SpecialType.System_Char or SpecialType.System_UInt16 or SpecialType.System_Int16 } => 2,
-            { SpecialType: SpecialType.System_UInt32 or SpecialType.System_Int32 or SpecialType.System_Single } => 4,
-            { SpecialType: SpecialType.System_UInt64 or SpecialType.System_Int64 or SpecialType.System_Double } => 8,
-            _ => 0,
-        };
+
 
     internal static ulong StablePairKey(ITypeSymbol track, ITypeSymbol clip)
     {

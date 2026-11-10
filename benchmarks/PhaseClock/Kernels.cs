@@ -13,8 +13,11 @@ public static class Kernels
     }
 
     public static void ScalarPhase(float[] acc, int off, int[] row, ushort[] phase, float[] lane, int frame, int duration, int dir)
+        => ScalarPhase(acc, off, row, phase, lane, frame, duration, dir, Data.N);
+
+    public static void ScalarPhase(float[] acc, int off, int[] row, ushort[] phase, float[] lane, int frame, int duration, int dir, int count)
     {
-        for (var i = 0; i < Data.N; i++)
+        for (var i = 0; i < count; i++)
             acc[off + row[i]] += lane[Tick(phase[i], frame, duration, dir)];
     }
 
@@ -41,8 +44,11 @@ public static class Kernels
     }
 
     public static void LaneGatherScalar(float[] acc, int off, int[] row, ushort[] phase, float[] lane, int frame, int duration, int dir)
+        => LaneGatherScalar(acc, off, row, phase, lane, frame, duration, dir, Data.N);
+
+    public static void LaneGatherScalar(float[] acc, int off, int[] row, ushort[] phase, float[] lane, int frame, int duration, int dir, int count)
     {
-        for (var i = 0; i < Data.N; i++)
+        for (var i = 0; i < count; i++)
             acc[off + row[i]] += lane[Tick(phase[i], frame, duration, dir)];
     }
 

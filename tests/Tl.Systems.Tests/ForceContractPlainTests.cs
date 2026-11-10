@@ -28,8 +28,8 @@ public sealed class ForceContractPlainTests
         Assert.Contains("global::ForceKind.Apply(in __total, ref __c0[__e]);", all);
         Assert.Contains("world.Tick(__direction);", all);
         Assert.Contains("global::Unity.Mathematics.float3 __v = default;", all);
-        Assert.DoesNotContain("new global::Tl.TlFrame<global::ForceClip>", all);
-        Assert.DoesNotContain("global::ForceTrack.Evaluate", all);
+        Assert.Contains("new global::Tl.TlFrame<global::ForceClip>", all);
+        Assert.Contains("global::ForceTrack.Evaluate", all);
         var options = new CSharpParseOptions(LanguageVersion.Latest);
         var compiled = Compile(emitted.Artifacts.Select(a => CSharpSyntaxTree.ParseText(a.Content, options, a.RelativePath)));
         var errors = compiled.GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error).ToList();

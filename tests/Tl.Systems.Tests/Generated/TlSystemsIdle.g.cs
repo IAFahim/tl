@@ -297,6 +297,35 @@ else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 }
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<global::IdleGame.Screen> __c0, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+Kind_0(world, __c0, __n);
+Kind_1(world, __c0, __n);
+}
+internal static void Kind_0(global::Tl.World world, global::System.Span<global::IdleGame.Screen> __c0, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+int __v = (int)__acc[__e];
+int __total = __v;
+global::IdleGame.Caption.Apply(in __total, ref __c0[__e]);
+}
+}
+internal static void Kind_1(global::Tl.World world, global::System.Span<global::IdleGame.Screen> __c0, int __n)
+{
+var __acc = world.Accumulator;
+for (var __e = 0; __e < __n; ++__e)
+{
+if (__e >= __acc.Length) break;
+int __v = (int)__acc[__e];
+int __total = __v;
+global::IdleGame.Footage.Apply(in __total, ref __c0[__e]);
+}
+}
 }
 }
 namespace IdleGame
@@ -314,6 +343,13 @@ fixed (global::IdleGame.Screen* __p0 = this.Screen)
 {
 global::TlSystems.TlSystem_Idle_global__IdleGame_Stage.Run(world, players, forward, __p0, __len);
 }
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Screen.Length != __len) throw new global::System.ArgumentException("global::IdleGame.Stage: column Screen lengths differ.");
+global::TlSystems.TlSystem_Idle_global__IdleGame_Stage.RunWorld(world, direction, this.Screen, __len);
 }
 }
 }

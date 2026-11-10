@@ -101,7 +101,7 @@ players.Start(0, Timelines.Jump);
 for (var frame = 0; frame < 30; frame++)
 {
     world.ApplyRequests(players);
-    new Movement { Motion = motion, JumpPower = power }.Run(world, players);
+    new Movement { Motion = motion, JumpPower = power }.Run(world, players, true);
     world.Advance(players);
 }
 ```
@@ -249,13 +249,12 @@ One whole step, both hosts:
 using var world = new TimelineWorld(File.ReadAllBytes("game.tlib"));
 var players = new PlaybackTable(entityCapacity: 4096, slotsPerEntity: 4);
 players.Start(0, Timelines.Run);
-void Step() {
+void Step(bool forward) {
     world.ApplyRequests(players);
-    new Movement { Motion = motion, JumpPower = power, Stats = stats, Input = input, Requests = world.Requests(players), Cues = cues.Writer }.Run(world, players);
-    new Combat { Position = position, Heads = heads, Hits = hits.Writer }.Run(world, players);
+    new Movement { Motion = motion, JumpPower = power, Stats = stats, Input = input, Requests = world.Requests(players), Cues = cues.Writer }.Run(world, players, forward);
+    new Combat { Position = position, Heads = heads, Hits = hits.Writer }.Run(world, players, forward);
     world.Advance(players);
 }
-```
 
 Step order: 1. Requests (last step's, then host's). 2. Systems in game order. 3. `Advance` per playback (++/--, wrap if loop, `next` handover same slot+channel at tick 0 + `StartPending`, else `hold` → `Ended` else removal; `Paused`/`Ended` don't move). 4. Events drained in (entity, slot, raise) order. Determinism: no hash-ordered containers; every tick played exactly once per step, no skipping; float order fixed by consumer order (entities row order; per entity slots in slot order; per playback steps in authored track order, reversed backward; per step consumers in ordinal consumer-name order, reversed backward; event methods after `ExecuteActive` of the same playback+tick).
 
@@ -310,7 +309,7 @@ The table is rendered from [benchmarks/Systems](benchmarks/Systems) receipts —
 | 3.x | 4.0 |
 |---|---|
 | `TimelineAsset.Load/Of/Dispose`, `ushort` index, `TimelineComponent` | `new TimelineWorld(library)`, `TimelineId` consts, `Reload` |
-| `Timeline<TTrack,TClip>.Apply` overloads, `ApplyChunk`, generic `Apply<TIndex,...>`, row-list and shared-clock overloads | `system.Run(world, players)` |
+| `Timeline<TTrack,TClip>.Apply` overloads, `ApplyChunk`, generic `Apply<TIndex,...>`, row-list and shared-clock overloads | `system.Run(world, players, forward)` |
 | `Timeline.Advance`, `Timeline<TTrack,TClip>.Advance` overloads | `world.Advance(players)` |
 | `ColumnSet` caller-assembled columns | `[TimelineSystem]` struct fields |
 | `Prepare`/`Play`/`Release`/`BankState` | removed (systems own the plan) |

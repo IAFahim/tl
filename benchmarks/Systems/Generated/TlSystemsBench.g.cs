@@ -377,6 +377,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<float> __c0, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 internal static unsafe class TlSystem_Bench_global__Bench_SB
 {
@@ -634,6 +639,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<float> __c0, global::System.Span<int> __c1, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 internal static unsafe class TlSystem_Bench_global__Bench_SC
 {
@@ -882,6 +892,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 }
 global::Tl.ClosingList.Clear(players.Closing);
+}
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<int> __c0, global::System.Span<float> __c1, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
 }
 }
 internal static unsafe class TlSystem_Bench_global__Bench_SD
@@ -1449,6 +1464,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<float> __c0, global::System.Span<int> __c1, global::System.Span<short> __c2, global::System.Span<sbyte> __c3, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 internal static unsafe class TlSystem_Bench_global__Bench_S2
 {
@@ -1760,6 +1780,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 }
 global::Tl.ClosingList.Clear(players.Closing);
+}
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<int> __c0, global::System.Span<short> __c1, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
 }
 }
 internal static unsafe class TlSystem_Bench_global__Bench_S64
@@ -6971,6 +6996,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, int __n, ref global::Bench.Shared __ctx0)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 }
 namespace Bench
@@ -6988,6 +7018,13 @@ fixed (float* __p0 = this.Fx)
 {
 global::TlSystems.TlSystem_Bench_global__Bench_SA.Run(world, players, forward, __p0, __len);
 }
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Fx.Length != __len) throw new global::System.ArgumentException("global::Bench.SA: column Fx lengths differ.");
+global::TlSystems.TlSystem_Bench_global__Bench_SA.RunWorld(world, direction, this.Fx, __len);
 }
 }
 }
@@ -7011,6 +7048,14 @@ global::TlSystems.TlSystem_Bench_global__Bench_SB.Run(world, players, forward, _
 }
 }
 }
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Fx.Length != __len) throw new global::System.ArgumentException("global::Bench.SB: column Fx lengths differ.");
+if (this.Ix.Length != __len) throw new global::System.ArgumentException("global::Bench.SB: column Ix lengths differ.");
+global::TlSystems.TlSystem_Bench_global__Bench_SB.RunWorld(world, direction, this.Fx, this.Ix, __len);
+}
 }
 }
 namespace Bench
@@ -7032,6 +7077,14 @@ fixed (float* __p1 = this.F)
 global::TlSystems.TlSystem_Bench_global__Bench_SC.Run(world, players, forward, __p0, __p1, __len);
 }
 }
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.C.Length != __len) throw new global::System.ArgumentException("global::Bench.SC: column C lengths differ.");
+if (this.F.Length != __len) throw new global::System.ArgumentException("global::Bench.SC: column F lengths differ.");
+global::TlSystems.TlSystem_Bench_global__Bench_SC.RunWorld(world, direction, this.C, this.F, __len);
 }
 }
 }
@@ -7063,6 +7116,16 @@ global::TlSystems.TlSystem_Bench_global__Bench_SD.Run(world, players, forward, _
 }
 }
 }
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.D0.Length != __len) throw new global::System.ArgumentException("global::Bench.SD: column D0 lengths differ.");
+if (this.D1.Length != __len) throw new global::System.ArgumentException("global::Bench.SD: column D1 lengths differ.");
+if (this.D2.Length != __len) throw new global::System.ArgumentException("global::Bench.SD: column D2 lengths differ.");
+if (this.D3.Length != __len) throw new global::System.ArgumentException("global::Bench.SD: column D3 lengths differ.");
+global::TlSystems.TlSystem_Bench_global__Bench_SD.RunWorld(world, direction, this.D0, this.D1, this.D2, this.D3, __len);
+}
 }
 }
 namespace Bench
@@ -7085,6 +7148,14 @@ global::TlSystems.TlSystem_Bench_global__Bench_S2.Run(world, players, forward, _
 }
 }
 }
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.X.Length != __len) throw new global::System.ArgumentException("global::Bench.S2: column X lengths differ.");
+if (this.Y.Length != __len) throw new global::System.ArgumentException("global::Bench.S2: column Y lengths differ.");
+global::TlSystems.TlSystem_Bench_global__Bench_S2.RunWorld(world, direction, this.X, this.Y, __len);
+}
 }
 }
 namespace Bench
@@ -7098,6 +7169,12 @@ if (players is null) throw new global::System.ArgumentNullException(nameof(playe
 int __len = players.EntityCapacity;
 if (__len > players.EntityCapacity) throw new global::System.ArgumentException("global::Bench.S64: column length exceeds table capacity.");
 global::TlSystems.TlSystem_Bench_global__Bench_S64.Run(world, players, forward, __len, ref this.Ctx);
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+global::TlSystems.TlSystem_Bench_global__Bench_S64.RunWorld(world, direction, __len, ref this.Ctx);
 }
 }
 }

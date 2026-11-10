@@ -599,6 +599,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.Span<global::Game.Motion> __c0, global::System.ReadOnlySpan<global::Game.JumpPower> __c1, global::System.Span<global::Game.Stats> __c2, global::System.ReadOnlySpan<global::Game.InputState> __c3, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 internal static unsafe class TlSystem_Runner_global__Game_Combat
 {
@@ -818,6 +823,11 @@ if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Pa
 }
 global::Tl.ClosingList.Clear(players.Closing);
 }
+internal static void RunWorld(global::Tl.World world, global::Tl.Direction __direction, global::System.ReadOnlySpan<global::Game.Position> __c0, global::System.ReadOnlySpan<global::Game.HeadIndex> __c1, int __n)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+world.Tick(__direction);
+}
 }
 }
 namespace Game
@@ -848,6 +858,16 @@ global::TlSystems.TlSystem_Runner_global__Game_Movement.Run(world, players, forw
 }
 }
 }
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Motion.Length != __len) throw new global::System.ArgumentException("global::Game.Movement: column Motion lengths differ.");
+if (this.JumpPower.Length != __len) throw new global::System.ArgumentException("global::Game.Movement: column JumpPower lengths differ.");
+if (this.Stats.Length != __len) throw new global::System.ArgumentException("global::Game.Movement: column Stats lengths differ.");
+if (this.Input.Length != __len) throw new global::System.ArgumentException("global::Game.Movement: column Input lengths differ.");
+global::TlSystems.TlSystem_Runner_global__Game_Movement.RunWorld(world, direction, this.Motion, this.JumpPower, this.Stats, this.Input, __len);
+}
 }
 }
 namespace Game
@@ -869,6 +889,14 @@ fixed (global::Game.HeadIndex* __p1 = this.Heads)
 global::TlSystems.TlSystem_Runner_global__Game_Combat.Run(world, players, forward, __p0, __p1, __len, this.Hits);
 }
 }
+}
+public void Run(global::Tl.World world, global::Tl.Direction direction = global::Tl.Direction.Forward)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+int __len = world.RowCapacity;
+if (this.Position.Length != __len) throw new global::System.ArgumentException("global::Game.Combat: column Position lengths differ.");
+if (this.Heads.Length != __len) throw new global::System.ArgumentException("global::Game.Combat: column Heads lengths differ.");
+global::TlSystems.TlSystem_Runner_global__Game_Combat.RunWorld(world, direction, this.Position, this.Heads, __len);
 }
 }
 }
