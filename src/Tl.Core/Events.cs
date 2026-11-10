@@ -157,6 +157,21 @@ public unsafe struct Events<T> : IDisposable
             return left.Sequence < right.Sequence;
         }
     }
+    public void ConcatSegments(Events<T>* segs, int chunks)
+    {
+        if (segs == null || chunks <= 0) return;
+        var self = this;
+        for (var c = 0; c < chunks; c++)
+        {
+            var seg = &segs[c];
+            for (var i = 0; i < seg->Count; i++)
+            {
+                ref readonly var record = ref seg->Item(i);
+                self.Bind(record.Entity.Index, record.Slot);
+                self.Raise(in record.Value);
+            }
+        }
+    }
 
     public void Dispose()
     {

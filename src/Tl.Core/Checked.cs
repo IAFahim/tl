@@ -14,7 +14,7 @@ internal static class Checked
     internal static void ResetVisited() => VisitedEntities = 0;
 
     [MethodImpl(AggressiveInlining)]
-    internal static void Visited() => VisitedEntities++;
+    internal static void Visited() => System.Threading.Interlocked.Increment(ref VisitedEntities);
 #endif
     [Conditional("TL_CHECKED")]
     [MethodImpl(AggressiveInlining)]

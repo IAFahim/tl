@@ -224,7 +224,7 @@ public readonly unsafe struct Requests
     readonly int _entity;
     readonly int _slot;
 
-    internal Requests(RequestQueue* queue, int entity, int slot)
+    public Requests(RequestQueue* queue, int entity, int slot)
     {
         _queue = queue;
         _entity = entity;
@@ -245,4 +245,18 @@ public readonly unsafe struct Requests
     public void ReverseChannel(byte channel, bool reverse) => RequestQueue.Add(_queue, _entity, _slot, channel, reverse ? (ushort)1 : (ushort)0, RequestOp.ReverseChannel);
     public void SetSpeed(ushort timeline, ushort sixteenths) => RequestQueue.Add(_queue, _entity, _slot, timeline, sixteenths, RequestOp.Speed);
     public void SetChannelSpeed(byte channel, ushort sixteenths) => RequestQueue.Add(_queue, _entity, _slot, channel, sixteenths, RequestOp.SpeedChannel);
+    public void ConcatSegments(RequestQueue** segs, int chunks)
+    {
+        if (segs == null || chunks <= 0) return;
+        for (var c = 0; c < chunks; c++)
+        {
+            var seg = segs[c];
+            if (seg == null) continue;
+            for (var i = 0; i < seg->Count; i++)
+            {
+                ref readonly var record = ref seg->Item(i);
+                RequestQueue.Add(_queue, record.Entity, record.Slot, record.Timeline, record.At, record.Op);
+            }
+        }
+    }
 }

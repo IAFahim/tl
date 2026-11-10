@@ -87,6 +87,7 @@ public sealed unsafe class KindStore : IDisposable
     Rows _kindRows;
     readonly Dictionary<(string, int), (nint Routes, int Part)> _joined = new();
     readonly HashSet<string> _feeding = new(StringComparer.Ordinal);
+    readonly object _joinGate = new();
     ushort*[] _routes = new ushort*[0];
     List<int>?[] _parts = Array.Empty<List<int>?>();
     bool _disposed;
@@ -162,7 +163,7 @@ public sealed unsafe class KindStore : IDisposable
     public KindStats GetStats(int kind)
     {
         var t = _tables[kind];
-        return t == null ? default : new KindStats(t->Rows, t->MaxLength, t->Overflows, t->StorageBytesPerRow);
+        return t == null ? default : new KindStats(t->Rows, t->ColdMaxLength(), t->ColdOverflows(), t->StorageBytesPerRow);
     }
 
     public KindPulses<T> Pulses<T>(string kind) where T : unmanaged
@@ -245,52 +246,69 @@ public sealed unsafe class KindStore : IDisposable
 
     public ushort* Join(string kind, int valueBytes, string signature, int key, out int part)
     {
-        part = 0;
-        if (_joined.TryGetValue((kind, key), out var cached))
+        lock (_joinGate)
         {
-            part = cached.Part;
-            return (ushort*)cached.Routes;
+            part = 0;
+            if (_joined.TryGetValue((kind, key), out var cached))
+            {
+                part = cached.Part;
+                return (ushort*)cached.Routes;
+            }
         }
-        var k = IndexOf(kind);
-        if (k < 0) return null;
-        if (_valueBytes[k] != valueBytes) throw new InvalidOperationException($"Kind '{kind}' is {valueBytes} bytes in code but {_valueBytes[k]} in the loaded library; rebake the library with tl.");
-        var library = new List<string>();
-        var ordinals = new List<int>();
-        for (var f = 0; f < _sec.FeederCount; f++)
+        return JoinSlow(kind, valueBytes, signature, key, out part);
+    }
+
+    ushort* JoinSlow(string kind, int valueBytes, string signature, int key, out int part)
+    {
+        lock (_joinGate)
         {
-            if (_sec.Feeders[f].Kind != k) continue;
-            library.Add(_sec.Text(_sec.Feeders[f].ConsumerOffset, _sec.Feeders[f].ConsumerLength) + "." + _sec.Text(_sec.Feeders[f].MethodOffset, _sec.Feeders[f].MethodLength) + ":" + _sec.Feeders[f].Trigger);
-            ordinals.Add(_sec.Feeders[f].Ordinal);
+            part = 0;
+            if (_joined.TryGetValue((kind, key), out var cached))
+            {
+                part = cached.Part;
+                return (ushort*)cached.Routes;
+            }
+            var k = IndexOf(kind);
+            if (k < 0) return null;
+            if (_valueBytes[k] != valueBytes) throw new InvalidOperationException($"Kind '{kind}' is {valueBytes} bytes in code but {_valueBytes[k]} in the loaded library; rebake the library with tl.");
+            var library = new List<string>();
+            var ordinals = new List<int>();
+            for (var f = 0; f < _sec.FeederCount; f++)
+            {
+                if (_sec.Feeders[f].Kind != k) continue;
+                library.Add(_sec.Text(_sec.Feeders[f].ConsumerOffset, _sec.Feeders[f].ConsumerLength) + "." + _sec.Text(_sec.Feeders[f].MethodOffset, _sec.Feeders[f].MethodLength) + ":" + _sec.Feeders[f].Trigger);
+                ordinals.Add(_sec.Feeders[f].Ordinal);
+            }
+            var group = _sec.Kinds[k].GroupNameLength != 0 ? "@" + _sec.GroupOf(k) : null;
+            var lines = signature.Length == 0 ? new List<string>() : new List<string>(signature.Split('\n'));
+            var routes = _routes[k];
+            if (routes == null)
+            {
+                routes = (ushort*)Zeroed(256 * 2);
+                for (var i = 0; i < 256; i++) routes[i] = 0xFFFF;
+                _routes[k] = routes;
+            }
+            var parts = _parts[k] ??= new List<int>();
+            var differs = group != null && (lines.Count == 0 || lines[0] != group);
+            if (group != null && !differs) lines.RemoveAt(0);
+            var at = new int[lines.Count];
+            for (var i = 0; i < lines.Count && !differs; i++)
+            {
+                at[i] = library.IndexOf(lines[i]);
+                differs = at[i] < 0 || routes[ordinals[at[i]]] != 0xFFFF;
+            }
+            if (differs || key == 0 && parts.Count == 0 && lines.Count != library.Count && !_feeding.Contains(kind))
+            {
+                var have = (group == null ? "" : group + " ") + string.Join(" ", library);
+                throw new InvalidOperationException($"Kind '{kind}' feeders in the loaded library differ from the compiled game; rebake the library with tl.\nlibrary: {have}\ncode:    {signature.Replace('\n', ' ')}");
+            }
+            part = parts.Count;
+            parts.Add(key);
+            for (var i = 0; i < lines.Count; i++) routes[ordinals[at[i]]] = (ushort)((part << 8) | i);
+            if (key != 0) _feeding.Add(kind);
+            _joined[(kind, key)] = ((nint)routes, part);
+            return routes;
         }
-        var group = _sec.Kinds[k].GroupNameLength != 0 ? "@" + _sec.GroupOf(k) : null;
-        var lines = signature.Length == 0 ? new List<string>() : new List<string>(signature.Split('\n'));
-        var routes = _routes[k];
-        if (routes == null)
-        {
-            routes = (ushort*)Zeroed(256 * 2);
-            for (var i = 0; i < 256; i++) routes[i] = 0xFFFF;
-            _routes[k] = routes;
-        }
-        var parts = _parts[k] ??= new List<int>();
-        var differs = group != null && (lines.Count == 0 || lines[0] != group);
-        if (group != null && !differs) lines.RemoveAt(0);
-        var at = new int[lines.Count];
-        for (var i = 0; i < lines.Count && !differs; i++)
-        {
-            at[i] = library.IndexOf(lines[i]);
-            differs = at[i] < 0 || routes[ordinals[at[i]]] != 0xFFFF;
-        }
-        if (differs || key == 0 && parts.Count == 0 && lines.Count != library.Count && !_feeding.Contains(kind))
-        {
-            var have = (group == null ? "" : group + " ") + string.Join(" ", library);
-            throw new InvalidOperationException($"Kind '{kind}' feeders in the loaded library differ from the compiled game; rebake the library with tl.\nlibrary: {have}\ncode:    {signature.Replace('\n', ' ')}");
-        }
-        part = parts.Count;
-        parts.Add(key);
-        for (var i = 0; i < lines.Count; i++) routes[ordinals[at[i]]] = (ushort)((part << 8) | i);
-        if (key != 0) _feeding.Add(kind);
-        _joined[(kind, key)] = ((nint)routes, part);
-        return routes;
     }
 
     internal int RowOf(int entity, int kind)
@@ -409,8 +427,16 @@ public sealed unsafe class KindStore : IDisposable
     {
         Sync();
         var stepDir = forward ? 1 : -1;
+        TickPassRange(stepDir, 0, _players.PlayingWords);
+        MergePulses();
+    }
+
+    internal void TickPassRange(int stepDir, int firstWord, int endWord)
+    {
         var playing = _players.Playing;
-        for (var w = 0; w < _players.PlayingWords; w++)
+        if (firstWord < 0) firstWord = 0;
+        if (endWord > _players.PlayingWords) endWord = _players.PlayingWords;
+        for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
             while (bits != 0)
@@ -420,7 +446,142 @@ public sealed unsafe class KindStore : IDisposable
                 TickEntity(e, stepDir);
             }
         }
+    }
+
+    struct TickState
+    {
+        public ulong* Playing;
+        public Playback* Slots;
+        public int* Counts;
+        public int SlotsPerEntity;
+        public KindTables T;
+        public KindTable** Tables;
+        public ulong* Mask;
+        public int* Offset;
+        public int* Row;
+        public int StepDir;
+        public Deferred* Defs;
+    }
+
+    struct Deferred
+    {
+        public int* Items;
+        public int Count;
+        public int Cap;
+    }
+
+    internal void TickPassParallel(bool forward, TlWorkers workers)
+    {
+        Sync();
+        var stepDir = forward ? 1 : -1;
+        if (workers.WorkerCount == 1)
+        {
+            TickPassRange(stepDir, 0, _players.PlayingWords);
+            MergePulses();
+            return;
+        }
+        var words = _players.PlayingWords;
+        var chunks = Math.Min(workers.WorkerCount * 8, words);
+        if (chunks <= 0)
+        {
+            MergePulses();
+            return;
+        }
+        var ends = stackalloc int[chunks];
+        TlWorkers.Split(_players.Playing, words, ends, chunks);
+        var defs = stackalloc Deferred[chunks];
+        for (var i = 0; i < chunks; i++) defs[i] = default;
+        var view = _players.View;
+        var state = new TickState
+        {
+            Playing = _players.Playing,
+            Slots = view.Slots,
+            Counts = view.Counts,
+            SlotsPerEntity = view.SlotsPerEntity,
+            T = _t,
+            Tables = _tables,
+            Mask = _mask,
+            Offset = _offset,
+            Row = _rows,
+            StepDir = stepDir,
+            Defs = defs,
+        };
+        try
+        {
+            workers.Run(&TickChunk, &state, ends, chunks);
+            for (var c = 0; c < chunks; c++)
+            {
+                var d = &defs[c];
+                for (var i = 0; i < d->Count; i++) TickEntity(d->Items[i], stepDir);
+            }
+        }
+        finally
+        {
+            for (var c = 0; c < chunks; c++) if (defs[c].Items != null) NativeMemory.AlignedFree(defs[c].Items);
+        }
         MergePulses();
+    }
+
+    static void TickChunk(void* p, int firstWord, int endWord, int chunk)
+    {
+        var s = (TickState*)p;
+        var t = s->T;
+        var stepDir = s->StepDir;
+        var rows = new Rows
+        {
+            Tables = s->Tables,
+            Mask = s->Mask,
+            Offset = s->Offset,
+            Row = s->Row,
+            Players = null!,
+        };
+        var playing = s->Playing;
+        var slotsBase = s->Slots;
+        var counts = s->Counts;
+        var per = s->SlotsPerEntity;
+        var def = s->Defs + chunk;
+        for (var w = firstWord; w < endWord; w++)
+        {
+            var bits = playing[w];
+            while (bits != 0)
+            {
+                var e = (w << 6) + Tz(bits);
+                bits &= bits - 1;
+                var slots = slotsBase + (nuint)e * (nuint)per;
+                var n = counts[e];
+                var rated = false;
+                for (var i = 0; i < n; i++)
+                {
+                    if (slots[i].Rate != 0)
+                    {
+                        rated = true;
+                        break;
+                    }
+                }
+                if (rated)
+                {
+                    AppendDeferred(def, e);
+                }
+                else if (!KindRules.TickEntity(in t, slots, n, ref rows, e, stepDir))
+                {
+                    playing[w] &= ~(1ul << (e & 63));
+                }
+            }
+        }
+    }
+
+    static void AppendDeferred(Deferred* d, int e)
+    {
+        if (d->Count == d->Cap)
+        {
+            var next = d->Cap == 0 ? 16 : d->Cap * 2;
+            var items = (int*)NativeMemory.AlignedAlloc((nuint)next * 4, 8);
+            if (d->Count > 0) new ReadOnlySpan<int>(d->Items, d->Count).CopyTo(new Span<int>(items, next));
+            if (d->Items != null) NativeMemory.AlignedFree(d->Items);
+            d->Items = items;
+            d->Cap = next;
+        }
+        d->Items[d->Count++] = e;
     }
 
     void TickEntity(int e, int stepDir)

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Tl;
 
@@ -70,6 +71,7 @@ public sealed unsafe class PlaybackTable : IDisposable
     readonly RequestQueue* _consumer;
     readonly RequestQueue* _pending;
     readonly ClosingList* _closing;
+    int _growGate;
     bool _disposed;
     internal ulong LibraryGeneration;
 
@@ -97,8 +99,8 @@ public sealed unsafe class PlaybackTable : IDisposable
 
     public int EntityCapacity => _entities;
     public KindStore? Kinds => _kinds;
-    internal ulong* Playing => _playing;
-    internal int PlayingWords => _playingWords;
+    public ulong* Playing => _playing;
+    public int PlayingWords => _playingWords;
 
     internal void SetPlaying(int entity, bool value)
     {
@@ -125,7 +127,28 @@ public sealed unsafe class PlaybackTable : IDisposable
         return PlaybackRules.IsPlaying(ref slots, timeline);
     }
 
+    void EnterGate()
+    {
+        var spin = new SpinWait();
+        while (Interlocked.CompareExchange(ref _growGate, 1, 0) != 0) spin.SpinOnce();
+    }
+
+    void ExitGate() => Volatile.Write(ref _growGate, 0);
+
     void Grow()
+    {
+        EnterGate();
+        try
+        {
+            GrowLocked();
+        }
+        finally
+        {
+            ExitGate();
+        }
+    }
+
+    void GrowLocked()
     {
         var stride = Math.Min(MaxSlots, _slotsPerEntity * 2);
         var bytes = (nuint)_entities * (nuint)stride * 8u;
@@ -140,8 +163,16 @@ public sealed unsafe class PlaybackTable : IDisposable
 
     internal Playback* Reserve(int entity, int length)
     {
-        while (_slotsPerEntity < length && _slotsPerEntity < MaxSlots) Grow();
-        return SlotsOf(entity);
+        EnterGate();
+        try
+        {
+            while (_slotsPerEntity < length && _slotsPerEntity < MaxSlots) GrowLocked();
+            return SlotsOf(entity);
+        }
+        finally
+        {
+            ExitGate();
+        }
     }
 
     internal void CloseSlot(int entity, int slot)

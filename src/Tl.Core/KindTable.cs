@@ -102,7 +102,6 @@ public unsafe struct KindTable
         var length = Length[row];
         if (length == _capacity[row]) Grow(row);
         Length[row] = (ushort)(length + 1);
-        if (length + 1 > MaxLength) MaxLength = length + 1;
         Active[row >> 6] |= 1ul << (row & 63);
         return At(row, length);
     }
@@ -117,7 +116,24 @@ public unsafe struct KindTable
         if (_heap[row] != null) NativeMemory.AlignedFree(_heap[row]);
         _heap[row] = heap;
         _capacity[row] = (ushort)capacity;
-        Overflows++;
+    }
+
+    internal int ColdMaxLength()
+    {
+        var max = 0;
+        for (var r = 0; r < Rows; r++)
+        {
+            var length = Length[r];
+            if (length > max) max = length;
+        }
+        return max;
+    }
+
+    internal int ColdOverflows()
+    {
+        var spilled = 0;
+        for (var r = 0; r < Rows; r++) if (_heap[r] != null) spilled++;
+        return spilled;
     }
 
     public ushort KindOf(KindEntry* entry) => Grouped ? *(ushort*)((byte*)entry + 8) : (ushort)Kind;
