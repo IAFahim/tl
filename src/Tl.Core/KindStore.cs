@@ -254,20 +254,6 @@ public sealed unsafe class KindStore : IDisposable
                 part = cached.Part;
                 return (ushort*)cached.Routes;
             }
-        }
-        return JoinSlow(kind, valueBytes, signature, key, out part);
-    }
-
-    ushort* JoinSlow(string kind, int valueBytes, string signature, int key, out int part)
-    {
-        lock (_joinGate)
-        {
-            part = 0;
-            if (_joined.TryGetValue((kind, key), out var cached))
-            {
-                part = cached.Part;
-                return (ushort*)cached.Routes;
-            }
             var k = IndexOf(kind);
             if (k < 0) return null;
             if (_valueBytes[k] != valueBytes) throw new InvalidOperationException($"Kind '{kind}' is {valueBytes} bytes in code but {_valueBytes[k]} in the loaded library; rebake the library with tl.");
@@ -460,21 +446,13 @@ public sealed unsafe class KindStore : IDisposable
         public int* Offset;
         public int* Row;
         public int StepDir;
-        public Deferred* Defs;
-    }
-
-    struct Deferred
-    {
-        public int* Items;
-        public int Count;
-        public int Cap;
     }
 
     internal void TickPassParallel(bool forward, TlWorkers workers)
     {
         Sync();
         var stepDir = forward ? 1 : -1;
-        if (workers.WorkerCount == 1)
+        if (workers.WorkerCount == 1 || HasRated())
         {
             TickPassRange(stepDir, 0, _players.PlayingWords);
             MergePulses();
@@ -489,8 +467,6 @@ public sealed unsafe class KindStore : IDisposable
         }
         var ends = stackalloc int[chunks];
         TlWorkers.Split(_players.Playing, words, ends, chunks);
-        var defs = stackalloc Deferred[chunks];
-        for (var i = 0; i < chunks; i++) defs[i] = default;
         var view = _players.View;
         var state = new TickState
         {
@@ -504,22 +480,28 @@ public sealed unsafe class KindStore : IDisposable
             Offset = _offset,
             Row = _rows,
             StepDir = stepDir,
-            Defs = defs,
         };
-        try
+        workers.Run(&TickChunk, &state, ends, chunks);
+        MergePulses();
+    }
+
+    bool HasRated()
+    {
+        var view = _players.View;
+        var playing = _players.Playing;
+        for (var w = 0; w < _players.PlayingWords; w++)
         {
-            workers.Run(&TickChunk, &state, ends, chunks);
-            for (var c = 0; c < chunks; c++)
+            var bits = playing[w];
+            while (bits != 0)
             {
-                var d = &defs[c];
-                for (var i = 0; i < d->Count; i++) TickEntity(d->Items[i], stepDir);
+                var e = (w << 6) + Tz(bits);
+                bits &= bits - 1;
+                var slots = view.Slots + (nuint)e * (nuint)view.SlotsPerEntity;
+                var n = view.Counts[e];
+                for (var i = 0; i < n; i++) if (slots[i].Rate != 0) return true;
             }
         }
-        finally
-        {
-            for (var c = 0; c < chunks; c++) if (defs[c].Items != null) NativeMemory.AlignedFree(defs[c].Items);
-        }
-        MergePulses();
+        return false;
     }
 
     static void TickChunk(void* p, int firstWord, int endWord, int chunk)
@@ -539,7 +521,6 @@ public sealed unsafe class KindStore : IDisposable
         var slotsBase = s->Slots;
         var counts = s->Counts;
         var per = s->SlotsPerEntity;
-        var def = s->Defs + chunk;
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
@@ -548,40 +529,10 @@ public sealed unsafe class KindStore : IDisposable
                 var e = (w << 6) + Tz(bits);
                 bits &= bits - 1;
                 var slots = slotsBase + (nuint)e * (nuint)per;
-                var n = counts[e];
-                var rated = false;
-                for (var i = 0; i < n; i++)
-                {
-                    if (slots[i].Rate != 0)
-                    {
-                        rated = true;
-                        break;
-                    }
-                }
-                if (rated)
-                {
-                    AppendDeferred(def, e);
-                }
-                else if (!KindRules.TickEntity(in t, slots, n, ref rows, e, stepDir))
-                {
+                if (!KindRules.TickEntity(in t, slots, counts[e], ref rows, e, stepDir))
                     playing[w] &= ~(1ul << (e & 63));
-                }
             }
         }
-    }
-
-    static void AppendDeferred(Deferred* d, int e)
-    {
-        if (d->Count == d->Cap)
-        {
-            var next = d->Cap == 0 ? 16 : d->Cap * 2;
-            var items = (int*)NativeMemory.AlignedAlloc((nuint)next * 4, 8);
-            if (d->Count > 0) new ReadOnlySpan<int>(d->Items, d->Count).CopyTo(new Span<int>(items, next));
-            if (d->Items != null) NativeMemory.AlignedFree(d->Items);
-            d->Items = items;
-            d->Cap = next;
-        }
-        d->Items[d->Count++] = e;
     }
 
     void TickEntity(int e, int stepDir)

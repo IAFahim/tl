@@ -398,7 +398,7 @@ internal static class SystemEmitter
         var args = new StringBuilder();
         for (var i = 0; i < shape.Columns.Count; i++)
             if (shape.UsedColumns[i]) args.Append(typed ? $", {shape.Columns[i].ElementTypeName}* __c{i}" : $", __c{i}");
-        args.Append(typed ? ", int __n" : ", __n");
+        args.Append(typed ? ", int __n, int __firstWord, int __endWord" : ", __n, 0, 2147483647");
         for (var i = 0; i < shape.Contexts.Count; i++)
             if (shape.UsedContexts[i]) args.Append(typed ? $", ref {shape.Contexts[i].ElementTypeName} __ctx{i}" : $", ref __ctx{i}");
         return args.ToString();
@@ -447,8 +447,11 @@ internal static class SystemEmitter
         else W(writer, $"var __kt = __ks.Table(__ks.IndexOf(\"{kind.Id}\"));");
         W(writer, "if (__kt != null && __routes != null)");
         W(writer, "{");
+        W(writer, "if (__firstWord < 0) __firstWord = 0;");
+        W(writer, "if (__endWord > __kt->Words) __endWord = __kt->Words;");
+        W(writer, "if (__firstWord > __endWord) __firstWord = __endWord;");
         W(writer, "var __stride = __kt->Stride;");
-        W(writer, "for (var __kw = 0; __kw < __kt->Words; __kw++)");
+        W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
         W(writer, "var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];");
         W(writer, "while (__kb != 0)");
@@ -589,7 +592,7 @@ internal static class SystemEmitter
     static void EmitIdle(StringBuilder writer, KernelShape shape, KindDecl kind)
     {
         var idleArgs = CallArgs(shape, new ConsumerMethod(ConsumerMethodKind.ExecuteActive, kind.IdleParams!, [], []), 0, "", "__e", "");
-        W(writer, "for (var __kw = 0; __kw < __kt->Words; __kw++)");
+        W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
         W(writer, "var __kb = ~__kt->Active[__kw] & __kt->Enabled[__kw];");
         W(writer, "while (__kb != 0)");

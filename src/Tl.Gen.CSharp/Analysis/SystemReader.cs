@@ -521,7 +521,22 @@ internal static class SystemReader
             }
             perSystem[chosen.TypeName].Add(kind);
         }
-        return assignments.Select(a => a with { Kinds = perSystem[a.System.TypeName] }).ToList();
+        return assignments.Select(a =>
+        {
+            var parallel = a.Parallel;
+            foreach (var kind in perSystem[a.System.TypeName])
+            {
+                var offending = RefContext(a.System, kind);
+                if (offending is null) continue;
+                if (parallel)
+                {
+                    Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN107", $"System '{a.System.TypeName}' kind '{kind.TypeName}' parameter '{offending.Value.Name}' ({offending.Value.TypeName}) takes context by reference; no parallel Run overload is emitted and the system runs sequentially; use 'in' to enable parallel execution.");
+                }
+                parallel = false;
+                break;
+            }
+            return a with { Kinds = perSystem[a.System.TypeName], Parallel = parallel };
+        }).ToList();
     }
 
     static bool HasMethod(INamedTypeSymbol type, string name)
@@ -1029,7 +1044,16 @@ internal static class SystemReader
                 if (ownedConsumer.IsMarker) markers.Add(ownedConsumer.MarkerTypeName);
             if (markers.Count > 1)
                 Symbols.Error(diagnostics, sites[mine[0].ConsumerTypeName], "TLGEN99", $"System '{system.TypeName}' has {markers.Count} marker types; a system routes at most one marker type until marker keys ship in the library view.");
-            result.Add(new(system, mine, []));
+            var parallel = true;
+            foreach (var consumer in mine)
+            {
+                var offending = RefContext(system, consumer);
+                if (offending is null) continue;
+                parallel = false;
+                Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN107", $"System '{system.TypeName}' consumer '{consumer.ConsumerTypeName}' parameter '{offending.Value.Name}' ({offending.Value.TypeName}) takes context by reference; no parallel Run overload is emitted and the system runs sequentially; use 'in' to enable parallel execution.");
+                break;
+            }
+            result.Add(new(system, mine, []) { Parallel = parallel });
         }
         foreach (var consumer in consumers)
         {
@@ -1111,6 +1135,42 @@ internal static class SystemReader
                         ConsumerParamKind.Requests => "Requests",
                         _ => "Events",
                     }, parameter.Kind == ConsumerParamKind.Events ? EventElement(parameter.TypeName) : parameter.TypeName);
+            }
+        return null;
+    }
+
+    static (string Name, string TypeName)? RefContext(SystemDecl system, SystemConsumer consumer)
+    {
+        foreach (var method in consumer.Methods)
+            foreach (var parameter in method.Params)
+            {
+                if (parameter.Kind != ConsumerParamKind.Column) continue;
+                if (parameter.Modifier != "ref ") continue;
+                if (system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) continue;
+                if (system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal)))
+                    return (parameter.Name, parameter.TypeName);
+            }
+        return null;
+    }
+
+    static (string Name, string TypeName)? RefContext(SystemDecl system, KindDecl kind)
+    {
+        foreach (var parameter in kind.ApplyParams)
+        {
+            if (parameter.Kind != ConsumerParamKind.Column) continue;
+            if (parameter.Modifier != "ref ") continue;
+            if (system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) continue;
+            if (system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal)))
+                return (parameter.Name, parameter.TypeName);
+        }
+        if (kind.IdleParams is not null)
+            foreach (var parameter in kind.IdleParams)
+            {
+                if (parameter.Kind != ConsumerParamKind.Column) continue;
+                if (parameter.Modifier != "ref ") continue;
+                if (system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) continue;
+                if (system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal)))
+                    return (parameter.Name, parameter.TypeName);
             }
         return null;
     }
