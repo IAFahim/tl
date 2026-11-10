@@ -42,9 +42,7 @@ public static class TimelineGeneration
         if (errors.Count > 0)
             return new Result(errors.ToArray(), []);
 
-        var selectedNames = new HashSet<string>(selected.Select(static consumer => consumer.Job.TypeName), StringComparer.Ordinal);
-        var bakes = model.Bakes.Where(bake => selectedNames.Contains(bake.ConsumerTypeName)).ToArray();
-        var artifacts = JobEmitter.Emit(new JobReadResult(selected, [], bakes), id);
+        var artifacts = JobEmitter.Emit(new JobReadResult(selected, []), id);
         return new Result([], artifacts
             .Select(artifact => new Artifact(artifact.RelativePath, artifact.Content))
             .ToArray());
