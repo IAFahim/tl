@@ -21,10 +21,10 @@ public static class Host
         {
             world.Tick(players, true);
             new Tl.Generated.TlAuto_HelloSide { C0_Teleported = player }.Run(world, players, true);
-            if (player[0].Offset != last || player[0].SideSwing != lastSide)
+            if (player[0].Offset != last || player[0].Side != lastSide)
             {
-                changes.Add((step, player[0].Offset, player[0].SideSwing));
-                last = player[0].Offset; lastSide = player[0].SideSwing;
+                changes.Add((step, player[0].Offset, player[0].Side));
+                last = player[0].Offset; lastSide = player[0].Side;
             }
         }
         return changes;
@@ -33,9 +33,9 @@ public static class Host
     public static int Main(string[] args)
     {
         var path = args.Length > 0 ? args[0] : Path.Combine(AppContext.BaseDirectory, "HelloSide.tlib");
-        Console.WriteLine("step  offset");
+        Console.WriteLine("step  position (x, y, z)");
         foreach (var (step, offset, side) in Run(File.ReadAllBytes(path)))
-            Console.WriteLine($"{step,4}  {offset}  {side}");
+            Console.WriteLine($"{step,4}  ({offset}, 0, {side})");
         return 0;
     }
 }

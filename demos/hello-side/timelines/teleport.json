@@ -8,8 +8,8 @@
       "type": "TlNoSettings<HelloSide.TeleportClip>",
       "data": {},
       "clips": [
-        { "namespace": "HelloSide", "type": "TeleportClip", "start": 30, "end": 60, "data": { "Distance": 5, "ComeBack": false, "SideSwing": 2 } },
-        { "namespace": "HelloSide", "type": "TeleportClip", "start": 90, "end": 120, "data": { "Distance": 8, "ComeBack": true, "SideSwing": 3 } }
+        { "namespace": "HelloSide", "type": "TeleportClip", "start": 30, "end": 60, "data": { "Distance": 5, "ComeBack": false, "Side": -2 } },
+        { "namespace": "HelloSide", "type": "TeleportClip", "start": 90, "end": 120, "data": { "Distance": 8, "ComeBack": true, "Side": 3 } }
       ]
     }
   ]
