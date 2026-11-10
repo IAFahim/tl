@@ -1,4 +1,7 @@
 using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Tl;
 
@@ -95,11 +98,22 @@ public sealed unsafe partial class World : IDisposable
 
     private const int ParallelThresholdRows = 4096;
 
+    internal struct TickFlat
+    {
+        public int Delta;
+        public int Dur;
+        public int WinStart;
+        public int WinEnd;
+        public float* Plane;
+        public int Len;
+    }
+
     private readonly Library _library;
     private readonly int _rowCapacity;
     private readonly float[] _acc;
     private readonly float[] _applied;
     private readonly int[] _duration;
+    private readonly int[] _durationMask;
     private readonly int[] _stepGlobal;
     private readonly int[] _stepWindowStart;
     private readonly int[] _stepWindowEnd;
@@ -108,24 +122,28 @@ public sealed unsafe partial class World : IDisposable
     private readonly int[] _kindSorted;
     private readonly int[] _kindStepStart;
     private readonly int[] _kindStepEnd;
+    private readonly int[] _timelineStepCount;
+    private readonly int[] _timelineFlatBase;
+    private readonly int[] _flatRank;
+    private readonly TickFlat[] _tickFlat;
+    private LaneDirection _planesDir;
+    private bool _planesFresh;
     private int[] _pbRow;
     private ushort[] _pbTimeline;
     private ushort[] _pbPhase;
-    private int[] _workRow;
-    private ushort[] _workTimeline;
-    private ushort[] _workPhase;
-    private int[] _order;
-    private int[] _scratch;
-    private uint[] _radixKeys;
-    private int[] _groupRows;
-    private ushort[] _runTimeline;
-    private ushort[] _runPhase;
-    private int[] _runStart;
-    private int[] _runLength;
-    private int[] _runTick;
-    private bool[] _runDense;
-    private int[] _timelineRunStart;
-    private int[] _timelineRunCount;
+    private int[] _countByRow = new int[0];
+    private int[] _rowToActive = new int[0];
+    private int[] _rowStart = new int[1];
+    private int[] _visitCursor = new int[0];
+    private int[] _visitFlat = new int[0];
+    private int[] _visitPhaseMod = new int[0];
+    private int[] _rowFlat = new int[0];
+    private int _singleFlatWord = -1;
+    private int _visitCount;
+    private readonly int[] _timelineDelta;
+    private int _tickVisits;
+    private LaneDirection _tickLaneDir;
+    private readonly Action<int, int> _applyChunkAction;
     private object?[] _eventHolders;
     private int _frame;
     private int _invalidPending;
@@ -143,7 +161,9 @@ public sealed unsafe partial class World : IDisposable
         if (rowCapacity <= 0) throw new ArgumentOutOfRangeException(nameof(rowCapacity));
         _rowCapacity = rowCapacity;
         _acc = new float[rowCapacity];
-        _applied = new float[rowCapacity];
+        // Single accumulator buffer: the reader (Accumulator/StateHash/ColumnSpan)
+        // observes _acc in place, so the hot path writes once, never a copy pass.
+        _applied = _acc;
         var timelineCount = _library.TimelineCount;
         var duration = new int[timelineCount];
         var stepCount = new int[timelineCount];
@@ -160,6 +180,13 @@ public sealed unsafe partial class World : IDisposable
             totalSteps += stepCount[i];
         }
         _duration = duration;
+        var durationMask = new int[timelineCount];
+        for (var i = 0; i < timelineCount; i++)
+        {
+            var d = duration[i];
+            durationMask[i] = (d > 0 && (d & (d - 1)) == 0) ? d - 1 : -1;
+        }
+        _durationMask = durationMask;
         _stepGlobal = new int[totalSteps];
         _stepWindowStart = new int[totalSteps];
         _stepWindowEnd = new int[totalSteps];
@@ -229,6 +256,20 @@ public sealed unsafe partial class World : IDisposable
         _kindSorted = kinds;
         _kindStepStart = new int[kindCount];
         _kindStepEnd = new int[kindCount];
+        var flatRank = new int[totalSteps];
+        for (var r = 0; r < totalSteps; r++) flatRank[sorted[r]] = r;
+        _flatRank = flatRank;
+        _timelineStepCount = stepCount;
+        _timelineFlatBase = stepFlatBase;
+        _timelineDelta = new int[timelineCount];
+        var tickFlat = new TickFlat[totalSteps];
+        for (var f = 0; f < totalSteps; f++)
+        {
+            tickFlat[f].Dur = _duration[_stepTimeline[f] - 1];
+            tickFlat[f].WinEnd = _stepWindowEnd[f];
+            tickFlat[f].WinStart = _stepWindowStart[f];
+        }
+        _tickFlat = tickFlat;
         var cursor = 0;
         for (var k = 0; k < kindCount; k++)
         {
@@ -241,25 +282,12 @@ public sealed unsafe partial class World : IDisposable
         _pbRow = new int[cap];
         _pbTimeline = new ushort[cap];
         _pbPhase = new ushort[cap];
-        _workRow = new int[cap];
-        _workTimeline = new ushort[cap];
-        _workPhase = new ushort[cap];
-        _order = new int[cap];
-        _scratch = new int[cap];
-        _radixKeys = new uint[cap];
-        _groupRows = new int[cap];
-        _runTimeline = new ushort[cap];
-        _runPhase = new ushort[cap];
-        _runStart = new int[cap];
-        _runLength = new int[cap];
-        _runTick = new int[cap];
-        _runDense = new bool[cap];
-        _timelineRunStart = new int[timelineCount];
-        _timelineRunCount = new int[timelineCount];
-        for (var i = 0; i < timelineCount; i++) _timelineRunStart[i] = -1;
+        _countByRow = new int[rowCapacity];
+        _rowToActive = new int[rowCapacity];
         InitSystems(timelineCount);
         _eventHolders = new object?[4];
         _report = new TickReport(0, 0, 0, 0);
+        _applyChunkAction = ApplyChunk;
     }
 
     public int RowCapacity => _rowCapacity;
@@ -308,68 +336,36 @@ public sealed unsafe partial class World : IDisposable
             var soloVisits = 0;
             if (_soloCount != 0) soloVisits = StepSolo(dir);
             if (soloVisits > _highWater) _highWater = soloVisits;
-            CopyActiveToApplied();
+            CopySoloToApplied();
             _report = new TickReport(invalid, _highWater, n + _soloCount, _frame);
             return;
         }
         if (_sortedDirty)
         {
-            for (var i = 0; i < n; i++)
-            {
-                _workRow[i] = _pbRow[i];
-                _workTimeline[i] = _pbTimeline[i];
-                _workPhase[i] = _pbPhase[i];
-            }
-            SortCohort(n);
-            BuildActiveRows(n);
+            BuildRowMajor(n);
             _sortedDirty = false;
         }
-        var runCount = BuildAndPrepareRuns(n, dir);
         var laneDir = dir < 0 ? LaneDirection.Backward : LaneDirection.Forward;
-        var totalVisits = CountVisits();
-        if (totalVisits >= ParallelThresholdRows && _activeRowCount >= ParallelThresholdRows)
+        PrepareTick(laneDir, dir);
+        _tickLaneDir = laneDir;
+        var effectiveWorkers = _workers <= 0 ? Environment.ProcessorCount : _workers;
+        if (effectiveWorkers > 1 && _visitCount >= ParallelThresholdRows && _activeRowCount >= ParallelThresholdRows)
         {
-            RunParallel(laneDir);
+            _tickVisits = 0;
+            ParallelApply.ForEachChunk(_activeRowCount, effectiveWorkers, _applyChunkAction);
         }
         else
         {
-            for (var k = 0; k < _kindSorted.Length; k++)
-            {
-                var stepStart = _kindStepStart[k];
-                var stepEnd = _kindStepEnd[k];
-                for (var s = stepStart; s < stepEnd; s++)
-                {
-                    var flat = _stepSorted[s];
-                    var timelineIndex = _stepTimeline[flat] - 1;
-                    var runIndex = _timelineRunStart[timelineIndex];
-                    if (runIndex < 0) continue;
-                    var runsForTimeline = _timelineRunCount[timelineIndex];
-                    var globalStep = _stepGlobal[flat];
-                    var windowStart = _stepWindowStart[flat];
-                    var windowEnd = _stepWindowEnd[flat];
-                    for (var r = 0; r < runsForTimeline; r++)
-                    {
-                        var runPos = runIndex + r;
-                        var tick = _runTick[runPos];
-                        if (tick < windowStart || tick >= windowEnd) continue;
-                        var value = _library.LaneValue(globalStep, laneDir, tick);
-                        var length = _runLength[runPos];
-                        var offset = _runStart[runPos];
-                        if (_runDense[runPos])
-                        {
-                            Kernels.BroadcastDense(_acc, _groupRows[offset], value, length);
-                        }
-                        else
-                        {
-                            Kernels.BroadcastSparse(_acc, 0, _groupRows, offset, length, value);
-                        }
-                    }
-                }
-            }
+            _tickVisits = 0;
+            ApplyChunk(0, _activeRowCount);
         }
-        if (_soloCount != 0) totalVisits += StepSolo(dir);
+        var totalVisits = _tickVisits;
+        if (_soloCount != 0)
+        {
+            totalVisits += StepSolo(dir);
+            CopySoloToApplied();
+        }
         if (totalVisits > _highWater) _highWater = totalVisits;
-        CopyActiveToApplied();
         _report = new TickReport(invalid, _highWater, n + _soloCount, _frame);
     }
 
@@ -377,164 +373,338 @@ public sealed unsafe partial class World : IDisposable
     {
     }
 
-    private int BuildAndPrepareRuns(int n, int dir)
+    private void BuildRowMajor(int n)
     {
-        for (var t = 0; t < _timelineRunStart.Length; t++)
+        _visitCount = 0;
+        if (n == 0)
         {
-            _timelineRunStart[t] = -1;
-            _timelineRunCount[t] = 0;
+            _activeRowCount = 0;
+            if (_rowStart.Length < 1) _rowStart = new int[1];
+            _rowStart[0] = 0;
+            return;
         }
-        var count = 0;
-        var pos = 0;
-        while (pos < n)
+        var sorted = true;
+        for (var i = 1; i < n; i++)
         {
-            var idx = _order[pos];
-            var timeline = _workTimeline[idx];
-            var phase = _workPhase[idx];
-            var start = pos;
-            var row = _workRow[idx];
-            _groupRows[pos] = row;
-            var previousRow = row;
-            var ascending = true;
-            var dense = true;
-            pos++;
-            while (pos < n)
+            if (_pbRow[i] < _pbRow[i - 1]) { sorted = false; break; }
+        }
+        if (sorted)
+        {
+            if (_activeRows.Length < n)
             {
-                var next = _order[pos];
-                if (_workTimeline[next] != timeline || _workPhase[next] != phase) break;
-                var nextRow = _workRow[next];
-                _groupRows[pos] = nextRow;
-                if (nextRow < previousRow) ascending = false;
-                if (nextRow != previousRow + 1) dense = false;
-                previousRow = nextRow;
-                pos++;
+                var cap = n > _activeRows.Length * 2 ? n : _activeRows.Length * 2;
+                if (cap < 64) cap = 64;
+                Array.Resize(ref _activeRows, cap);
             }
-            var length = pos - start;
-            if (!ascending)
+            if (_countByRow.Length < _rowCapacity) Array.Resize(ref _countByRow, _rowCapacity);
+            Array.Clear(_countByRow, 0, _rowCapacity);
+            var m = 0;
+            var prevRow = 0;
+            for (var i = 0; i < n; i++)
             {
-                Array.Sort(_groupRows, start, length);
-                dense = true;
-                for (var i = 1; i < length; i++)
+                var row = _pbRow[i];
+                var tlIdx = _pbTimeline[i] - 1;
+                var steps = (tlIdx >= 0 && tlIdx < _timelineStepCount.Length) ? _timelineStepCount[tlIdx] : 0;
+                _countByRow[row] += steps;
+                if (m == 0 || row != prevRow)
                 {
-                    if (_groupRows[start + i] != _groupRows[start + i - 1] + 1)
+                    _activeRows[m++] = row;
+                    prevRow = row;
+                }
+            }
+            _activeRowCount = m;
+        }
+        else
+        {
+            BuildActiveRows(n);
+            if (_countByRow.Length < _rowCapacity) Array.Resize(ref _countByRow, _rowCapacity);
+            Array.Clear(_countByRow, 0, _rowCapacity);
+            for (var i = 0; i < n; i++)
+            {
+                var row = _pbRow[i];
+                var tlIdx = _pbTimeline[i] - 1;
+                var steps = (tlIdx >= 0 && tlIdx < _timelineStepCount.Length) ? _timelineStepCount[tlIdx] : 0;
+                _countByRow[row] += steps;
+            }
+        }
+        if (_activeRowCount == 0)
+        {
+            if (_rowStart.Length < 1) _rowStart = new int[1];
+            _rowStart[0] = 0;
+            return;
+        }
+        if (_rowStart.Length < _activeRowCount + 1) Array.Resize(ref _rowStart, _activeRowCount + 1);
+        if (_visitCursor.Length < _activeRowCount + 1) Array.Resize(ref _visitCursor, _activeRowCount + 1);
+        if (_rowFlat.Length < _activeRowCount) Array.Resize(ref _rowFlat, _activeRowCount);
+        if (_rowToActive.Length < _rowCapacity) Array.Resize(ref _rowToActive, _rowCapacity);
+        var total = 0;
+        for (var ai = 0; ai < _activeRowCount; ai++)
+        {
+            var row = _activeRows[ai];
+            _rowToActive[row] = ai;
+            _rowStart[ai] = total;
+            total += _countByRow[row];
+        }
+        _rowStart[_activeRowCount] = total;
+        _visitCount = total;
+        if (_visitFlat.Length < total) Array.Resize(ref _visitFlat, total);
+        if (_visitPhaseMod.Length < total) Array.Resize(ref _visitPhaseMod, total);
+        Array.Copy(_rowStart, _visitCursor, _activeRowCount);
+        for (var i = 0; i < n; i++)
+        {
+            var row = _pbRow[i];
+            var ai = _rowToActive[row];
+            var tlIdx = _pbTimeline[i] - 1;
+            if (tlIdx < 0 || tlIdx >= _timelineStepCount.Length) continue;
+            var steps = _timelineStepCount[tlIdx];
+            if (steps == 0) continue;
+            var duration = _duration[tlIdx];
+            var phase = _pbPhase[i];
+            var mask = _durationMask[tlIdx];
+            var phaseMod = duration > 0 ? (mask >= 0 ? (ushort)(phase & mask) : (ushort)(phase % duration)) : (ushort)0;
+            var flatBase = _timelineFlatBase[tlIdx];
+            var cursor = _visitCursor[ai];
+            for (var s = 0; s < steps; s++)
+            {
+                _visitFlat[cursor] = flatBase + s;
+                _visitPhaseMod[cursor] = phaseMod;
+                cursor++;
+            }
+            _visitCursor[ai] = cursor;
+        }
+        var visitFlat = _visitFlat;
+        var visitPhaseMod = _visitPhaseMod;
+        var flatRank = _flatRank;
+        for (var ai = 0; ai < _activeRowCount; ai++)
+        {
+            var start = _rowStart[ai];
+            var length = _rowStart[ai + 1] - start;
+            if (length <= 1) continue;
+            for (var i = 1; i < length; i++)
+            {
+                var idx = start + i;
+                var flat = visitFlat[idx];
+                var rank = flatRank[flat];
+                var phase = visitPhaseMod[idx];
+                var j = i - 1;
+                while (j >= 0 && flatRank[visitFlat[start + j]] > rank)
+                {
+                    visitFlat[start + j + 1] = visitFlat[start + j];
+                    visitPhaseMod[start + j + 1] = visitPhaseMod[start + j];
+                    j--;
+                }
+                visitFlat[start + j + 1] = flat;
+                visitPhaseMod[start + j + 1] = phase;
+            }
+        }
+        var rowFlat = _rowFlat;
+        for (var ai = 0; ai < _activeRowCount; ai++)
+        {
+            var start = _rowStart[ai];
+            var end = _rowStart[ai + 1];
+            if (start >= end)
+            {
+                rowFlat[ai] = -1; // empty rows take the generic path (no visits run)
+                continue;
+            }
+            var flat = visitFlat[start];
+            var uniform = 1;
+            for (var v = start + 1; v < end; v++)
+            {
+                if (visitFlat[v] != flat) { uniform = 0; break; }
+            }
+            rowFlat[ai] = uniform != 0 ? flat : ~flat;
+        }
+        // Whole-tick single-flat cache: when every non-empty row is uniform
+        // on one step, loop-invariant hoisting applies to all chunks.
+        var single = -1;
+        var ok = 1;
+        for (var ai = 0; ai < _activeRowCount; ai++)
+        {
+            if (_rowStart[ai] >= _rowStart[ai + 1]) continue;
+            var w = rowFlat[ai];
+            if (w < 0) { ok = 0; break; }
+            if (single < 0) single = w;
+            else if (w != single) { ok = 0; break; }
+        }
+        _singleFlatWord = ok != 0 && single >= 0 ? single : -1;
+    }
+
+    // Prepare is O(timelines + steps), independent of playback count: the
+    // per-timeline delta and per-step plane pointers are refreshed here, and
+    // ApplyRowRange only streams the cached visit data. Plane pointers are
+    // direction-stable, so they are refreshed only when direction changes.
+    private void PrepareTick(LaneDirection laneDir, int dir)
+    {
+        for (var t = 0; t < _timelineDelta.Length; t++)
+        {
+            var dur = _duration[t];
+            if (dur <= 0) { _timelineDelta[t] = 0; continue; }
+            var frameMod = _frame % dur;
+            _timelineDelta[t] = dir < 0 ? -frameMod : frameMod;
+        }
+        var tickFlat = _tickFlat;
+        var stepTimeline = _stepTimeline;
+        var timelineDelta = _timelineDelta;
+        for (var flat = 0; flat < tickFlat.Length; flat++)
+            tickFlat[flat].Delta = timelineDelta[stepTimeline[flat] - 1];
+        if (_planesFresh && laneDir == _planesDir) return;
+        _planesFresh = true;
+        _planesDir = laneDir;
+        var stepGlobal = _stepGlobal;
+        for (var flat = 0; flat < stepGlobal.Length; flat++)
+        {
+            var plane = laneDir == LaneDirection.Backward ? _library.BackwardPlane(stepGlobal[flat]) : _library.ForwardPlane(stepGlobal[flat]);
+            tickFlat[flat].Len = plane.Length;
+            tickFlat[flat].Plane = plane.Length == 0 ? null : (float*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(plane));
+        }
+    }
+
+    // Row-ordered gather: visits are streamed per active row, each row's
+    // accumulator is loaded/stored once, and the per-row float-add order is
+    // preserved exactly. Uniform-flat rows (all visits share one step) hoist
+    // the per-step tick data out of the inner loop; mixed rows use the
+    // generic per-visit lookup. Raw pointers remove array bounds checks.
+    // The rowFlat word packs the uniform flag: >=0 is a uniform flat,
+    // negative is a mixed row whose generic flat is ~word.
+    private int ApplyRowRange(int chunkStart, int chunkEnd, LaneDirection laneDir)
+    {
+        var visits = 0;
+        var accP = (float*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_acc));
+        var rowsP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_activeRows));
+        var startP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_rowStart));
+        var flatP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_visitFlat));
+        var phaseP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_visitPhaseMod));
+        var tickFlatP = (TickFlat*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_tickFlat));
+        var rowWordP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_rowFlat));
+        var globalP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_stepGlobal));
+        var start = chunkStart < chunkEnd ? startP[chunkStart] : 0;
+        for (var ai = chunkStart; ai < chunkEnd; ai++)
+        {
+            var row = rowsP[ai];
+            var end = startP[ai + 1];
+            var accVal = accP[row];
+            var word = rowWordP[ai];
+            if (word >= 0 && start < end)
+            {
+                ref var tf = ref tickFlatP[word];
+                var dur = tf.Dur;
+                var delta = tf.Delta;
+                var ws = tf.WinStart;
+                var winLen = tf.WinEnd - ws;
+                var plane = tf.Plane;
+                var len = tf.Len;
+                for (var v = start; v < end; v++)
+                {
+                    // tick in (-dur, 2*dur); two branchless adjusts
+                    var t = phaseP[v] + delta;
+                    t += t < 0 ? dur : 0;
+                    t -= t >= dur ? dur : 0;
+                    if ((uint)(t - ws) >= (uint)winLen) continue;
+                    visits++;
+                    float value;
+                    if (len == 0) value = _library.LaneValue(globalP[word], laneDir, t);
+                    else if (len == 1) value = plane[0];
+                    else value = plane[t - ws];
+                    accVal += value;
+                }
+            }
+            else
+            {
+                // Mixed rows: hoist per consecutive equal-flat run within the
+                // row segment (visits are flatRank-sorted, so equal flats are
+                // contiguous). Bit order per row is preserved.
+                var v = start;
+                while (v < end)
+                {
+                    var flat = flatP[v];
+                    var runEnd = v + 1;
+                    while (runEnd < end && flatP[runEnd] == flat) runEnd++;
+                    ref var tfref = ref tickFlatP[flat];
+                    var dur = tfref.Dur;
+                    if (dur > 0)
                     {
-                        dense = false;
-                        break;
+                        var delta = tfref.Delta;
+                        var ws = tfref.WinStart;
+                        var winLen = tfref.WinEnd - ws;
+                        var plane = tfref.Plane;
+                        var len = tfref.Len;
+                        var global = globalP[flat];
+                        for (; v < runEnd; v++)
+                        {
+                            var t = phaseP[v] + delta;
+                            t += t < 0 ? dur : 0;
+                            t -= t >= dur ? dur : 0;
+                            if ((uint)(t - ws) >= (uint)winLen) continue;
+                            visits++;
+                            float value;
+                            if (len == 0) value = _library.LaneValue(global, laneDir, t);
+                            else if (len == 1) value = plane[0];
+                            else value = plane[t - ws];
+                            accVal += value;
+                        }
+                    }
+                    else
+                    {
+                        v = runEnd;
                     }
                 }
             }
-            _runTimeline[count] = timeline;
-            _runPhase[count] = phase;
-            _runStart[count] = start;
-            _runLength[count] = length;
-            var timelineIndex = timeline - 1;
-            var duration = timelineIndex >= 0 && timelineIndex < _duration.Length ? _duration[timelineIndex] : 0;
-            _runTick[count] = duration > 0 ? Kernels.PhaseToTick(phase, _frame, duration, dir) : -1;
-            _runDense[count] = dense;
-            if (timelineIndex >= 0 && timelineIndex < _timelineRunStart.Length)
+            accP[row] = accVal;
+            start = end;
+        }
+        return visits;
+    }
+
+    private int ApplyRowRangeHoisted(int chunkStart, int chunkEnd, LaneDirection laneDir, int singleFlat)
+    {
+        var visits = 0;
+        var accP = (float*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_acc));
+        var rowsP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_activeRows));
+        var startP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_rowStart));
+        var phaseP = (int*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(_visitPhaseMod));
+        ref var tf = ref _tickFlat[singleFlat];
+        var dur = tf.Dur;
+        var delta = tf.Delta;
+        var ws = tf.WinStart;
+        var winLen = tf.WinEnd - ws;
+        var plane = tf.Plane;
+        var len = tf.Len;
+        var global = _stepGlobal[singleFlat];
+        var start = chunkStart < chunkEnd ? startP[chunkStart] : 0;
+        for (var ai = chunkStart; ai < chunkEnd; ai++)
+        {
+            var row = rowsP[ai];
+            var end = startP[ai + 1];
+            var accVal = accP[row];
+            for (var v = start; v < end; v++)
             {
-                if (_timelineRunStart[timelineIndex] < 0) _timelineRunStart[timelineIndex] = count;
-                _timelineRunCount[timelineIndex]++;
+                // tick in (-dur, 2*dur); two branchless adjusts
+                var t = phaseP[v] + delta;
+                t += t < 0 ? dur : 0;
+                t -= t >= dur ? dur : 0;
+                if ((uint)(t - ws) >= (uint)winLen) continue;
+                if (dur <= 0) continue;
+                visits++;
+                float value;
+                if (len == 0) value = _library.LaneValue(global, laneDir, t);
+                else if (len == 1) value = plane[0];
+                else value = plane[t - ws];
+                accVal += value;
             }
-            count++;
+            accP[row] = accVal;
+            start = end;
         }
-        return count;
+        return visits;
     }
 
-    private int CountVisits()
+    private void ApplyChunk(int chunkStart, int chunkEnd)
     {
-        var totalVisits = 0;
-        for (var k = 0; k < _kindSorted.Length; k++)
-        {
-            var stepStart = _kindStepStart[k];
-            var stepEnd = _kindStepEnd[k];
-            for (var s = stepStart; s < stepEnd; s++)
-            {
-                var flat = _stepSorted[s];
-                var timelineIndex = _stepTimeline[flat] - 1;
-                var runIndex = _timelineRunStart[timelineIndex];
-                if (runIndex < 0) continue;
-                var runsForTimeline = _timelineRunCount[timelineIndex];
-                var windowStart = _stepWindowStart[flat];
-                var windowEnd = _stepWindowEnd[flat];
-                for (var r = 0; r < runsForTimeline; r++)
-                {
-                    var runPos = runIndex + r;
-                    var tick = _runTick[runPos];
-                    if (tick < windowStart || tick >= windowEnd) continue;
-                    totalVisits += _runLength[runPos];
-                }
-            }
-        }
-        return totalVisits;
-    }
-
-    private void RunParallel(LaneDirection laneDir)
-    {
-        var activeCount = _activeRowCount;
-        if (activeCount == 0) return;
-        var workers = _workers;
-        for (var k = 0; k < _kindSorted.Length; k++)
-        {
-            var kindIndex = k;
-            ParallelApply.ForEachChunk(activeCount, workers, (chunkStart, chunkEnd) => ApplyKindChunk(chunkStart, chunkEnd, kindIndex, laneDir));
-        }
-    }
-
-    private void ApplyKindChunk(int chunkStart, int chunkEnd, int kindIndex, LaneDirection laneDir)
-    {
-        if (chunkStart >= chunkEnd) return;
-        var low = _activeRows[chunkStart];
-        var high = chunkEnd < _activeRowCount ? _activeRows[chunkEnd] : _activeRows[_activeRowCount - 1] + 1;
-        var stepStart = _kindStepStart[kindIndex];
-        var stepEnd = _kindStepEnd[kindIndex];
-        for (var s = stepStart; s < stepEnd; s++)
-        {
-            var flat = _stepSorted[s];
-            var timelineIndex = _stepTimeline[flat] - 1;
-            var runIndex = _timelineRunStart[timelineIndex];
-            if (runIndex < 0) continue;
-            var runsForTimeline = _timelineRunCount[timelineIndex];
-            var globalStep = _stepGlobal[flat];
-            var windowStart = _stepWindowStart[flat];
-            var windowEnd = _stepWindowEnd[flat];
-            for (var r = 0; r < runsForTimeline; r++)
-            {
-                var runPos = runIndex + r;
-                var tick = _runTick[runPos];
-                if (tick < windowStart || tick >= windowEnd) continue;
-                var value = _library.LaneValue(globalStep, laneDir, tick);
-                var length = _runLength[runPos];
-                var offset = _runStart[runPos];
-                if (_runDense[runPos])
-                {
-                    var firstRow = _groupRows[offset];
-                    var lastRow = firstRow + length - 1;
-                    var overlapStart = firstRow < low ? low : firstRow;
-                    var overlapEnd = lastRow + 1 < high ? lastRow + 1 : high;
-                    if (overlapStart < overlapEnd) Kernels.BroadcastDense(_acc, overlapStart, value, overlapEnd - overlapStart);
-                }
-                else
-                {
-                    var segmentStart = LowerBound(_groupRows, offset, length, low);
-                    var segmentEnd = LowerBound(_groupRows, offset, length, high);
-                    if (segmentStart < segmentEnd) Kernels.BroadcastSparse(_acc, 0, _groupRows, offset + segmentStart, segmentEnd - segmentStart, value);
-                }
-            }
-        }
-    }
-
-    private static int LowerBound(int[] rows, int start, int length, int value)
-    {
-        var lo = 0;
-        var hi = length;
-        while (lo < hi)
-        {
-            var mid = lo + ((hi - lo) >> 1);
-            if (rows[start + mid] < value) lo = mid + 1;
-            else hi = mid;
-        }
-        return lo;
+        var single = _singleFlatWord;
+        var c = single >= 0
+            ? ApplyRowRangeHoisted(chunkStart, chunkEnd, _tickLaneDir, single)
+            : ApplyRowRange(chunkStart, chunkEnd, _tickLaneDir);
+        Interlocked.Add(ref _tickVisits, c);
     }
 
     private void BuildActiveRows(int n)
@@ -551,16 +721,36 @@ public sealed unsafe partial class World : IDisposable
             return;
         }
         Array.Copy(_pbRow, _activeRows, n);
-        var sorted = true;
+        // Nearly-sorted input (single swap-remove churn) is repaired by
+        // insertion sort with a shift budget; random order falls back to
+        // Array.Sort. Both produce the identical sorted+deduped sequence.
+        var descents = 0;
         for (var i = 1; i < n; i++)
         {
-            if (_activeRows[i] < _activeRows[i - 1])
-            {
-                sorted = false;
-                break;
-            }
+            if (_activeRows[i] < _activeRows[i - 1]) descents++;
         }
-        if (!sorted) Array.Sort(_activeRows, 0, n);
+        if (descents != 0)
+        {
+            var sorted = false;
+            if (descents * 2 <= n)
+            {
+                long shifts = 0;
+                for (var i = 1; i < n && shifts <= 4L * n; i++)
+                {
+                    var key = _activeRows[i];
+                    var j = i - 1;
+                    while (j >= 0 && _activeRows[j] > key)
+                    {
+                        _activeRows[j + 1] = _activeRows[j];
+                        j--;
+                        shifts++;
+                    }
+                    _activeRows[j + 1] = key;
+                }
+                sorted = shifts <= 4L * n;
+            }
+            if (!sorted) Array.Sort(_activeRows, 0, n);
+        }
         var m = 0;
         for (var i = 0; i < n; i++)
         {
@@ -571,25 +761,8 @@ public sealed unsafe partial class World : IDisposable
         _activeRowCount = m;
     }
 
-    private void CopyActiveToApplied()
+    private void CopySoloToApplied()
     {
-        if (_playbackCount > 0 && _activeRowCount > 0)
-        {
-            for (var i = 0; i < _activeRowCount; i++)
-            {
-                var row = _activeRows[i];
-                _applied[row] = _acc[row];
-            }
-        }
-        else if (_playbackCount > 0)
-        {
-            var plainCount = _playbackCount;
-            for (var i = 0; i < plainCount; i++)
-            {
-                var row = _pbRow[i];
-                _applied[row] = _acc[row];
-            }
-        }
         var soloCount = _soloCount;
         for (var i = 0; i < soloCount; i++)
         {
@@ -599,47 +772,6 @@ public sealed unsafe partial class World : IDisposable
     }
 
 
-    private void SortCohort(int n)
-    {
-        for (var i = 0; i < n; i++) _order[i] = i;
-        for (var i = 0; i < n; i++) _radixKeys[i] = _workPhase[i];
-        StableRadixN(_radixKeys, _order, _scratch, n);
-        for (var i = 0; i < n; i++) _radixKeys[i] = _workTimeline[i];
-        StableRadixN(_radixKeys, _order, _scratch, n);
-    }
-
-    private static void StableRadixN(uint[] keys, int[] order, int[] scratch, int n)
-    {
-        if (n <= 1) return;
-        Span<int> counts = stackalloc int[256];
-        var source = order;
-        var destination = scratch;
-        for (var pass = 0; pass < 4; pass++)
-        {
-            counts.Clear();
-            for (var i = 0; i < n; i++) counts[(int)((keys[source[i]] >> (pass * 8)) & 255u)]++;
-            var sum = 0;
-            for (var b = 0; b < 256; b++)
-            {
-                var c = counts[b];
-                counts[b] = sum;
-                sum += c;
-            }
-            for (var i = 0; i < n; i++)
-            {
-                var id = source[i];
-                var slot = (int)((keys[id] >> (pass * 8)) & 255u);
-                destination[counts[slot]++] = id;
-            }
-            var swap = source;
-            source = destination;
-            destination = swap;
-        }
-        if (source != order)
-        {
-            for (var i = 0; i < n; i++) order[i] = source[i];
-        }
-    }
 
     private int KindOrderOf(int kindId)
     {
@@ -680,18 +812,5 @@ public sealed unsafe partial class World : IDisposable
         Array.Resize(ref _pbRow, n);
         Array.Resize(ref _pbTimeline, n);
         Array.Resize(ref _pbPhase, n);
-        Array.Resize(ref _workRow, n);
-        Array.Resize(ref _workTimeline, n);
-        Array.Resize(ref _workPhase, n);
-        Array.Resize(ref _order, n);
-        Array.Resize(ref _scratch, n);
-        Array.Resize(ref _radixKeys, n);
-        Array.Resize(ref _groupRows, n);
-        Array.Resize(ref _runTimeline, n);
-        Array.Resize(ref _runPhase, n);
-        Array.Resize(ref _runStart, n);
-        Array.Resize(ref _runLength, n);
-        Array.Resize(ref _runTick, n);
-        Array.Resize(ref _runDense, n);
     }
 }

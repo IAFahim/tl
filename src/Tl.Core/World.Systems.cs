@@ -78,6 +78,7 @@ public sealed unsafe partial class World
     PlaybackIndex _plainCh = new PlaybackIndex();
     PlaybackIndex _soloTl = new PlaybackIndex();
     PlaybackIndex _soloCh = new PlaybackIndex();
+    bool _indexesStale;
 
     static ulong PackTimeline(int row, ushort timeline) => ((ulong)(uint)row << 32) | timeline;
     static ulong PackChannel(int row, byte channel) => ((ulong)(uint)row << 32) | channel;
@@ -234,10 +235,12 @@ public sealed unsafe partial class World
             Count = 0;
             Tombs = 0;
         }
-
-        void Grow()
+        internal void EnsureCapacity(int additional)
         {
+            if (additional <= 0) return;
+            if ((Count + Tombs + additional) * 10 <= (Mask + 1) * 7) return;
             var newCap = (Mask + 1) * 2;
+            while ((Count + Tombs + additional) * 10 > newCap * 7) newCap *= 2;
             var nk = new ulong[newCap];
             var np = new int[newCap];
             var nc = new int[newCap];
@@ -257,6 +260,11 @@ public sealed unsafe partial class World
             Cnt = nc;
             Mask = nmask;
             Tombs = 0;
+        }
+
+        void Grow()
+        {
+            EnsureCapacity(1);
         }
     }
 
@@ -354,8 +362,59 @@ public sealed unsafe partial class World
 
     internal void ApplyPendingRequests()
     {
-        if (_pending.Count == 0) return;
-        _pending.Sort();
+        var pendingCount = _pending.Count;
+        if (pendingCount == 0) return;
+        // One pass classifies the batch: already in stable (row, slot) order
+        // (bulk setups enqueue that way) and/or pure Starts. A sorted batch
+        // needs no radix sort at all; allStarts is permutation-invariant.
+        var batchSorted = true;
+        var allStarts = true;
+        var prevRow = 0;
+        var prevSlot = 0;
+        for (var i = 0; i < pendingCount; i++)
+        {
+            var pending = _pending[i];
+            if (pending.Op != RequestOp.Start) allStarts = false;
+            var row = pending.Row.Value;
+            if (i != 0 && (row < prevRow || (row == prevRow && pending.Slot < prevSlot)))
+                batchSorted = false;
+            prevRow = row;
+            prevSlot = pending.Slot;
+        }
+        if (!batchSorted) _pending.Sort();
+        // Cold bulk fast path: a pure-bulk Start load into an empty world
+        // (the setup case) is applied in row order without maintaining the
+        // hash indexes per request. Duplicates are tracked with a rolling
+        // per-row bitmask (the batch is row-sorted, so one row's seen set is
+        // live at a time). The indexes are rebuilt lazily on the first
+        // lookup (EnsureIndexes); Tick itself never consults them. Mixed
+        // batches, channel libraries, and very large timeline sets keep the
+        // hash path (EnsureIndexes first if a prior bulk left them stale).
+        if (allStarts && _playbackCount == 0 && _soloCount == 0 && _duration.Length <= 512)
+        {
+            var hasChannel = false;
+            for (var i = 0; i < _channelTimeline.Length; i++)
+            {
+                if (_channelTimeline[i] != 0) { hasChannel = true; break; }
+            }
+            if (!hasChannel)
+            {
+                var words = (_duration.Length + 63) >> 6;
+                Span<ulong> seen = stackalloc ulong[8];
+                var seenSlice = seen.Slice(0, words);
+                seenSlice.Clear();
+                var bulkRow = -1;
+                for (var i = 0; i < pendingCount; i++)
+                {
+                    var request = _pending[i];
+                    StartPlaybackBulk(request.Row, request.Timeline, request.At, seenSlice, ref bulkRow);
+                }
+                _pending.Clear();
+                if (_playbackCount != 0 || _soloCount != 0) _indexesStale = true;
+                return;
+            }
+        }
+        if (_indexesStale) EnsureIndexes();
         for (var i = 0; i < _pending.Count; i++)
         {
             var request = _pending[i];
@@ -475,6 +534,63 @@ public sealed unsafe partial class World
             _soloCarry[soloPos] = 0;
             _soloCount++;
             InsertSolo(soloPos);
+        }
+    }
+
+    void StartPlaybackBulk(Row row, TimelineId timeline, int phase, Span<ulong> seen, ref int bulkRow)
+    {
+        if (!ValidRow(row) || !ValidTimeline(timeline))
+        {
+            _invalidPending++;
+            return;
+        }
+        var rowValue = row.Value;
+        var timelineValue = timeline.Value;
+        // No pre-existing playbacks (cold world) and the batch is row-sorted,
+        // so duplicates are tracked with a rolling per-row bitmask.
+        if (rowValue != bulkRow)
+        {
+            bulkRow = rowValue;
+            seen.Clear();
+        }
+        var timelineIndex = timelineValue - 1;
+        var bit = 1UL << (timelineIndex & 63);
+        var word = timelineIndex >> 6;
+        if ((seen[word] & bit) != 0) return;
+        seen[word] |= bit;
+        var index = timelineIndex;
+        var duration = _duration[index];
+        var looping = _library.Loops(index);
+        if (looping)
+        {
+            EnsurePlaybackCapacity(_playbackCount + 1);
+            var plainPos = _playbackCount;
+            _pbRow[plainPos] = rowValue;
+            _pbTimeline[plainPos] = timelineValue;
+            _pbPhase[plainPos] = (ushort)(phase & 65535);
+            _playbackCount++;
+            _sortedDirty = true;
+        }
+        else
+        {
+            var tick = 0;
+            if (duration > 0)
+            {
+                var at = phase;
+                if (at < 0) at = 0;
+                if (at >= duration) at = duration - 1;
+                tick = at;
+            }
+            EnsureSoloCapacity(_soloCount + 1);
+            var soloPos = _soloCount;
+            _soloRow[soloPos] = rowValue;
+            _soloTimeline[soloPos] = timelineValue;
+            _soloTick[soloPos] = (ushort)tick;
+            _soloChannel[soloPos] = 0;
+            _soloFlags[soloPos] = 0;
+            _soloRate[soloPos] = 0;
+            _soloCarry[soloPos] = 0;
+            _soloCount++;
         }
     }
 
@@ -727,30 +843,59 @@ public sealed unsafe partial class World
         return FindSoloChannel(row, channel);
     }
 
+    void EnsureIndexes()
+    {
+        if (!_indexesStale) return;
+        _indexesStale = false;
+        _plainTl.Clear();
+        _plainCh.Clear();
+        _soloTl.Clear();
+        _soloCh.Clear();
+        _plainTl.EnsureCapacity(_playbackCount);
+        _soloTl.EnsureCapacity(_soloCount);
+        var hasChannel = false;
+        for (var i = 0; i < _channelTimeline.Length; i++)
+        {
+            if (_channelTimeline[i] != 0) { hasChannel = true; break; }
+        }
+        if (hasChannel)
+        {
+            _plainCh.EnsureCapacity(_playbackCount);
+            _soloCh.EnsureCapacity(_soloCount);
+        }
+        for (var i = 0; i < _playbackCount; i++) InsertPlain(i);
+        for (var i = 0; i < _soloCount; i++) InsertSolo(i);
+    }
+
     int FindPlain(int row, ushort timeline)
     {
+        if (_indexesStale) EnsureIndexes();
         return _plainTl.Find(PackTimeline(row, timeline));
     }
 
     int FindPlainChannel(int row, byte channel)
     {
         if (channel == 0) return -1;
+        if (_indexesStale) EnsureIndexes();
         return _plainCh.Find(PackChannel(row, channel));
     }
 
     int FindSolo(int row, ushort timeline)
     {
+        if (_indexesStale) EnsureIndexes();
         return _soloTl.Find(PackTimeline(row, timeline));
     }
 
     int FindSoloChannel(int row, byte channel)
     {
         if (channel == 0) return -1;
+        if (_indexesStale) EnsureIndexes();
         return _soloCh.Find(PackChannel(row, channel));
     }
 
     void InsertPlain(int pos)
     {
+        if (_indexesStale) EnsureIndexes();
         var row = _pbRow[pos];
         var timeline = _pbTimeline[pos];
         _plainTl.Insert(PackTimeline(row, timeline), pos);
@@ -760,6 +905,7 @@ public sealed unsafe partial class World
 
     void InsertSolo(int pos)
     {
+        if (_indexesStale) EnsureIndexes();
         var row = _soloRow[pos];
         var timeline = _soloTimeline[pos];
         _soloTl.Insert(PackTimeline(row, timeline), pos);
@@ -1150,6 +1296,7 @@ public sealed unsafe partial class World
 
     internal int StepSolo(int dir)
     {
+        if (_indexesStale && _soloCount != 0) EnsureIndexes();
         var visits = 0;
         var i = 0;
         while (i < _soloCount)

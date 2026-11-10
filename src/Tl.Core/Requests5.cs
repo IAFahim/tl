@@ -93,6 +93,27 @@ public sealed class Requests5
     {
         if (items.Length <= 1)
             return;
+        // Sorted-bulk fast path: bulk setups enqueue in (row, slot) order; the
+        // stable radix sort would be a no-op permutation, so skip the scratch
+        // allocation and all four passes. The check is the exact radix
+        // order (row asc, then slot asc, stable); any inversion falls back
+        // to the full sort below.
+        var sorted = true;
+        var prevRow = items[0].Row.Value;
+        var prevSlot = items[0].Slot;
+        for (var i = 1; i < items.Length; i++)
+        {
+            var row = items[i].Row.Value;
+            if (row < prevRow || (row == prevRow && items[i].Slot < prevSlot))
+            {
+                sorted = false;
+                break;
+            }
+            prevRow = row;
+            prevSlot = items[i].Slot;
+        }
+        if (sorted)
+            return;
         var scratch = new Request5[items.Length];
         var counts = new int[65536];
         var source = items;

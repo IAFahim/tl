@@ -2,6 +2,7 @@ using PhaseClock;
 
 Console.WriteLine($"Vector HW accel={System.Numerics.Vector.IsHardwareAccelerated} floatCount={System.Numerics.Vector<float>.Count}");
 if (args.Contains("--probe")) return Probe.Run();
+if (args.Contains("--profile")) return ProfileBench.Run();
 if (args.Contains("--large-verify")) return LargeBench.Run(true);
 if (args.Contains("--large")) return LargeBench.Run(false);
 if (args.Contains("--timelinebench")) return TimelineBench.Run();

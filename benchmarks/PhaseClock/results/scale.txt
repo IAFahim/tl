@@ -1,50 +1,50 @@
 scale machine cores=12
-bandwidth sequential-add GB/s=23.80 bytesPerVisit=12.0 floorNsPerVisit=0.504 bufferBytes=64000000
-runbroadcast 4M hostileNsPerEntity=11.244 sortedNsPerEntity=6.328 hostileXsorted=1.78
-PASS runbroadcast sorted-beats-hostile hostile=11.244 sorted=6.328
+bandwidth sequential-add GB/s=29.48 bytesPerVisit=12.0 floorNsPerVisit=0.407 bufferBytes=64000000
+runbroadcast 4M hostileNsPerEntity=11.852 sortedNsPerEntity=6.227 hostileXsorted=1.90
+PASS runbroadcast sorted-beats-hostile hostile=11.852 sorted=6.227
 runbroadcast verdict: fix-by-sorting (World does row-sorted runs); unsorted RunBroadcast dropped for World path
-PASS stride heavyMs=0.0405 spreadMs=0.0307 ratio=1.32 heavyActive=1000 spreadActive=1000 heapHeavy=69448968 heapSpread=69448944
+PASS stride heavyMs=0.0189 spreadMs=0.0142 ratio=1.32 heavyActive=1000 spreadActive=1000 heapHeavy=32218016 heapSpread=32231016
 stride note: 1 row x 1000 vs 1000 rows x 1, capacity=1000000, visits=1000/tick
-shapeA-sparse-1M-1 setupMs=261.37 total=1000000 capacity=1000000 heapWorldBytes=190069752 active=1000000
-PASS shapeA-sparse-1M-1 workers=1 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=22.793 nsPerActiveVisit=22.7930 visits=1000000 allocPerTick=160
-PASS shapeA-sparse-1M-1 workers=2 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=20.218 nsPerActiveVisit=20.2183 visits=1000000 allocPerTick=1838
-PASS shapeA-sparse-1M-1 workers=4 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=10.406 nsPerActiveVisit=10.4060 visits=1000000 allocPerTick=1947
-PASS shapeA-sparse-1M-1 workers=8 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=10.352 nsPerActiveVisit=10.3521 visits=1000000 allocPerTick=2132
+shapeA-sparse-1M-1 setupMs=112.40 total=1000000 capacity=1000000 heapWorldBytes=89542312 active=1000000
+PASS shapeA-sparse-1M-1 workers=1 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=4.788 nsPerActiveVisit=4.7881 visits=1000000 allocPerTick=0
+PASS shapeA-sparse-1M-1 workers=2 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=1.769 nsPerActiveVisit=1.7692 visits=1000000 allocPerTick=0
+PASS shapeA-sparse-1M-1 workers=4 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=1.047 nsPerActiveVisit=1.0468 visits=1000000 allocPerTick=0
+PASS shapeA-sparse-1M-1 workers=8 oracle=d53184bfa4993025 actual=d53184bfa4993025 msPerTick=2.299 nsPerActiveVisit=2.2995 visits=1000000 allocPerTick=0
 PASS shapeA-sparse-1M-1 thread-hash-equality workers=1/2/4/8 hash=d53184bfa4993025
-shapeA-sparse-1M-4 setupMs=1181.48 total=4000000 capacity=1000000 heapWorldBytes=812596088 active=4000000
-PASS shapeA-sparse-1M-4 workers=1 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=70.170 nsPerActiveVisit=17.5425 visits=4000000 allocPerTick=160
-PASS shapeA-sparse-1M-4 workers=2 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=57.628 nsPerActiveVisit=14.4070 visits=4000000 allocPerTick=1851
-PASS shapeA-sparse-1M-4 workers=4 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=54.275 nsPerActiveVisit=13.5689 visits=4000000 allocPerTick=1928
-PASS shapeA-sparse-1M-4 workers=8 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=54.338 nsPerActiveVisit=13.5845 visits=4000000 allocPerTick=2081
+shapeA-sparse-1M-4 setupMs=172.00 total=4000000 capacity=1000000 heapWorldBytes=207259304 active=4000000
+PASS shapeA-sparse-1M-4 workers=1 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=15.886 nsPerActiveVisit=3.9716 visits=4000000 allocPerTick=0
+PASS shapeA-sparse-1M-4 workers=2 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=5.939 nsPerActiveVisit=1.4848 visits=4000000 allocPerTick=0
+PASS shapeA-sparse-1M-4 workers=4 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=6.352 nsPerActiveVisit=1.5879 visits=4000000 allocPerTick=0
+PASS shapeA-sparse-1M-4 workers=8 oracle=fa13635a6d993025 actual=fa13635a6d993025 msPerTick=7.910 nsPerActiveVisit=1.9775 visits=4000000 allocPerTick=0
 PASS shapeA-sparse-1M-4 thread-hash-equality workers=1/2/4/8 hash=fa13635a6d993025
-shapeA-sparse-4M-1 setupMs=1297.10 total=4000000 capacity=4000000 heapWorldBytes=759025352 active=4000000
-PASS shapeA-sparse-4M-1 workers=1 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=121.332 nsPerActiveVisit=30.3329 visits=4000000 allocPerTick=160
-PASS shapeA-sparse-4M-1 workers=2 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=87.361 nsPerActiveVisit=21.8402 visits=4000000 allocPerTick=1812
-PASS shapeA-sparse-4M-1 workers=4 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=69.642 nsPerActiveVisit=17.4104 visits=4000000 allocPerTick=1953
-PASS shapeA-sparse-4M-1 workers=8 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=64.011 nsPerActiveVisit=16.0027 visits=4000000 allocPerTick=2132
+shapeA-sparse-4M-1 setupMs=187.12 total=4000000 capacity=4000000 heapWorldBytes=358229744 active=4000000
+PASS shapeA-sparse-4M-1 workers=1 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=13.116 nsPerActiveVisit=3.2791 visits=4000000 allocPerTick=0
+PASS shapeA-sparse-4M-1 workers=2 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=9.634 nsPerActiveVisit=2.4085 visits=4000000 allocPerTick=0
+PASS shapeA-sparse-4M-1 workers=4 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=11.048 nsPerActiveVisit=2.7620 visits=4000000 allocPerTick=0
+PASS shapeA-sparse-4M-1 workers=8 oracle=dc9a12f52ef85725 actual=dc9a12f52ef85725 msPerTick=8.664 nsPerActiveVisit=2.1660 visits=4000000 allocPerTick=0
 PASS shapeA-sparse-4M-1 thread-hash-equality workers=1/2/4/8 hash=dc9a12f52ef85725
-shapeA-sparse-4M-4 setupMs=5450.13 total=16000000 capacity=4000000 heapWorldBytes=3248871896 active=16000000
-PASS shapeA-sparse-4M-4 workers=1 oracle=b352044711105725 actual=b352044711105725 msPerTick=394.544 nsPerActiveVisit=24.6590 visits=16000000 allocPerTick=160
-PASS shapeA-sparse-4M-4 workers=2 oracle=b352044711105725 actual=b352044711105725 msPerTick=291.410 nsPerActiveVisit=18.2131 visits=16000000 allocPerTick=1864
-PASS shapeA-sparse-4M-4 workers=4 oracle=b352044711105725 actual=b352044711105725 msPerTick=325.205 nsPerActiveVisit=20.3253 visits=16000000 allocPerTick=1972
-PASS shapeA-sparse-4M-4 workers=8 oracle=b352044711105725 actual=b352044711105725 msPerTick=252.113 nsPerActiveVisit=15.7570 visits=16000000 allocPerTick=2100
+shapeA-sparse-4M-4 setupMs=640.88 total=16000000 capacity=4000000 heapWorldBytes=828585920 active=16000000
+PASS shapeA-sparse-4M-4 workers=1 oracle=b352044711105725 actual=b352044711105725 msPerTick=60.607 nsPerActiveVisit=3.7879 visits=16000000 allocPerTick=0
+PASS shapeA-sparse-4M-4 workers=2 oracle=b352044711105725 actual=b352044711105725 msPerTick=34.148 nsPerActiveVisit=2.1342 visits=16000000 allocPerTick=0
+PASS shapeA-sparse-4M-4 workers=4 oracle=b352044711105725 actual=b352044711105725 msPerTick=14.642 nsPerActiveVisit=0.9151 visits=16000000 allocPerTick=0
+PASS shapeA-sparse-4M-4 workers=8 oracle=b352044711105725 actual=b352044711105725 msPerTick=21.179 nsPerActiveVisit=1.3237 visits=16000000 allocPerTick=0
 PASS shapeA-sparse-4M-4 thread-hash-equality workers=1/2/4/8 hash=b352044711105725
-shapeB-dense-100x150 setupMs=3.08 total=15000 capacity=100 heapWorldBytes=4672488 active=15000
-PASS shapeB-dense-100x150 workers=1 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.216 nsPerActiveVisit=14.4053 visits=15000 allocPerTick=0
-PASS shapeB-dense-100x150 workers=2 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.208 nsPerActiveVisit=13.8555 visits=15000 allocPerTick=0
-PASS shapeB-dense-100x150 workers=4 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.221 nsPerActiveVisit=14.7533 visits=15000 allocPerTick=0
-PASS shapeB-dense-100x150 workers=8 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.220 nsPerActiveVisit=14.6835 visits=15000 allocPerTick=0
+shapeB-dense-100x150 setupMs=0.64 total=15000 capacity=100 heapWorldBytes=1150376 active=15000
+PASS shapeB-dense-100x150 workers=1 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.051 nsPerActiveVisit=3.3953 visits=15000 allocPerTick=0
+PASS shapeB-dense-100x150 workers=2 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.059 nsPerActiveVisit=3.9369 visits=15000 allocPerTick=0
+PASS shapeB-dense-100x150 workers=4 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.059 nsPerActiveVisit=3.9243 visits=15000 allocPerTick=0
+PASS shapeB-dense-100x150 workers=8 oracle=1d9ddea75d54bb75 actual=1d9ddea75d54bb75 msPerTick=0.048 nsPerActiveVisit=3.2173 visits=15000 allocPerTick=0
 PASS shapeB-dense-100x150 thread-hash-equality workers=1/2/4/8 hash=1d9ddea75d54bb75
-shapeB-dense-1000x150 setupMs=29.77 total=150000 capacity=1000 heapWorldBytes=30325528 active=150000
-PASS shapeB-dense-1000x150 workers=1 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=1.486 nsPerActiveVisit=9.9068 visits=150000 allocPerTick=0
-PASS shapeB-dense-1000x150 workers=2 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=1.564 nsPerActiveVisit=10.4242 visits=150000 allocPerTick=0
-PASS shapeB-dense-1000x150 workers=4 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=1.418 nsPerActiveVisit=9.4509 visits=150000 allocPerTick=0
-PASS shapeB-dense-1000x150 workers=8 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=1.394 nsPerActiveVisit=9.2903 visits=150000 allocPerTick=0
+shapeB-dense-1000x150 setupMs=8.86 total=150000 capacity=1000 heapWorldBytes=9777696 active=150000
+PASS shapeB-dense-1000x150 workers=1 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=0.584 nsPerActiveVisit=3.8911 visits=150000 allocPerTick=0
+PASS shapeB-dense-1000x150 workers=2 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=0.537 nsPerActiveVisit=3.5796 visits=150000 allocPerTick=0
+PASS shapeB-dense-1000x150 workers=4 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=0.607 nsPerActiveVisit=4.0474 visits=150000 allocPerTick=0
+PASS shapeB-dense-1000x150 workers=8 oracle=899da8717fc0b745 actual=899da8717fc0b745 msPerTick=0.556 nsPerActiveVisit=3.7077 visits=150000 allocPerTick=0
 PASS shapeB-dense-1000x150 thread-hash-equality workers=1/2/4/8 hash=899da8717fc0b745
-shapeB-dense-10000x150 setupMs=334.12 total=1500000 capacity=10000 heapWorldBytes=294914096 active=1500000
-PASS shapeB-dense-10000x150 workers=1 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=12.162 nsPerActiveVisit=8.1078 visits=1500000 allocPerTick=160
-PASS shapeB-dense-10000x150 workers=2 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=11.915 nsPerActiveVisit=7.9431 visits=1500000 allocPerTick=1864
-PASS shapeB-dense-10000x150 workers=4 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=11.709 nsPerActiveVisit=7.8058 visits=1500000 allocPerTick=1972
-PASS shapeB-dense-10000x150 workers=8 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=12.454 nsPerActiveVisit=8.3026 visits=1500000 allocPerTick=2062
+shapeB-dense-10000x150 setupMs=79.29 total=1500000 capacity=10000 heapWorldBytes=72828296 active=1500000
+PASS shapeB-dense-10000x150 workers=1 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=5.026 nsPerActiveVisit=3.3509 visits=1500000 allocPerTick=0
+PASS shapeB-dense-10000x150 workers=2 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=2.628 nsPerActiveVisit=1.7523 visits=1500000 allocPerTick=0
+PASS shapeB-dense-10000x150 workers=4 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=2.140 nsPerActiveVisit=1.4267 visits=1500000 allocPerTick=0
+PASS shapeB-dense-10000x150 workers=8 oracle=00a627cec1b67865 actual=00a627cec1b67865 msPerTick=3.031 nsPerActiveVisit=2.0207 visits=1500000 allocPerTick=0
 PASS shapeB-dense-10000x150 thread-hash-equality workers=1/2/4/8 hash=00a627cec1b67865
 SCALE VERIFY PASS
