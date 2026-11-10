@@ -80,9 +80,14 @@ Goal: while the player jumps 5 forward, it also moves 2 to the side, so the posi
 
 **Then, in your own system** (the one that moves the player), read it next to `Offset`. Gives you: the player actually moves sideways.
 
+The sample's `foreach` has no braces, so add them or the new line will not compile:
+
 ```diff
- playerTransform.ValueRW.Position.x = teleported.ValueRO.Offset;
-+playerTransform.ValueRW.Position.z = teleported.ValueRO.Side;
+ foreach (var (playerTransform, teleported) in SystemAPI.Query<RefRW<LocalTransform>, RefRO<Teleported>>())
++{
+     playerTransform.ValueRW.Position.x = teleported.ValueRO.Offset;
++    playerTransform.ValueRW.Position.z = teleported.ValueRO.Side;
++}
 ```
 
 Set `Side` on the clips in your timeline: `-2` on the first clip and `3` on the second (in JSON: `"Side": -2`). The result:
@@ -94,7 +99,15 @@ tick  position (x, y, z)
  119  (5, 0, -2)       clip 2 ends with Come Back on: its move is undone
 ```
 
+In the Hello Tl scene the cube starts at y = 0.5, so there you will see `(5, 0.5, -2)`. Only x and z are changed.
+
 **If the side stays 0,** one of these is missing: the track still returns the old `float` (step 3), `Apply` does not write `Side` (step 4), your system does not read `Side`, or the clip's `Side` is still 0 in the timeline. The complete version, with the timeline JSON and a test that checks the output above, is `demos/hello-side` (`dotnet run --project demos/hello-side -c Release`).
+
+## Reusing a player's slot
+
+In this console host a player is a row number. `StopAll(row)` on a player that is in the middle of a clip fires that clip's End pulse (flagged `Interrupted`) during the next `Tick`, so a clip with Come Back on "comes back" as it is cut short. If a new player already sits in that row in the same step, the come-back lands on the new player. Tested with 100 players and two rounds of destroy and respawn: respawning in the same step gave 6 wrong players, respawning one step later gave 0.
+
+So stop the old player in one step, and reset the column and `Start` the new player after that step's `Tick` (it then starts a step later). In Unity a new entity is a new row, and a destroy-and-respawn in the same frame did not leak (tested). See issue #594.
 
 ## Files
 
