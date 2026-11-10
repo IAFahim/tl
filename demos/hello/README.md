@@ -15,6 +15,28 @@ step  offset
 
 Tick 30: clip 1 starts, jump +5 and stay. Tick 90: clip 2 starts, +8 (13). Tick 119: clip 2 ends and comes back, -8 (5).
 
+## Add a value: a sideways swing
+
+A new value has to pass through all four parts, or it silently stays 0. Adding `SideSwing` only to the clip and the column builds clean and does nothing, because nothing reads the clip field and nothing writes the column field.
+
+| | What you add |
+|---|---|
+| 1. Clip | `public float SideSwing;` on `TeleportClip` |
+| 2. Track | a method that reads it: `[Pulse(typeof(SideKind), On = ClipEvent.Start)] static float SwingAtClipStart(in TlFrame<TeleportClip> frame) => frame.Direction * frame.Clip.SideSwing;` |
+| 3. Kind | a new `SideKind` with `Apply(in float swing, ref Teleported player) => player.SideSwing += swing;` |
+| 4. Column | `public float SideSwing;` on `Teleported` |
+
+Then set `"SideSwing": 2` on the clips in the timeline JSON and rebake. Each kind takes one value, so a second value is a second kind, not a second argument to `TeleportKind`. The finished, tested version is `demos/hello-side` (`dotnet run --project demos/hello-side -c Release`):
+
+```
+step  offset  side
+  30  5  2
+  90  13  5
+ 119  5  5
+```
+
+Tick 30 adds 5 forward and 2 sideways. Tick 90 adds 8 and 3 (13 and 5). Tick 119 brings the 8 back (5) and leaves the side at 5, because only the start pulse carries a swing. To bring it back too, add a `[Pulse(typeof(SideKind), On = ClipEvent.End)]` method that returns `-frame.Direction * frame.Clip.SideSwing`.
+
 ## Files
 
 - `Teleport.cs`: all of Tl's part. The generator turns it into `Tl.Generated.TlAuto_HelloTl` at build time (the name is the assembly name `HelloTl`).

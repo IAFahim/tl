@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\packs\Motion\Tl.Pack.Motion.csproj" />
     <ProjectReference Include="..\..\demos\crowd\Server\Server.csproj" />
     <ProjectReference Include="..\..\demos\hello\HelloTl.csproj" />
+    <ProjectReference Include="..\..\demos\hello-side\HelloSide.csproj" />
     <ProjectReference Include="..\..\demos\film\FilmTl.csproj" />
     <ProjectReference Include="..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
     <ProjectReference Include="..\..\tools\Tl.Bake\Tl.Bake.csproj" />
