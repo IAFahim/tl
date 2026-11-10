@@ -42,6 +42,55 @@ namespace Tl
         readonly List<nint> _arenas = new();
         internal static long NativeBlockCount;
 
+        struct MarkerTable
+        {
+            public void* Values;
+            public int Stride;
+            public int Count;
+        }
+
+        MarkerTable* _markers;
+        int _markersCapacity;
+
+        internal void RegisterMarkers(ushort timeline, void* values, int stride, int count)
+        {
+            if (values == null) throw new ArgumentNullException(nameof(values));
+            if (stride <= 0 || count < 0) throw new ArgumentOutOfRangeException(nameof(stride));
+            if (_markers == null || timeline >= _markersCapacity)
+            {
+                var capacity = _markers == null ? Math.Max(64, (int)timeline + 1) : Math.Max(_markersCapacity * 2, (int)timeline + 1);
+                var next = (MarkerTable*)TrackAlloc((nuint)capacity * (nuint)sizeof(MarkerTable));
+                NativeMemory.Clear(next, (nuint)capacity * (nuint)sizeof(MarkerTable));
+                if (_markers != null)
+                {
+                    new ReadOnlySpan<MarkerTable>(_markers, _markersCapacity).CopyTo(new Span<MarkerTable>(next, _markersCapacity));
+                    TrackFree(_markers);
+                }
+                _markers = next;
+                _markersCapacity = capacity;
+            }
+            _markers[timeline] = new MarkerTable { Values = values, Stride = stride, Count = count };
+        }
+
+        internal bool TryResolveMarker(ushort timeline, uint marker, int size, out byte* value)
+        {
+            value = null;
+            if (_markers == null || timeline >= _markersCapacity) return false;
+            var table = _markers[timeline];
+            if ((ulong)marker >= (ulong)table.Count) return false;
+            if (size > table.Stride) return false;
+            value = (byte*)table.Values + (nuint)marker * (nuint)table.Stride;
+            return true;
+        }
+
+        internal void ClearMarkers()
+        {
+            if (_markers == null) return;
+            TrackFree(_markers);
+            _markers = null;
+            _markersCapacity = 0;
+        }
+
         static void* TrackAlloc(nuint size)
         {
             var p = NativeMemory.AlignedAlloc(size, 64);
@@ -85,6 +134,7 @@ namespace Tl
 
         unsafe void Free()
         {
+            ClearMarkers();
             if (_ownsView)
             {
                 if (_view.Timelines != null)
@@ -106,7 +156,6 @@ namespace Tl
                 if (_base != null) TrackFree(_base);
                 foreach (var arena in _arenas) TrackFree((void*)arena);
                 _arenas.Clear();
-                MarkerTableRegistry.Clear(this);
                 _ownsView = false;
             }
             _view.Timelines = null;
