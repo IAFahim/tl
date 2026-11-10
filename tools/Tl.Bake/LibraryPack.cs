@@ -18,6 +18,7 @@ internal static class LibraryPack
         var auto = false;
         var noSources = false;
         var diagnosticsJson = false;
+        var v3 = false;
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
@@ -32,6 +33,12 @@ internal static class LibraryPack
             else if (a == "--kinds") { if (i + 1 >= args.Length) return Fail("Missing argument for --kinds", diagnosticsJson); kindsPath = args[++i]; }
             else if (a == "--namespace") { if (i + 1 >= args.Length) return Fail("Missing argument for --namespace", diagnosticsJson); ns = args[++i]; }
             else if (a == "--auto") auto = true;
+            else if (a == "--format")
+            {
+                if (i + 1 >= args.Length) return Fail("Missing argument for --format", diagnosticsJson);
+                if (args[++i] != "v3") return Fail("--format only supports 'v3'", diagnosticsJson);
+                v3 = true;
+            }
             else if (a == "--diagnostics")
             {
                 if (i + 1 >= args.Length || args[i + 1] != "json") return Fail("--diagnostics only supports 'json'", diagnosticsJson);
@@ -41,8 +48,8 @@ internal static class LibraryPack
             else if (dir == null) dir = a;
             else return Fail($"Unexpected argument '{a}'", diagnosticsJson);
         }
-        if (dir == null) return Fail("Usage: tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--diagnostics json]", diagnosticsJson);
-        try { return Pack(dir, assemblyPaths, outPath, idsPath, kindsPath, ns, auto, noSources, diagnosticsJson); }
+        if (dir == null) return Fail("Usage: tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--format v3] [--diagnostics json]", diagnosticsJson);
+        try { return Pack(dir, assemblyPaths, outPath, idsPath, kindsPath, ns, auto, noSources, diagnosticsJson, v3); }
         catch (BakeDiagnosticException ex) { return Fail(ex.Message, diagnosticsJson); }
         catch (Exception ex) { return Fail(ex.Message, diagnosticsJson); }
     }
@@ -134,7 +141,7 @@ internal static class LibraryPack
         return new LibraryKindInputs(names, parts, tickRate, kindSettings, reached);
     }
 
-    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool noSources, bool diagnosticsJson)
+    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool noSources, bool diagnosticsJson, bool v3 = false)
     {
         dir = Path.GetFullPath(dir);
         var input = LoadKindInputs(dir, assemblyPaths, auto);
@@ -143,7 +150,15 @@ internal static class LibraryPack
         var tickRate = input.TickRate;
         outPath ??= Path.Combine(dir, "game.tlib");
         if (!noSources) idsPath ??= Path.Combine(dir, "Timelines.g.cs");
-        var gameTlib = LibraryAssembler.Assemble(input.Parts, tickRate, input.Settings, out var capacities);
+        byte[] gameTlib;
+        IReadOnlyList<KindCapacity> capacities;
+        if (v3)
+        {
+            gameTlib = LibraryV3Bake.AssembleV3(input.Parts);
+            capacities = LibraryAssembler.Capacities(input.Parts, input.Settings);
+        }
+        else
+            gameTlib = LibraryAssembler.Assemble(input.Parts, tickRate, input.Settings, out capacities);
         var rows = input.Reached || kindsPath != null ? capacities : null;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
         File.WriteAllBytes(outPath, gameTlib);

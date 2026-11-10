@@ -37,7 +37,9 @@ public sealed class NewStyleAnalyzerTests
         var generated = string.Join("\n", driver.GetRunResult().GeneratedTrees.Select(tree => tree.ToString()));
         Assert.Contains("TlAuto_Portable_Pack", generated);
         Assert.Contains("global::Portable.PushKind.Apply", generated);
-        Assert.Contains("global::Portable.PushTrack.Evaluate", generated);
+        Assert.Contains("world.Tick(__direction);", generated);
+        Assert.Contains("float __v = __acc[__e];", generated);
+        Assert.DoesNotContain("global::Portable.PushTrack.Evaluate", generated);
         Assert.NotNull(output.GetTypeByMetadataName("Tl.Generated.TlAuto_Portable_Pack"));
         using var bytes = new MemoryStream();
         Assert.True(output.Emit(bytes).Success);
@@ -83,11 +85,9 @@ public sealed class NewStyleAnalyzerTests
         Assert.Contains("Tl.Events<Portable.Strike>", fields);
         Assert.Contains("Tl.Events<Portable.Ring>", fields);
         var generated = string.Join("\n", driver.GetRunResult().GeneratedTrees.Select(tree => tree.ToString()));
-        Assert.Contains("global::Portable.PushTrack.OnClipStart", generated);
-        Assert.Contains("global::Portable.BellTrack.OnClipEnd", generated);
-        var key = 14695981039346656037UL;
-        foreach (var c in "Tl.TlNoSettings`1<Portable.PushClip,\0Portable.PushClip") key = (key ^ c) * 1099511628211UL;
-        Assert.Contains((key | 1UL) + "UL", generated);
+        Assert.Contains("world.Tick(__direction);", generated);
+        Assert.DoesNotContain("global::Portable.PushTrack.OnClipStart", generated);
+        Assert.DoesNotContain("global::Portable.BellTrack.OnClipEnd", generated);
         using var bytes = new MemoryStream();
         Assert.True(output.Emit(bytes).Success);
     }

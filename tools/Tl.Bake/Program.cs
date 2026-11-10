@@ -171,7 +171,7 @@ public static class Program
             Console.Error.WriteLine("       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...");
             Console.Error.WriteLine("       " + RunCommand.Usage);
             Console.Error.WriteLine("       tl inspect <game.tlib> <timeline> [--pulses] [--markers]");
-            Console.Error.WriteLine("       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]");
+            Console.Error.WriteLine("       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--format v3] [--diagnostics json]");
             Console.Error.WriteLine("       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tl --strip <input.tlb> <output.tlb>");
             Console.Error.WriteLine("       tl --report <input.tlb>");
@@ -289,8 +289,14 @@ public static class Program
 
         try
         {
-            Console.Write(TlbInspection.Inspect(File.ReadAllBytes(args[1])));
+            var bytes = File.ReadAllBytes(args[1]);
+            Console.Write(Tlib3Inspection.IsV3(bytes) ? Tlib3Inspection.Inspect(bytes) : TlbInspection.Inspect(bytes));
             return 0;
+        }
+        catch (BakeDiagnosticException ex)
+        {
+            Console.Error.WriteLine($"Asset error: {ex.Message}");
+            return 3;
         }
         catch (ArgumentException ex)
         {

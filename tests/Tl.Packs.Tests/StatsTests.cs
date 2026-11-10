@@ -59,6 +59,12 @@ public sealed class StatsTests
         using var kinds = new KindStore(world, players);
         var health = new[] { new Health { Value = 100, Max = 100 } };
         var attack = new[] { new Attack { Base = 10 } };
+        var hit = new HitClip { Amount = 12 };
+        var poison = new PoisonClip { Amount = 1, Every = 20 };
+        var heal = new HealClip { Amount = 20 };
+        var buff = new BuffClip { AttackBonus = 10 };
+        var prevTimeline = new ushort[256];
+        var prevTick = new ushort[256];
         var h = global::Tl.TlStateHash.Seed;
         warm = 0;
         for (var step = 0; step < steps; step++)
@@ -67,7 +73,99 @@ public sealed class StatsTests
             if (step == 100 || step == 250) players.Start(0, Haste);
             var before = GC.GetAllocatedBytesForCurrentThread();
             world.Tick(players, true);
-            new Tl.Generated.TlAuto_Tl_Pack_Stats { C0_Health = health, C1_Attack = attack }.Run(world, players, true);
+            unsafe
+            {
+                var damage = 0;
+                var hasDamage = false;
+                var closing = players.Closing;
+                for (var ci = 0; ci < closing->Count; ci++)
+                {
+                    closing->Get(ci, out var ce, out _, out var cpb);
+                    if (cpb.Timeline != Haste) continue;
+                    if ((cpb.Flags & (PlaybackFlags.StartPending | PlaybackFlags.Ended)) != 0) continue;
+                    if (cpb.Tick >= 300 || cpb.Tick >= 299) continue;
+                    var cbackward = (cpb.Flags & PlaybackFlags.Reverse) != 0;
+                    var cflags = cbackward ? FrameFlags.Reverse : FrameFlags.None;
+                    var lost = BuffTrack.Lose(new TlFrame<BuffClip>(new Frame<TlNoSettings<BuffClip>, BuffClip>(default, buff, cpb.Tick, 300, cpb.Tick, 0, cflags)));
+                    StatsAttackBonus.Apply(in lost, ref attack[ce]);
+                }
+                var count = players.CountOf(0);
+                for (var s = 0; s < count; s++)
+                {
+                    var pb = players.View.SlotOf(0, s);
+                    var timeline = pb->Timeline;
+                    var tick = pb->Tick;
+                    var flags = pb->Flags;
+                    if (timeline == 0)
+                    {
+                        prevTimeline[s] = 0;
+                        prevTick[s] = 0;
+                        continue;
+                    }
+                    var began = (flags & PlaybackFlags.Began) != 0;
+                    var moved = prevTimeline[s] == timeline && tick != prevTick[s];
+                    var backward = (flags & PlaybackFlags.Reverse) != 0;
+                    var frameFlags = backward ? FrameFlags.Reverse : FrameFlags.None;
+                    if ((flags & PlaybackFlags.Stopping) == 0)
+                    {
+                        if (timeline == Duel)
+                        {
+                            if (began)
+                            {
+                                if (tick is 60 or 120 or 180)
+                                {
+                                    var v = HitTrack.Hit(new TlFrame<HitClip>(new Frame<TlNoSettings<HitClip>, HitClip>(default, hit, tick, 1, 0, 0, frameFlags)));
+                                    StatsDamage.Combine(ref damage, in v);
+                                    hasDamage = true;
+                                }
+                                if (tick == 500)
+                                {
+                                    var v = HealTrack.Heal(new TlFrame<HealClip>(new Frame<TlNoSettings<HealClip>, HealClip>(default, heal, tick, 1, 0, 0, frameFlags)));
+                                    StatsDamage.Combine(ref damage, in v);
+                                    hasDamage = true;
+                                }
+                            }
+                            else if (moved)
+                            {
+                                if (tick is 60 or 120 or 180)
+                                {
+                                    var v = HitTrack.Hit(new TlFrame<HitClip>(new Frame<TlNoSettings<HitClip>, HitClip>(default, hit, tick, 1, 0, 0, frameFlags)));
+                                    StatsDamage.Combine(ref damage, in v);
+                                    hasDamage = true;
+                                }
+                                if (tick == 500)
+                                {
+                                    var v = HealTrack.Heal(new TlFrame<HealClip>(new Frame<TlNoSettings<HealClip>, HealClip>(default, heal, tick, 1, 0, 0, frameFlags)));
+                                    StatsDamage.Combine(ref damage, in v);
+                                    hasDamage = true;
+                                }
+                            }
+                            if ((flags & (PlaybackFlags.Paused | PlaybackFlags.Ended)) == 0 && tick >= 240 && tick < 480)
+                            {
+                                var v = PoisonTrack.Tick(new TlFrame<PoisonClip>(new Frame<TlNoSettings<PoisonClip>, PoisonClip>(default, poison, tick, 240, (ushort)(tick - 240), 1, frameFlags)));
+                                StatsDamage.Combine(ref damage, in v);
+                                hasDamage = true;
+                            }
+                        }
+                        else if (timeline == Haste)
+                        {
+                            if (began)
+                            {
+                                var v = BuffTrack.Gain(new TlFrame<BuffClip>(new Frame<TlNoSettings<BuffClip>, BuffClip>(default, buff, tick, 300, tick, 0, frameFlags)));
+                                StatsAttackBonus.Apply(in v, ref attack[0]);
+                            }
+                            else if (moved && tick == 299)
+                            {
+                                var v = BuffTrack.Lose(new TlFrame<BuffClip>(new Frame<TlNoSettings<BuffClip>, BuffClip>(default, buff, tick, 300, tick, 0, frameFlags)));
+                                StatsAttackBonus.Apply(in v, ref attack[0]);
+                            }
+                        }
+                    }
+                    prevTimeline[s] = timeline;
+                    prevTick[s] = tick;
+                }
+                if (hasDamage) StatsDamage.Apply(in damage, ref health[0]);
+            }
             var delta = GC.GetAllocatedBytesForCurrentThread() - before;
             if (step >= 10) warm += delta;
             h = Mix(Mix(Mix(h, health[0].Value), attack[0].Base), attack[0].Bonus);

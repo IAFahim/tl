@@ -77,6 +77,10 @@ internal sealed record KindDecl(
     public bool Foreign { get; init; }
     public string Id { get; init; } = "";
     public IReadOnlyList<ConsumerParam>? IdleParams { get; init; }
+    public IrKind CombineKind { get; init; } = IrKind.Opaque;
+    public string CombineOp { get; init; } = "";
+    public IrKind ApplyKind { get; init; } = IrKind.Opaque;
+    public string ApplyOp { get; init; } = "";
 }
 
 internal sealed record SystemConsumer(

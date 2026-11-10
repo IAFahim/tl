@@ -1,0 +1,23 @@
+Vector HW accel=True floatCount=8
+PASS uniform-dense (plan 0.15-0.4) scalar=5a7c42b6b1067325 vector=5a7c42b6b1067325
+PASS uniform-sparse (plan 1.0-2.0) scalar=5a7c42b6b1067325 vector=5a7c42b6b1067325
+PASS mixed-sorted-sparse-40 (plan 1.0-2.0) scalar=68bcf66115c27325 vector=68bcf66115c27325
+PASS unique-phase-sparse-1024 (risk case) scalar=a80306f36e52f325 vector=a80306f36e52f325
+PASS lane-dense-synthetic scalar=4005c1a5b7eed325 vector=4005c1a5b7eed325
+PASS rewound uniform-dense scalar=5a7c42b6b1067325 vector=5a7c42b6b1067325
+PASS four-pairs (plan 4x single) scalar=6ee2ee4a060f3325 vector=6ee2ee4a060f3325
+PASS two-playbacks (plan 2x single) scalar=34335431e1bcb325 vector=34335431e1bcb325
+PASS 64-cohorts-2-active (plan 2x single) scalar=5413647772067325 vector=5413647772067325
+ALLOC warm BroadcastDense over 200 ticks: 0 B
+SINK probe[0]=1200
+VERIFY PASS
+case | kernel | vector ns/entity (min of 9x20000)
+uniform-dense (plan 0.15-0.4) | BroadcastDense | 0.050 sink=666
+uniform-sparse (plan 1.0-2.0) | BroadcastSparse | 0.432 sink=666
+mixed-sorted-sparse-40 (plan 1.0-2.0) | RunBroadcast | 0.480 sink=666
+unique-phase-sparse-1024 (risk case) | LaneGatherScalar | 1.234 sink=2970
+lane-dense-synthetic | LaneDense | 0.061 sink=666
+rewound uniform-dense | BroadcastDense(-1) | 0.048 sink=666
+four-pairs (plan 4x single) | 4x BroadcastDense | 0.205 sink=666
+two-playbacks (plan 2x single) | 2x BroadcastDense | 0.094 sink=666
+64-cohorts-2-active (plan 2x single) | 2x BroadcastDense + mask-64 | 0.112 sink=666

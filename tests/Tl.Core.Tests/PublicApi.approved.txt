@@ -12,6 +12,16 @@ type Tl.ClipEvent
   Field Tl.ClipEvent Marker
   Field Tl.ClipEvent Start
   Field Byte value__
+type Tl.Clock
+  NestedType Tl.Clock+Playback
+  Method System.ValueTuple`2[Tl.Clock+Playback,Tl.Edge] Step(Playback, Tl.Direction)
+type Tl.Clock+Playback
+  Field UInt16 Duration
+  Field Boolean Looping
+  Field UInt16 Phase
+type Tl.ClosingEntry
+  Field Tl.Row Row
+  Field Tl.TimelineId Timeline
 type Tl.ClosingList
   Method Void Add(Tl.ClosingList*, Int32, Int32, Tl.Playback ByRef)
   Method Void Clear(Tl.ClosingList*)
@@ -19,6 +29,16 @@ type Tl.ClosingList
   Method Tl.ClosingList* Create()
   Method Void Free(Tl.ClosingList*)
   Method Void Get(Int32, Int32 ByRef, Int32 ByRef, Tl.Playback ByRef)
+type Tl.Direction
+  Field Tl.Direction Forward
+  Field Tl.Direction Reverse
+  Field SByte value__
+type Tl.Edge
+  Field Tl.Edge Ended
+  Field Tl.Edge None
+  Field Tl.Edge Started
+  Field Tl.Edge Wrapped
+  Field Byte value__
 type Tl.EntityRef
   Field Int32 Index
   Field Int32 Version
@@ -39,6 +59,12 @@ type Tl.Events`1
   Property Tl.Events`1[T] Writer
 type Tl.FeedsAttribute
   Property System.Type Kind
+type Tl.FloatSumKind
+  Method Void Apply(Single ByRef, Single ByRef)
+  Method Single Combine(Single, Single)
+  Property Int32 Id
+  Property Single Idle
+  Property Int32 Order
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
@@ -67,6 +93,9 @@ type Tl.Frame`2
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
+type Tl.IKind
+  Property Int32 Id
+  Property Int32 Order
 type Tl.IKindRows
   Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
   Method Void Purge(Int32, Byte, UInt16)
@@ -74,6 +103,11 @@ type Tl.IKindRows
   Method Tl.Playback* Reserve(Int32, Int32, Int32)
   Method Void Sample(Int32, Byte, Byte)
   Method Void Unsample(Int32)
+type Tl.IKind`1
+  Method Void Apply(T ByRef, T ByRef)
+  Method T Combine(T, T)
+  Property Boolean HasIdle
+  Property T Idle
 type Tl.IMarker`1
 type Tl.IPlaybackSlots
   Method Boolean Admit(UInt16)
@@ -224,6 +258,20 @@ type Tl.Inspection+ViewSnapshot
   Property FoldState State
   Property System.Nullable`1[System.Int32] Ticks
   Method System.String ToString()
+type Tl.IntSumKind
+  Method Void Apply(Int32 ByRef, Int32 ByRef)
+  Method Int32 Combine(Int32, Int32)
+  Property Int32 Id
+  Property Int32 Idle
+  Property Int32 Order
+type Tl.Kernels
+  Method Void BroadcastDense(Single[], Int32, Single, Int32)
+  Method Void BroadcastSparse(Single[], Int32, Int32[], Int32, Int32, Single)
+  Method Void LaneDense(Single[], Int32, Single[], Int32)
+  Method Void LaneGatherScalar(Single[], Int32, Int32[], UInt16[], Single[], Int32, Int32, Int32)
+  Method Int32 PhaseToTick(UInt16, Int32, Int32, Int32)
+  Method Void RunBroadcast(Single[], Int32, Int32[], Tl.Run[], Single[], Int32, Int32, Int32)
+  Method Void StableRadix(UInt32[], Int32[], Int32[])
 type Tl.KindCapacity
   Field Int32 Capacity
   Field Int32 EntryBytes
@@ -236,6 +284,13 @@ type Tl.KindEntries
   Field Tl.KindEntries Pulses
   Field Tl.KindEntries Spans
   Field Byte value__
+type Tl.KindEntries`1
+  Property Int32 Capacity
+  Property Int32 Length
+  Method Void Push(Int32, T)
+  Method Void Rewind()
+  Method Int32 RowAt(Int32)
+  Method T ValueAt(Int32)
 type Tl.KindEntry
   Field Byte Feeder
   Field Tl.KindEntryFlags Flags
@@ -279,6 +334,10 @@ type Tl.KindPayload
   Method Boolean SameCatalog(Tl.KindPayload)
   Field UInt32 Version
   Method Byte[] Write(System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], Byte[])
+type Tl.KindPulse`1
+  Method Void To(Tl.Row, T)
+type Tl.KindPulse`2
+  Method Void To(Tl.Row, T)
 type Tl.KindPulses`1
   Method Void To(Int32, T)
 type Tl.KindPulses`2
@@ -361,6 +420,17 @@ type Tl.KindTable
   Method Void Unsample(Int32)
   Field Int32 ValueAt
   Field Int32 Words
+type Tl.KindTable`1
+  Method Void Add(Int32, T)
+  Method Void ApplyAll(System.Span`1[T])
+  Property Tl.KindEntries`1[T] Entries
+  Method Boolean IsTouched(Int32)
+  Property T Item [Int32]
+  Method Void IterateTouched(System.Action`2[System.Int32,T])
+  Property Tl.Kind`1[T] Kind
+  Method Void Reset()
+  Property Int32 Rows
+  Property Int32 TouchedCount
 type Tl.KindTables
   Field UInt64* Closure
   Field Int32 KindCount
@@ -370,12 +440,71 @@ type Tl.KindTables
   Field Tl.KindSectionView Sec
   Field Int32 TimelineCount
   Field Tl.LibraryTimeline* Timelines
+type Tl.Kind`1
+  Method Void Apply(T ByRef, T ByRef)
+  Method T Combine(T, T)
+  Property Boolean HasIdle
+  Property Int32 Id
+  Property T Idle
+  Property Int32 Order
+type Tl.LaneClass
+  Field Tl.LaneClass Constant
+  Field Tl.LaneClass Dense
+  Field Byte value__
+type Tl.LaneDirection
+  Field Tl.LaneDirection Backward
+  Field Tl.LaneDirection Forward
+  Field Byte value__
+type Tl.Library
+  Method System.ReadOnlySpan`1[System.Single] BackwardPlane(Int32)
+  Property System.ReadOnlySpan`1[System.Byte] Blob
+  Method Void Dispose()
+  Method UInt32 Duration(Int32)
+  Method Tl.Tlib3Edge Edge(Int32)
+  Property Int32 EdgeCount
+  Method Tl.Tlib3Feeder Feeder(Int32)
+  Property Int32 FeederCount
+  Method System.ReadOnlySpan`1[System.Single] ForwardPlane(Int32)
+  Method Tl.Tlib3Kind Kind(Int32)
+  Property Int32 KindCount
+  Method Tl.LaneClass LaneClassOf(Int32, Tl.LaneDirection)
+  Method Single LaneValue(Int32, Tl.LaneDirection, Int32)
+  Method Boolean Loops(Int32)
+  Method Tl.Tlib3Marker Marker(Int32)
+  Property Int32 MarkerCount
+  Method Tl.Tlib3Name Name(Int32)
+  Property Int32 NameCount
+  Method System.String NameText(Int32)
+  Method Tl.Tlib3Stage Stage(Int32)
+  Property Int32 StageCount
+  Method Tl.Tlib3StagePlan StagePlan(Int32)
+  Property Int32 StagePlanCount
+  Method Tl.Tlib3Step Step(Int32)
+  Property Int32 StepCount
+  Method Tl.Tlib3Timeline Timeline(Int32)
+  Property Int32 TimelineCount
+  Method System.String TimelineName(Int32)
+  Property Int32 ValueCount
+  Method Tl.LibraryResult Verify(System.ReadOnlySpan`1[System.Byte])
+  Property UInt32 Version
 type Tl.LibraryAssembler
   Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings)
   Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings, System.Collections.Generic.IReadOnlyList`1[Tl.KindCapacity] ByRef)
   Method System.Collections.Generic.IReadOnlyList`1[Tl.KindCapacity] Capacities(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], Tl.LibrarySettings)
   Method UInt32 ChannelOf(System.ReadOnlySpan`1[System.Byte])
   Method UInt32 NextOf(System.ReadOnlySpan`1[System.Byte])
+type Tl.LibraryError
+  Field Tl.LibraryError BadMagic
+  Field Tl.LibraryError BadRow
+  Field Tl.LibraryError BadVersion
+  Field Tl.LibraryError CountMismatch
+  Field Tl.LibraryError HashMismatch
+  Field Tl.LibraryError LayoutMismatch
+  Field Tl.LibraryError None
+  Field Tl.LibraryError OffsetOutOfRange
+  Field Tl.LibraryError Truncated
+  Field Tl.LibraryError ValueOutOfRange
+  Field Byte value__
 type Tl.LibraryEvent
   Field Byte Kind
   Field UInt32 Marker
@@ -430,6 +559,11 @@ type Tl.LibraryPart
   Field UInt16 Next
   Field UInt32[] Refs
   Field Byte[] Tlb
+type Tl.LibraryResult
+  Property Tl.LibraryError Error
+  Property Int32 ErrorOffset
+  Property Tl.Library Library
+  Property Boolean Ok
 type Tl.LibrarySettings
   Field Int32 ChannelCount
   Property Tl.LibrarySettings Default
@@ -488,6 +622,8 @@ type Tl.LibraryWindow
   Field UInt32 Slot
   Field UInt16 Start
   Field UInt16 Track
+type Tl.LibraryWriter
+  Method Byte[] Write(System.Collections.Generic.IReadOnlyList`1[Tl.TimelineSpec])
 type Tl.MarkerFrame`1
   Property Int32 Direction
   Property Tl.FrameFlags Flags
@@ -503,6 +639,18 @@ type Tl.Mathematics.float3
   Field Single x
   Field Single y
   Field Single z
+type Tl.ParallelApply
+  Method Void ForEachChunk(Int32, Int32, System.Action`2[System.Int32,System.Int32])
+  Method Void ParallelAccumulate(Single[], Int32[], Single[], Int32)
+type Tl.Pipeline
+  Method Tl.TickReport Tick(Tl.World, Tl.Direction)
+  Method Tl.TickReport Tick(Tl.World, Tl.Direction, System.Action`1[Tl.World])
+type Tl.PlainPlayback
+  Field UInt16 Birth
+  Field UInt16 Duration
+  Field Boolean Looping
+  Field UInt16 Phase
+  Field Tl.Row Row
 type Tl.Playback
   Field Byte Channel
   Field Tl.PlaybackFlags Flags
@@ -521,6 +669,14 @@ type Tl.PlaybackFlags
   Field Tl.PlaybackFlags StopAged
   Field Tl.PlaybackFlags Stopping
   Field Byte value__
+type Tl.PlaybackInfo
+  Field Byte Carry
+  Field Byte Channel
+  Field Boolean Paused
+  Field Byte Rate
+  Field Boolean Reversed
+  Field Int32 Tick
+  Field Tl.TimelineId Timeline
 type Tl.PlaybackRules
   Method Tl.AdvanceResult Advance(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32, Boolean)
   Method Void Apply[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Tl.RequestOp, UInt16, UInt16)
@@ -581,9 +737,26 @@ type Tl.PlaybackView
   Method Tl.Playback* SlotOf(Int32, Int32)
   Field Tl.Playback* Slots
   Field Int32 SlotsPerEntity
+type Tl.Playbacks
+  Method Void AddCohort(Tl.TimelineId, Tl.Direction, System.ReadOnlySpan`1[Tl.PlainPlayback])
+  Method Void AddSoloCohort(Tl.TimelineId, Tl.Direction, System.ReadOnlySpan`1[Tl.SoloPlayback])
+  Method Int32 Advance(Tl.TimelineId, Tl.Direction)
+  Method Int32 AdvanceSolo(Tl.TimelineId, Tl.Direction)
+  Method Int32 CountOf(Tl.TimelineId, Tl.Direction)
+  Method Boolean Remove(Tl.TimelineId, Tl.Direction, Tl.Row)
+  Method Boolean RemoveSolo(Tl.TimelineId, Tl.Direction, Tl.Row)
+  Method Int32 SoloCountOf(Tl.TimelineId, Tl.Direction)
+  Method Boolean TryEntryAt(Tl.TimelineId, Tl.Direction, Int32, Tl.PlainPlayback ByRef)
+  Method Boolean TrySoloEntryAt(Tl.TimelineId, Tl.Direction, Int32, Tl.SoloPlayback ByRef)
 type Tl.PulseAttribute
   Property System.Type Kind
   Property Tl.ClipEvent On
+type Tl.Request5
+  Field UInt16 At
+  Field Tl.RequestOp Op
+  Field Tl.Row Row
+  Field Int32 Slot
+  Field Tl.TimelineId Timeline
 type Tl.RequestOp
   Field Tl.RequestOp Pause
   Field Tl.RequestOp PauseChannel
@@ -600,6 +773,11 @@ type Tl.RequestOp
   Field Tl.RequestOp StopAll
   Field Tl.RequestOp StopChannel
   Field Byte value__
+type Tl.RequestOutcome
+  Field Int32 Applied
+  Field Int32 InvalidRow
+  Field Int32 InvalidTimeline
+  Property Int32 Total
 type Tl.RequestQueue
   Method Void Add(Tl.RequestQueue*, Int32, Int32, UInt16, UInt16, Tl.RequestOp)
   Method Void Clear(Tl.RequestQueue*)
@@ -632,12 +810,49 @@ type Tl.Requests
   Method Void Stop(UInt16)
   Method Void StopAll()
   Method Void StopChannel(Byte)
+type Tl.Requests5
+  Method Void Add(Tl.Row, Int32, Tl.RequestOp, Tl.TimelineId, UInt16)
+  Method Tl.RequestOutcome Apply(Int32, System.Func`2[Tl.TimelineId,System.Boolean], System.Action`1[Tl.Request5])
+  Method Void Clear()
+  Property Int32 Count
+  Property Tl.Request5 Item [Int32]
+  Method Void Sort()
+  Method Void StableRadixSort(System.Span`1[Tl.Request5])
+type Tl.Row
+  Method Boolean Equals(Tl.Row)
+  Method Boolean Equals(System.Object)
+  Method Int32 GetHashCode()
+  Field Int32 Value
+type Tl.Run
+  Field Int32 Length
+  Field UInt16 Phase
+  Field Int32 Start
+type Tl.SoloPlayback
+  Field Byte Carry
+  Field UInt16 Duration
+  Field Byte Flags
+  Property Boolean Looping
+  Field Byte Rate
+  Field Tl.Row Row
+  Field UInt16 Tick
+type Tl.StepSpec
+  Field Single[] BackwardLane
+  Field Single[] ForwardLane
+  Field UInt32 KindId
+  Field UInt64 PairKey
+  Field UInt32 WindowEnd
+  Field UInt32 WindowStart
 type Tl.SystemDispatch
   Method Void FastFoldAdd(Single*, UInt16*, Single*, Int32)
   Method System.Span`1[Tl.SystemStep] FilteredSteps(Tl.TimelineWorld, UInt64, UInt16, Int32, System.ReadOnlySpan`1[System.UInt64])
 type Tl.SystemStep
   Field Int32 Consumer
   Field Int32 Step
+type Tl.TickReport
+  Field Int32 ActiveCount
+  Field Int32 Frame
+  Field Int32 HighWaterVisits
+  Field Int32 InvalidRequests
 type Tl.TimelineId
   Property Boolean IsNone
   Property Tl.TimelineId None
@@ -650,6 +865,10 @@ type Tl.TimelineKindAttribute
   Property Int32 Order
 type Tl.TimelineRef
 type Tl.TimelineSlotKeysAttribute
+type Tl.TimelineSpec
+  Field UInt32 Duration
+  Field Boolean Loop
+  Field Tl.StepSpec[] Steps
 type Tl.TimelineSystemAttribute
 type Tl.TimelineSystemMemberAttribute
   Property System.Type System
@@ -728,5 +947,125 @@ type Tl.TlTimeline
   Method Boolean Equals(System.Object)
   Method Int32 GetHashCode()
   Property Boolean IsValid
+type Tl.Tlib3Edge
+  Field UInt32 From
+  Field UInt32 Kind
+  Field UInt32 Reserved
+  Field UInt32 To
+type Tl.Tlib3Feeder
+  Field UInt32 Flags
+  Field UInt32 KindId
+  Field UInt32 StepIndex
+  Field UInt32 TimelineIndex
+type Tl.Tlib3Kind
+  Field UInt32 Flags
+  Field UInt32 Id
+  Field UInt32 NameIndex
+  Field UInt32 Order
+type Tl.Tlib3Marker
+  Field Byte Flags
+  Field Byte Kind
+  Field UInt16 Reserved
+  Field UInt32 StepIndex
+  Field UInt32 Tick
+  Field UInt32 TimelineIndex
+type Tl.Tlib3Name
+  Field UInt32 Length
+  Field UInt32 Offset
+type Tl.Tlib3Stage
+  Field UInt32 End
+  Field UInt32 Start
+  Field UInt32 StepCount
+  Field UInt32 StepIndex
+type Tl.Tlib3StagePlan
+  Field UInt32 Reserved
+  Field UInt32 StageIndex
+  Field UInt32 StepCount
+  Field UInt32 StepIndex
+type Tl.Tlib3Step
+  Field Byte BackwardClass
+  Field UInt32 BackwardCount
+  Field UInt32 BackwardOffset
+  Field Byte ForwardClass
+  Field UInt32 ForwardCount
+  Field UInt32 ForwardOffset
+  Field UInt32 KindId
+  Field UInt64 PairKey
+  Field UInt16 Reserved
+  Field UInt32 Reserved2
+  Field UInt32 WindowEnd
+  Field UInt32 WindowStart
+type Tl.Tlib3Timeline
+  Field UInt32 Duration
+  Field Byte Flags
+  Field Byte Loop
+  Field UInt16 NameIndex
+  Field UInt32 StageCount
+  Field UInt32 StageIndex
+  Field UInt32 StepCount
+  Field UInt32 StepIndex
 type Tl.TypeKey`1
   Field UInt64 Value
+type Tl.World
+  Property Single[] Accumulator
+  Property Int32 ActiveCount
+  Method Void ApplyRequests()
+  Method Byte ChannelOf(Tl.TimelineId)
+  Method Void ClearClosing()
+  Method Void ClearMarkerTables()
+  Property System.ReadOnlySpan`1[Tl.ClosingEntry] Closing
+  Property Int32 ClosingCount
+  Property System.Span`1[System.Single] ColumnSpan
+  Method Void Dispose()
+  Method WorldEvents`1 Events[T]()
+  Method Tl.Tlib3Feeder FeederAt(Int32)
+  Property Int32 FeederCount
+  Property Int32 Frame
+  Method Tl.TlStateHash HashState()
+  Method Boolean HoldOf(Tl.TimelineId)
+  Method Boolean IsPlaying(Tl.Row, Tl.TimelineId)
+  Method Tl.KindTable`1[T] KindTable[T](Int32)
+  Method Tl.Tlib3Marker MarkerAt(Int32)
+  Property Int32 MarkerCount
+  Method Tl.TimelineId NextOf(Tl.TimelineId)
+  Property Int32 PendingRequests
+  Method Void Pulse[T](Int32, Tl.Row, T)
+  Method Tl.KindPulse`1[T] Pulses[T](Int32)
+  Method Tl.KindPulse`2[T,TFold] Pulses[T,TFold](Int32)
+  Method Void RegisterKind[T](Tl.Kind`1[T])
+  Method Void RegisterMarkerTable(Tl.TimelineId, Void*, Int32, Int32)
+  Property Tl.TickReport Report
+  NestedType Tl.World+RequestApi
+  Property RequestApi Requests
+  Method Void ResetKinds()
+  Property Int32 RowCapacity
+  Method Void SetChannel(Tl.TimelineId, Byte)
+  Method Void SetHold(Tl.TimelineId, Boolean)
+  Method Void SetNext(Tl.TimelineId, Tl.TimelineId)
+  Property UInt64 StateHash
+  Method Void Tick(Tl.Direction)
+  Method Boolean TryGetPlayback(Tl.Row, Tl.TimelineId, Tl.PlaybackInfo ByRef)
+  Method Boolean TryGetPlaybackByChannel(Tl.Row, Byte, Tl.PlaybackInfo ByRef)
+  Method Boolean TryKindTable[T](Int32, Tl.KindTable`1[T] ByRef)
+  Method Boolean TryResolveMarker(Tl.TimelineId, UInt32, Int32, Byte* ByRef)
+  NestedType Tl.World+WorldEvents`1[T]
+type Tl.World+RequestApi
+  Method Void Pause(Tl.Row, Tl.TimelineId)
+  Method Void PauseChannel(Tl.Row, Byte)
+  Method Void Resume(Tl.Row, Tl.TimelineId)
+  Method Void ResumeChannel(Tl.Row, Byte)
+  Method Void Reverse(Tl.Row, Tl.TimelineId, Boolean)
+  Method Void ReverseChannel(Tl.Row, Byte, Boolean)
+  Method Void Seek(Tl.Row, Tl.TimelineId, Int32)
+  Method Void SeekChannel(Tl.Row, Byte, Int32)
+  Method Void SetChannelSpeed(Tl.Row, Byte, Int32)
+  Method Void SetSpeed(Tl.Row, Tl.TimelineId, Int32)
+  Method Void Start(Tl.Row, Tl.TimelineId)
+  Method Void Start(Tl.Row, Tl.TimelineId, Int32)
+  Method Void Stop(Tl.Row, Tl.TimelineId)
+  Method Void StopAll(Tl.Row)
+  Method Void StopChannel(Tl.Row, Byte)
+type Tl.World+WorldEvents`1
+  Property Int32 Count
+  Method System.Span`1[T] Drain()
+  Method Void Raise(T ByRef)

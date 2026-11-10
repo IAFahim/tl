@@ -20,6 +20,9 @@ type Tl.Gen.Tlb.LibraryBake
   Method Tl.Gen.Tlb.BakeKinds Kinds(System.Collections.Generic.IEnumerable`1[System.Reflection.Assembly], System.Collections.Generic.IReadOnlyDictionary`2[System.String,Tl.KindOverride])
   Method Tl.Gen.Tlb.LibraryManifest Manifest(System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[System.String], UInt32)
 type Tl.Gen.Tlb.LibraryManifest
+type Tl.Gen.Tlb.LibraryV3Bake
+  Method Byte[] AssembleV3(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart])
+  Method System.Collections.Generic.IReadOnlyList`1[Tl.TimelineSpec] Specs(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart])
 type Tl.Gen.Tlb.TimelineBaker
   Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)
   Method Byte[] BakeJson(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)
@@ -88,6 +91,9 @@ type Tl.Gen.Tlb.TlbTypeIdentity
   Property System.String Assembly
   Property System.String Name
   Property System.String Namespace
+type Tl.Gen.Tlb.Tlib3Inspection
+  Method System.String Inspect(System.ReadOnlySpan`1[System.Byte])
+  Method Boolean IsV3(System.ReadOnlySpan`1[System.Byte])
 type Tl.Gen.Tlb.TypedClip
   Property Byte[] Data
   Property UInt32 End

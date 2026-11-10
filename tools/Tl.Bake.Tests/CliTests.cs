@@ -168,7 +168,7 @@ public class CliTests
                     "       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...",
                     "       tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show] [--export <file> [--export-every <n>]]",
                     "       tl inspect <game.tlib> <timeline> [--pulses] [--markers]",
-                    "       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]",
+                    "       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--format v3] [--diagnostics json]",
                     "       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]",
                     "       tl --strip <input.tlb> <output.tlb>",
                     "       tl --report <input.tlb>",

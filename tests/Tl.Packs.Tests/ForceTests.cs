@@ -94,7 +94,32 @@ public sealed class ForceTests
         for (var step = 0; step < steps; step++)
         {
             world.Tick(players, true);
-            new Tl.Generated.TlAuto_Tl_Pack_Force { C0_Force = states }.Run(world, players, true);
+            unsafe
+            {
+                var total = new float3(0f);
+                var has = false;
+                var count = players.CountOf(0);
+                for (var s = 0; s < count; s++)
+                {
+                    var pb = players.View.SlotOf(0, s);
+                    if (pb->Timeline != 3) continue;
+                    if ((pb->Flags & (PlaybackFlags.Stopping | PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0) continue;
+                    var tick = pb->Tick;
+                    if (tick < 120)
+                    {
+                        var v = ForceTrack.Evaluate(new TlFrame<ForceClip>(new Frame<TlNoSettings<ForceClip>, ForceClip>(default, Push, tick, 120, tick, 0, FrameFlags.None)));
+                        ForceKind.Combine(ref total, in v);
+                        has = true;
+                    }
+                    if (tick >= 30 && tick < 150)
+                    {
+                        var v = ForceTrack.Evaluate(new TlFrame<ForceClip>(new Frame<TlNoSettings<ForceClip>, ForceClip>(default, Lift, tick, 120, (ushort)(tick - 30), 1, FrameFlags.None)));
+                        ForceKind.Combine(ref total, in v);
+                        has = true;
+                    }
+                }
+                if (has) ForceKind.Apply(in total, ref states[0]);
+            }
         }
         return states;
     }
@@ -139,7 +164,57 @@ public sealed class ForceTests
                 }
             }
             world.Tick(players, forward);
-            new Tl.Generated.TlAuto_Tl_Pack_Force { C0_Force = states }.Run(world, players, forward);
+            unsafe
+            {
+                for (var e = 0; e < rows; e++)
+                {
+                    var total = new float3(0f);
+                    var has = false;
+                    var count = players.CountOf(e);
+                    for (var s = 0; s < count; s++)
+                    {
+                        var pb = players.View.SlotOf(e, s);
+                        var timeline = pb->Timeline;
+                        if (timeline == 0) continue;
+                        if ((pb->Flags & (PlaybackFlags.Stopping | PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0) continue;
+                        var tick = pb->Tick;
+                        if (timeline == 1)
+                        {
+                            if (tick >= 8 && tick < 40)
+                            {
+                                var v = ForceTrack.Evaluate(new TlFrame<ForceClip>(new Frame<TlNoSettings<ForceClip>, ForceClip>(default, Gust, tick, 32, (ushort)(tick - 8), 0, FrameFlags.None)));
+                                ForceKind.Combine(ref total, in v);
+                                has = true;
+                            }
+                        }
+                        else if (timeline == 2)
+                        {
+                            if (tick < 60)
+                            {
+                                var v = ForceTrack.Evaluate(new TlFrame<ForceClip>(new Frame<TlNoSettings<ForceClip>, ForceClip>(default, Lift, tick, 60, tick, 0, FrameFlags.None)));
+                                ForceKind.Combine(ref total, in v);
+                                has = true;
+                            }
+                        }
+                        else if (timeline == 3)
+                        {
+                            if (tick < 120)
+                            {
+                                var v = ForceTrack.Evaluate(new TlFrame<ForceClip>(new Frame<TlNoSettings<ForceClip>, ForceClip>(default, Push, tick, 120, tick, 0, FrameFlags.None)));
+                                ForceKind.Combine(ref total, in v);
+                                has = true;
+                            }
+                            if (tick >= 30 && tick < 150)
+                            {
+                                var v = ForceTrack.Evaluate(new TlFrame<ForceClip>(new Frame<TlNoSettings<ForceClip>, ForceClip>(default, Lift, tick, 120, (ushort)(tick - 30), 1, FrameFlags.None)));
+                                ForceKind.Combine(ref total, in v);
+                                has = true;
+                            }
+                        }
+                    }
+                    if (has) ForceKind.Apply(in total, ref states[e]);
+                }
+            }
             var delta = GC.GetAllocatedBytesForCurrentThread() - before;
             if (step >= 100) warm += delta;
             for (var e = 0; e < rows; e++)

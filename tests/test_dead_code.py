@@ -42,6 +42,7 @@ CLASSIFIED = {
     "TimelineSlotKeysAttribute": "applied as [TimelineSlotKeys] short name in tests/Tl.Systems.Toolbox; text scanner cannot see the use",
     "BurstDiscardAttribute": "applied as [Unity.Burst.BurstDiscard] in src/Tl.Core/Events.cs; the scanner only sees the short attribute name",
     "LiveHostInstall": "module-initializer consumer install for tl --live hosting; invoked by attribute, never by name",
+    "TlKindBinder_": "emitted binder literal in src/Tl.Gen.CSharp/SystemEmitter.cs, referenced as TlKindBinder_0 in MonoidBindingTests; scanner cannot resolve generator output",
 }
 
 

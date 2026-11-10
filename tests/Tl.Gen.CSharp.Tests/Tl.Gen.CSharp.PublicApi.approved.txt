@@ -16,6 +16,21 @@ type Tl.Gen.CSharp.Analysis.JobReader
   Method Tl.Gen.CSharp.Model.JobReadResult Read(Microsoft.CodeAnalysis.CSharp.CSharpCompilation)
 type Tl.Gen.CSharp.GeneratorCli
   Method Int32 Main(System.String[])
+type Tl.Gen.CSharp.IrKind
+  Field Tl.Gen.CSharp.IrKind Affine
+  Field Tl.Gen.CSharp.IrKind Monoid
+  Field Tl.Gen.CSharp.IrKind Opaque
+  Field Byte value__
+type Tl.Gen.CSharp.IrResult
+  Method Tl.Gen.CSharp.IrResult <Clone>$()
+  Method Void Deconstruct(Tl.Gen.CSharp.IrKind ByRef, System.String ByRef, System.String ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.IrResult)
+  Method Int32 GetHashCode()
+  Property Tl.Gen.CSharp.IrKind Kind
+  Property System.String Op
+  Method System.String ToString()
+  Property System.String Type
 type Tl.Gen.CSharp.Model.BakeDeclaration
   Method Tl.Gen.CSharp.Model.BakeDeclaration <Clone>$()
   Property System.String ConsumerTypeName
@@ -98,6 +113,8 @@ type Tl.Gen.CSharp.Model.TimelineSlot
   Property Byte Size
   Method System.String ToString()
   Property System.String TypeName
+type Tl.Gen.CSharp.MonoidClassifier
+  Method Tl.Gen.CSharp.IrResult Classify(Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax)
 type Tl.Gen.CSharp.TimelineGeneration
   NestedType Tl.Gen.CSharp.TimelineGeneration+Artifact
   NestedType Tl.Gen.CSharp.TimelineGeneration+Result

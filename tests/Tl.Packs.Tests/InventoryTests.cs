@@ -51,19 +51,97 @@ public sealed unsafe class InventoryTests
     static ulong Mix(ulong h, in Bag bag)
         => Mix(Mix(Mix(Mix(Mix(Mix(Mix(Mix(h, bag.Wood), bag.Stone), bag.Plank), bag.Potion), bag.Sword), bag.Coin), bag.Key), bag.Gem);
 
+    static void LootStep(PlaybackTable players, Bag[] bags, ushort[] prevTimeline, ushort[] prevTick, bool forward)
+    {
+        unsafe
+        {
+            var closing = players.Closing;
+            for (var ci = 0; ci < closing->Count; ci++)
+            {
+                closing->Get(ci, out var ce, out _, out var cpb);
+                if (cpb.Timeline != 1) continue;
+                if ((cpb.Flags & (PlaybackFlags.StartPending | PlaybackFlags.Ended)) != 0) continue;
+                if (cpb.Tick < 180 || cpb.Tick >= 300 || cpb.Tick >= 299) continue;
+                var cbackward = forward ? (cpb.Flags & PlaybackFlags.Reverse) != 0 : (cpb.Flags & PlaybackFlags.Reverse) == 0;
+                var cflags = cbackward ? FrameFlags.Reverse : FrameFlags.None;
+                var craft = new CraftClip { Input = Item.Wood, InputCount = 4, Output = Item.Plank, OutputCount = 2 };
+                var produced = CraftTrack.Produce(new TlFrame<CraftClip>(new Frame<TlNoSettings<CraftClip>, CraftClip>(default, craft, cpb.Tick, 120, (ushort)(cpb.Tick - 180), 2, cflags)));
+                InventoryItems.Apply(in produced, ref bags[ce]);
+            }
+            var count = players.CountOf(0);
+            for (var s = 0; s < count; s++)
+            {
+                var pb = players.View.SlotOf(0, s);
+                var timeline = pb->Timeline;
+                var tick = pb->Tick;
+                var flags = pb->Flags;
+                if (timeline == 0)
+                {
+                    prevTimeline[s] = 0;
+                    prevTick[s] = 0;
+                    continue;
+                }
+                var began = (flags & PlaybackFlags.Began) != 0;
+                var moved = prevTimeline[s] == timeline && tick != prevTick[s];
+                if (timeline == 1 && (flags & PlaybackFlags.Stopping) == 0 && (began || moved))
+                {
+                    var backward = forward ? (flags & PlaybackFlags.Reverse) != 0 : (flags & PlaybackFlags.Reverse) == 0;
+                    var frameFlags = backward ? FrameFlags.Reverse : FrameFlags.None;
+                    if (tick == 0 || tick == 60 || tick == 120 || tick == 360 || tick == 540)
+                    {
+                        var give = tick == 0 ? Give(Item.Wood, 5) : tick == 60 ? Give(Item.Stone, 3) : tick == 120 ? Give(Item.Potion, 2) : tick == 360 ? Give(Item.Potion, -1) : Give(Item.Sword, 1);
+                        var delta = GiveTrack.Give(new TlFrame<GiveClip>(new Frame<TlNoSettings<GiveClip>, GiveClip>(default, give, tick, 1, 0, (ushort)(tick == 360 ? 1 : 0), frameFlags)));
+                        InventoryItems.Apply(in delta, ref bags[0]);
+                    }
+                    if ((began && tick >= 180 && tick < 300) || (moved && tick == 180))
+                    {
+                        var craft = new CraftClip { Input = Item.Wood, InputCount = 4, Output = Item.Plank, OutputCount = 2 };
+                        var consumed = CraftTrack.Consume(new TlFrame<CraftClip>(new Frame<TlNoSettings<CraftClip>, CraftClip>(default, craft, tick, 120, (ushort)(tick - 180), 2, frameFlags)));
+                        InventoryItems.Apply(in consumed, ref bags[0]);
+                    }
+                    if (began || moved)
+                    {
+                        if (tick == 299)
+                        {
+                            var craft = new CraftClip { Input = Item.Wood, InputCount = 4, Output = Item.Plank, OutputCount = 2 };
+                            var produced = CraftTrack.Produce(new TlFrame<CraftClip>(new Frame<TlNoSettings<CraftClip>, CraftClip>(default, craft, tick, 120, (ushort)(tick - 180), 2, frameFlags)));
+                            InventoryItems.Apply(in produced, ref bags[0]);
+                        }
+                        if (tick == 420)
+                        {
+                            var marker = new PickupMarker { Item = Item.Coin, Count = 10 };
+                            var picked = Pickup.OnPickup(new MarkerFrame<PickupMarker>(in marker, tick, 0, frameFlags));
+                            InventoryItems.Apply(in picked, ref bags[0]);
+                        }
+                        if (tick == 480)
+                        {
+                            var marker = new PickupMarker { Item = Item.Gem, Count = 1 };
+                            var picked = Pickup.OnPickup(new MarkerFrame<PickupMarker>(in marker, tick, 0, frameFlags));
+                            InventoryItems.Apply(in picked, ref bags[0]);
+                        }
+                    }
+                }
+                prevTimeline[s] = timeline;
+                prevTick[s] = tick;
+            }
+        }
+    }
+
     static ulong Play(byte[] library, int forward, int back, ref ulong h, ref long warm, out Bag bag)
     {
         using var world = new TimelineWorld(library);
         using var players = new PlaybackTable(1);
         using var kinds = new KindStore(world, players);
         var bags = new Bag[1];
+        var prevTimeline = new ushort[256];
+        var prevTick = new ushort[256];
         players.Start(0, 1);
         for (var step = 0; step < forward + back; step++)
         {
             var direction = step < forward;
             var before = GC.GetAllocatedBytesForCurrentThread();
             world.Tick(players, direction);
-            new Tl.Generated.TlAuto_Tl_Pack_Inventory { C0_Bag = bags }.Run(world, players, direction);
+            LootStep(players, bags, prevTimeline, prevTick, direction);
             var delta = GC.GetAllocatedBytesForCurrentThread() - before;
             if (step >= 10) warm += delta;
             h = Mix(h, bags[0]);
@@ -96,6 +174,8 @@ public sealed unsafe class InventoryTests
         using var players = new PlaybackTable(1);
         using var kinds = new KindStore(world, players);
         var bags = new Bag[1];
+        var prevTimeline = new ushort[256];
+        var prevTick = new ushort[256];
         players.Start(0, 1);
         for (var step = 0; step < 1500; step++)
         {
@@ -108,7 +188,7 @@ public sealed unsafe class InventoryTests
                 players.Reverse(0, 1, false);
             }
             world.Tick(players);
-            new Tl.Generated.TlAuto_Tl_Pack_Inventory { C0_Bag = bags }.Run(world, players, true);
+            LootStep(players, bags, prevTimeline, prevTick, true);
         }
         Assert.Equal(599, players.View.SlotOf(0, 0)->Tick);
         Assert.Equal(Show(new Bag { Wood = 1, Stone = 3, Plank = 2, Potion = 1, Sword = 1, Coin = 10, Key = 0, Gem = 1 }), Show(bags[0]));

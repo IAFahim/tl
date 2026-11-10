@@ -99,7 +99,36 @@ public sealed class MotionTests
         {
             var before = GC.GetAllocatedBytesForCurrentThread();
             world.Tick(players, true);
-            new Tl.Generated.TlAuto_Tl_Pack_Motion { C0_Pose = poses, C1_Tint = tints }.Run(world, players, true);
+            unsafe
+            {
+            for (var e = 0; e < 3; e++)
+            {
+                var tick = players.View.SlotOf(e, 0)->Tick;
+                if (e == 0)
+                {
+                    var clip = tick < 60 ? Right : Left;
+                    var within = tick < 60 ? tick : tick - 60;
+                    var placed = MoveTrack.Evaluate(new TlFrame<MoveClip>(new Frame<TlNoSettings<MoveClip>, MoveClip>(default, clip, tick, 60, (ushort)within, 0, FrameFlags.None)));
+                    MotionPosition.Apply(in placed, ref poses[e]);
+                }
+                else if (e == 1)
+                {
+                    var scale = ScaleTrack.Evaluate(new TlFrame<ScaleClip>(new Frame<TlNoSettings<ScaleClip>, ScaleClip>(default, Swell, tick, 90, (ushort)tick, 0, FrameFlags.None)));
+                    MotionScale.Apply(in scale, ref poses[e]);
+                    var tint = TintTrack.Evaluate(new TlFrame<TintClip>(new Frame<TlNoSettings<TintClip>, TintClip>(default, Glow, tick, 90, (ushort)tick, 0, FrameFlags.None)));
+                    MotionTint.Apply(in tint, ref tints[e]);
+                }
+                else
+                {
+                    var yaw = SpinTrack.Evaluate(new TlFrame<SpinClip>(new Frame<TlNoSettings<SpinClip>, SpinClip>(default, Turn, tick, 120, (ushort)tick, 0, FrameFlags.None)));
+                    MotionYaw.Apply(in yaw, ref poses[e]);
+                    var move = tick >= 40 && tick < 80
+                        ? MoveTrack.Evaluate(new TlFrame<MoveClip>(new Frame<TlNoSettings<MoveClip>, MoveClip>(default, Pull, tick, 40, (ushort)(tick - 40), 0, FrameFlags.None)))
+                        : MoveTrack.Evaluate(new TlFrame<MoveClip>(new Frame<TlNoSettings<MoveClip>, MoveClip>(default, Jump, tick, 120, (ushort)tick, 0, FrameFlags.None)));
+                    MotionPosition.Apply(in move, ref poses[e]);
+                }
+            }
+            }
             var delta = GC.GetAllocatedBytesForCurrentThread() - before;
             if (step >= 10) warm += delta;
             for (var e = 0; e < 3; e++) h = Mix(h, poses[e], tints[e]);

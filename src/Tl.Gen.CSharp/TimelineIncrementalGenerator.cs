@@ -57,7 +57,7 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         cancellation.ThrowIfCancellationRequested();
         if (compilation is not CSharpCompilation csharp) return Empty;
         var id = string.Concat((compilation.AssemblyName ?? "Game").Select(static c => char.IsLetterOrDigit(c) ? c : '_'));
-        if (compilation.Assembly.GetTypeByMetadataName("TlSystems.TlModule_" + id) is not null) return Empty;
+        if (csharp.SyntaxTrees.Any(tree => tree.FilePath.EndsWith($"TlSystems{id}.g.cs", StringComparison.Ordinal))) return Empty;
         var emitted = SystemGeneration.Emit(csharp, id);
         var fingerprint = string.Join("\0", emitted.Diagnostics.Select(DiagnosticFingerprint).Concat(emitted.Artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));
         return new Analysis(emitted.Diagnostics, emitted.Artifacts, fingerprint);

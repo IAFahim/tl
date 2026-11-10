@@ -27,6 +27,9 @@ internal static class DecodeCommand
         if (!File.Exists(input)) return Fail($"Input file '{input}' does not exist.");
         var bytes = File.ReadAllBytes(input);
         var resolver = new BakerAssemblyResolver(assemblies);
+        if (bytes.Length >= 4 && BinaryPrimitives.ReadUInt32LittleEndian(bytes) == 0x42494C54u
+            && Tlib3Inspection.IsV3(bytes))
+            return LibraryV3(bytes, output);
         if (bytes.Length >= 4 && BinaryPrimitives.ReadUInt32LittleEndian(bytes) == 0x42494C54u)
             return Library(bytes, resolver, output ?? Path.Combine(Path.GetDirectoryName(Path.GetFullPath(input))!, Path.GetFileNameWithoutExtension(input) + ".decoded"));
         var json = TimelineJson.Decode(bytes, resolver);
@@ -48,6 +51,15 @@ internal static class DecodeCommand
         Write(Path.Combine(dir, "tl.project.json"), TlJson.ExportProject(entries.Select(e => e.Name + ".json").ToList(), channels, manifest.TickRate));
         Console.WriteLine($"decode: {entries.Count} timelines -> {dir}");
         if (BinaryPrimitives.ReadUInt32LittleEndian(lib.AsSpan(4)) >= 2) Console.WriteLine("decode: kind settings (project.kinds) are not stored in game.tlib; copy them from the authoring project.");
+        return 0;
+    }
+
+    static int LibraryV3(byte[] lib, string? output)
+    {
+        var json = Tlib3Inspection.Inspect(lib);
+        if (output == null) Console.Write(json);
+        else if (Directory.Exists(output)) Write(Path.Combine(output, "tlib3.json"), json);
+        else Write(output, json);
         return 0;
     }
 

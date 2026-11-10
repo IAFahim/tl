@@ -368,9 +368,10 @@ internal static class SystemReader
         }
         var value = apply.Parameters[0].Type;
         var each = NamedInt(attribute, "Mode") == 1;
+        IMethodSymbol? combine = null;
         if (!each)
         {
-            var combine = type.GetMembers("Combine").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+            combine = type.GetMembers("Combine").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
             if (combine is null || combine.Parameters.Length != 2 || combine.Parameters[0].RefKind != RefKind.Ref || combine.Parameters[1].RefKind != RefKind.In
                 || !Symbols.Same(combine.Parameters[0].Type, value) || !Symbols.Same(combine.Parameters[1].Type, value))
             {
@@ -413,7 +414,9 @@ internal static class SystemReader
                 idleParams.Add(bound);
             }
         }
-        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams };
+        var combineResult = MonoidClassifier.Classify(combine?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as MethodDeclarationSyntax);
+        var applyResult = MonoidClassifier.Classify(apply.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as MethodDeclarationSyntax);
+        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams, CombineKind = combineResult.Kind, CombineOp = combineResult.Op, ApplyKind = applyResult.Kind, ApplyOp = applyResult.Op };
     }
 
     static KindDecl? ReadForeignKind(INamedTypeSymbol type, SyntaxNode site, List<DeclarationDiagnostic> diagnostics)
@@ -511,6 +514,7 @@ internal static class SystemReader
         var members = new List<string>();
         foreach (var attribute in type.GetAttributes())
         {
+            if (!Symbols.Same(attribute.AttributeClass?.OriginalDefinition, contracts.SystemMember)) continue;
             var ctorArgs = attribute.ConstructorArguments;
             if (ctorArgs.Length == 1 && ctorArgs[0].Value is INamedTypeSymbol system)
                 members.Add(Symbols.Name(system));
