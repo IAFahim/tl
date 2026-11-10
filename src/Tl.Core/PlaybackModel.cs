@@ -97,8 +97,8 @@ public sealed unsafe class PlaybackTable : IDisposable
 
     public int EntityCapacity => _entities;
     public KindStore? Kinds => _kinds;
-    internal ulong* Playing => _playing;
-    internal int PlayingWords => _playingWords;
+    public ulong* Playing => _playing;
+    public int PlayingWords => _playingWords;
 
     internal void SetPlaying(int entity, bool value)
     {

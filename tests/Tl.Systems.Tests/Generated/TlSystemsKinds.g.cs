@@ -210,8 +210,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -279,6 +289,7 @@ Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushor
 global::KindGame.LegacyWalk.ExecuteActive(in __f4, in __c2[__e], ref __c1[__e]);
 if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::KindGame.LegacyWalk.OnClipEnd(in __f4);
 break;
+}
 }
 }
 }
@@ -850,8 +861,18 @@ break;
 }
 }
 }
-for (var __e = 0; __e < __n; __e++)
+var __playing = players.Playing;
+for (var __w = 0; __w < players.PlayingWords; __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+global::Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -938,6 +959,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
