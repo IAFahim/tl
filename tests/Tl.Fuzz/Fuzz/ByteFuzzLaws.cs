@@ -84,6 +84,42 @@ public class TlbFuzzLaws
             ExpectContract(zeros, $"zero-filled {length} bytes");
         }
     }
+    [Fact]
+    public void CheckPredictsLoadAndFailedLoadsDoNotLeakNativeBlocks()
+    {
+        var random = FuzzRandom.FromSeeds(0x303, 0xC3);
+        var bases = BaseAssets();
+        const int iterations = 2000;
+        for (var iteration = 0; iteration < iterations; iteration++)
+        {
+            var input = Mutate(random, bases[random.NextInt(bases.Count)]);
+            var before = TimelineWorld.NativeBlockCount;
+            var error = TimelineWorld.Check(input, out var offset);
+            var loaded = false;
+            try
+            {
+                using var world = new TimelineWorld(input);
+                loaded = true;
+            }
+            catch (ArgumentException)
+            {
+                var after = TimelineWorld.NativeBlockCount;
+                if (after != before) throw new XunitException($"native blocks leaked on failed load after {iteration} iterations: before {before} after {after} error {error} offset {offset}");
+            }
+            catch (Exception e)
+            {
+                throw new XunitException($"Load contract violated after {iteration} iterations: {e.GetType().Name}: {e.Message}\ncorpus: {Convert.ToHexString(input)}");
+            }
+            if (error == LibraryError.None && !loaded) throw new XunitException($"Check said valid but load failed after {iteration} iterations offset {offset}\ncorpus: {Convert.ToHexString(input)}");
+            if (error != LibraryError.None && loaded) throw new XunitException($"Check said {error} but load succeeded after {iteration} iterations offset {offset}\ncorpus: {Convert.ToHexString(input)}");
+            if (loaded)
+            {
+                var after = TimelineWorld.NativeBlockCount;
+                if (after != before) throw new XunitException($"native blocks not returned after load after {iteration} iterations: before {before} after {after}");
+            }
+        }
+    }
+
 
     static void ExpectContract(byte[] input, string context)
     {
