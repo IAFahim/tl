@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Runtime.InteropServices;
 
 namespace Tl;
@@ -79,7 +78,7 @@ public unsafe struct RequestQueue
         }
         if (sorted) return;
         var scratch = (RequestRecord*)NativeMemory.AlignedAlloc((nuint)count * (nuint)sizeof(RequestRecord), 8u);
-        var counts = ArrayPool<int>.Shared.Rent(65536);
+        var counts = (int*)NativeMemory.AlignedAlloc(65536u * (uint)sizeof(int), 8u);
         try
         {
             var source = new Span<RequestRecord>(items, count);
@@ -95,12 +94,12 @@ public unsafe struct RequestQueue
         finally
         {
             NativeMemory.AlignedFree(scratch);
-            ArrayPool<int>.Shared.Return(counts);
+            NativeMemory.AlignedFree(counts);
         }
 
-        static void RadixPass(Span<RequestRecord> source, Span<RequestRecord> destination, int[] counts, int pass)
+        static void RadixPass(Span<RequestRecord> source, Span<RequestRecord> destination, int* counts, int pass)
         {
-            Array.Clear(counts, 0, counts.Length);
+            new Span<int>(counts, 65536).Clear();
             for (var i = 0; i < source.Length; i++) counts[Digit(source[i], pass)]++;
             var offset = 0;
             for (var bucket = 0; bucket < 65536; bucket++)
