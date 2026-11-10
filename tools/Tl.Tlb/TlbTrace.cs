@@ -9,7 +9,7 @@ public static class TlbTrace
         var a = new List<TlbAccess>
         {
             new(0, c.Bytes, "digest — all bytes",
-                "TimelineTable.Digest hashes every byte (32-byte strides) into the content identity that interns this timeline"),
+                "The content digest hashes every byte (32-byte strides) into the content identity for this timeline"),
             new(0, c.Version == TlbContainer.HotVersion ? TlbContainer.HeaderBytesV6 : TlbContainer.HeaderBytes, "header",
                 "TimelineRef.Validate reads the header and cross-checks magic, version, offsets, and sizes"),
             new(c.PairOffset, c.PairOffset + TlbContainer.PairEntryBytes * (uint)c.Pairs.Length, "pair table",
@@ -24,7 +24,7 @@ public static class TlbTrace
             a.Add(new(slot, slot + TlbContainer.RowBytes, $"row @0x{slot:X}",
                 "TimelineRef.ValidateRow reads the value indexes and the blend window"));
         a.Add(new(0, c.Bytes, "copy — all bytes",
-            "TimelineTable.Publish stores the whole container in the native block; the returned ushort index addresses it"));
+            "TimelineWorld.LoadLibrary stores the whole container in the native block"));
         return [.. a];
     }
 
@@ -38,14 +38,14 @@ public static class TlbTrace
         var stageCount = (uint)c.Stages.Length;
         if (stageCount == 0) return [.. a];
 
-        a.Add(new(20, 24, "header.stageCount", "TimelineRef.ExecuteDispatch — lookup strategy"));
+        a.Add(new(20, 24, "header.stageCount", "TimelineRef — lookup strategy"));
         TlbAccess Entry(uint i, string why) =>
             new(c.StageOffset + TlbContainer.StageEntryBytes * i, c.StageOffset + TlbContainer.StageEntryBytes * (i + 1),
                 $"stage {i} entry", why);
         int hit;
         if (stageCount == 1)
         {
-            a.Add(new(32, 36, "header.stageOffset", "ExecuteDispatch — single stage, no lookup"));
+            a.Add(new(32, 36, "header.stageOffset", "single stage, no lookup"));
             a.Add(Entry(0, $"the only stage covers [0, {c.Duration})"));
             hit = 0;
         }
@@ -64,7 +64,7 @@ public static class TlbTrace
             var step = stage.Steps[t];
             a.Add(new(stage.ProgramOffset + TlbContainer.StepBytes * (uint)t,
                 stage.ProgramOffset + TlbContainer.StepBytes * (uint)(t + 1),
-                $"stage {hit} step {t}", $"ExecuteDispatch — slot 0x{step.Slot:X}, pair {step.Pair}"));
+                $"stage {hit} step {t}", $"slot 0x{step.Slot:X}, pair {step.Pair}"));
             var entry = c.PairOffset + TlbContainer.PairEntryBytes * step.Pair;
             var pair = c.Pairs[(int)step.Pair];
             a.Add(new(entry + 12, entry + 16, $"pair {step.Pair}.trackPoolOffset", "SlotRow.ToFrame — track value base"));

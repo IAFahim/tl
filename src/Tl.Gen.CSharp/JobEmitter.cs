@@ -9,11 +9,11 @@ internal static class JobEmitter
     internal static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
 
     internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model, string id = "")
-        => model.Consumers.Count == 0 && model.Bakes.Count == 0 ? [] : [new CompileArtifact($"TlConsumerBinding{id}.g.cs", Consumers(model.Consumers, model.Bakes, id))];
+        => model.Consumers.Count == 0 ? [] : [new CompileArtifact($"TlConsumerBinding{id}.g.cs", Consumers(model.Consumers, id))];
 
-    internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, [], "");
+    internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, "");
 
-    internal static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes, string id)
+    internal static string Consumers(IReadOnlyList<JobConsumer> consumers, string id)
     {
         var layouts = new List<(string Track, string Clip, ulong Layout)>();
         var layoutPairs = new HashSet<string>(StringComparer.Ordinal);

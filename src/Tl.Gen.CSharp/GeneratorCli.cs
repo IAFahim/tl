@@ -82,7 +82,7 @@ public static class GeneratorCli
         CompileArtifact[] artifacts;
         try
         {
-            artifacts = (backend == "unity-entities" ? UnityJobEmitter.Emit(model) : JobEmitter.Emit(model))
+            artifacts = JobEmitter.Emit(model)
                 .Select(static artifact => artifact with { Content = JobEmitter.Normalize(artifact.Content) }).ToArray();
         }
         catch (InvalidOperationException exception)
@@ -92,7 +92,7 @@ public static class GeneratorCli
         var report = Report(model, artifacts, backend);
         CompileGenerationCache.Synchronize(output, key, artifacts, report, previous);
         var bytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        Console.WriteLine($"TlGenCompile: {model.Consumers.Count} consumer(s), {model.Bakes.Count} bake(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
+        Console.WriteLine($"TlGenCompile: {model.Consumers.Count} consumer(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
         return 0;
     }
 
@@ -145,7 +145,6 @@ public static class GeneratorCli
         writer.AppendLine("format\t4");
         writer.Append("backend\t").AppendLine(backend);
         writer.AppendLine($"consumers\t{model.Consumers.Count}");
-        writer.AppendLine($"bakes\t{model.Bakes.Count}");
         writer.AppendLine($"generated-source-files\t{artifacts.Count}");
         writer.AppendLine($"generated-source-utf8-bytes\t{sourceBytes}");
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
