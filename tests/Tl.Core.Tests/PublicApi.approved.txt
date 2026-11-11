@@ -561,11 +561,15 @@ type Tl.Requests
   Method Void StopAll()
   Method Void StopChannel(Byte)
 type Tl.SystemDispatch
+  Method Tl.SystemSteps Bind(Tl.TimelineWorld, UInt64, System.ReadOnlySpan`1[System.UInt64])
   Method Void FastFoldAdd(Single*, UInt16*, Single*, Int32)
-  Method System.Span`1[Tl.SystemStep] FilteredSteps(Tl.TimelineWorld, UInt64, UInt16, Int32, System.ReadOnlySpan`1[System.UInt64])
 type Tl.SystemStep
   Field Int32 Consumer
   Field Int32 Step
+type Tl.SystemSteps
+  Field Int32* StageBase
+  Field Int32* StepStart
+  Field Tl.SystemStep* Steps
 type Tl.TimelineId
   Property Boolean IsNone
   Property Tl.TimelineId None
