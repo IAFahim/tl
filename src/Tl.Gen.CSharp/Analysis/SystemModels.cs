@@ -15,6 +15,8 @@ internal sealed record SystemTypeModel(string TypeName, SystemModelKind Kind, st
     public SystemConsumer? Consumer { get; init; }
     public IReadOnlyList<FeederDecl>? Feeders { get; init; }
     public IReadOnlyList<KindDecl>? Foreign { get; init; }
+    public IReadOnlyList<(KindDecl Kind, SyntaxNode Site)>? Derived { get; init; }
+    public string? DerivedColumn { get; init; }
     public IReadOnlyList<DeclarationDiagnostic>? Diagnostics { get; init; }
     public IReadOnlyList<bool>? ApplyPlain { get; init; }
     public IReadOnlyList<bool>? IdlePlain { get; init; }
@@ -36,6 +38,8 @@ internal static class SystemDigest
         if (m.Consumer is not null) Add(b, OfConsumer(m.Consumer));
         foreach (var f in m.Feeders ?? []) Add(b, OfFeeder(f));
         foreach (var f in m.Foreign ?? []) Add(b, OfKind(f));
+        if (m.DerivedColumn is not null) Add(b, "dc:" + m.DerivedColumn);
+        foreach (var d in m.Derived ?? []) { Add(b, OfKind(d.Kind)); Add(b, OfDiag(Symbols.Site(d.Site))); }
         foreach (var d in m.Diagnostics ?? []) Add(b, OfDiag(d));
         foreach (var p in m.ApplyPlain ?? []) Add(b, p ? "1" : "0");
         foreach (var p in m.IdlePlain ?? []) Add(b, p ? "1" : "0");

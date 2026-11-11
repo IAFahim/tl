@@ -75,23 +75,26 @@ internal static partial class SystemReader
         if (track is not null) _ = ReadFold(type, node, contracts, track, clip!, new List<DeclarationDiagnostic>(), foldTypes, new List<int>());
         var diagnostics = new List<DeclarationDiagnostic>();
         var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
-        var feeders = ReadFeeders(type, node, contracts, kindContracts, track, clip, marker, foldTypes, diagnostics, compilation.Assembly, foreign);
+        var derived = new Dictionary<string, (KindDecl Kind, SyntaxNode Site)>(StringComparer.Ordinal);
+        var feeders = ReadFeeders(type, node, contracts, kindContracts, track, clip, marker, foldTypes, diagnostics, compilation.Assembly, foreign, derived);
         var foreignKinds = new List<KindDecl>();
         foreach (var entry in foreign)
             if (ReadForeignKind(entry.Value.Type, entry.Value.Site, diagnostics) is { } known) foreignKinds.Add(known);
         var facts = new List<string>();
         foreach (var p in method.Parameters)
             facts.Add(Symbols.Name(p.Type) + "\0" + (SystemGeneration.IsPlainState(p.Type) ? "1" : "0") + "\0" + (p.RefKind == RefKind.Ref ? "1" : "0"));
-        var kindType = ""; var kindForeign = false;
+        var kindType = ""; var kindForeign = false; string? derivedColumn = null;
         foreach (var attribute in method.GetAttributes())
             if (attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is INamedTypeSymbol fed)
             {
                 kindType = Symbols.Name(fed);
                 kindForeign = NewStyle.IsForeignKind(fed, compilation.Assembly);
+                if (DerivedKinds.TemplateOf(fed, out var derivedType) != DerivedKind.None && derivedType is not null && SystemGeneration.IsPlainState(derivedType))
+                    derivedColumn = Symbols.Name(derivedType);
             }
         facts.Insert(0, kindType + "\0" + (kindForeign ? "1" : "0"));
         var ordinal = Array.IndexOf(type.GetMembers().ToArray(), method);
-        return Stamp(Mk(type, node, compilation, SystemModelKind.Feeder) with { Ordinal = ordinal }) with { Diagnostics = diagnostics, Feeders = feeders, Foreign = foreignKinds, Facts = facts };
+        return Stamp(Mk(type, node, compilation, SystemModelKind.Feeder) with { Ordinal = ordinal }) with { Diagnostics = diagnostics, Feeders = feeders, Foreign = foreignKinds, Derived = [.. derived.Values], DerivedColumn = derivedColumn, Facts = facts };
     }
 
     internal static SystemTypeModel? TrackOf(GeneratorSyntaxContext context, CancellationToken cancellation)
@@ -115,7 +118,7 @@ internal static partial class SystemReader
         if (contracts is null || !TypeAnalyzer.IsNewStyle(type)) return null;
         var diagnostics = new List<DeclarationDiagnostic>();
         var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
-        return ReadConsumer(type, node, contracts, KindContractsOf(compilation), compilation, diagnostics, foreign, collectFeeders: false);
+        return ReadConsumer(type, node, contracts, KindContractsOf(compilation), compilation, diagnostics, foreign, new Dictionary<string, (KindDecl Kind, SyntaxNode Site)>(StringComparer.Ordinal), collectFeeders: false);
     }
 
     internal static ImmutableArray<SystemTypeModel> Order(ImmutableArray<SystemTypeModel?> models, Compilation compilation, CancellationToken cancellation)
@@ -144,6 +147,7 @@ internal static partial class SystemReader
         var systems = new List<SystemDecl>(); var consumers = new List<SystemConsumer>(); var kinds = new List<KindDecl>();
         var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal); var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
         var feeders = new Dictionary<string, List<FeederDecl>>(StringComparer.Ordinal); var foreign = new HashSet<string>(StringComparer.Ordinal);
+        var derivedKinds = new List<(KindDecl Kind, SyntaxNode Site)>();
         foreach (var model in models)
         {
             if (model.Kind != SystemModelKind.Feeder || !feeders.ContainsKey(model.TypeName)) diagnostics.AddRange(model.Diagnostics ?? []);
@@ -154,6 +158,7 @@ internal static partial class SystemReader
                     kinds.Add(model.KindDecl); if (model.Site is not null) kindSites[model.KindDecl.TypeName] = model.Site; break;
                 case SystemModelKind.Feeder when model.Feeders is not null && !feeders.ContainsKey(model.TypeName):
                     feeders[model.TypeName] = [.. model.Feeders];
+                    if (model.Derived is not null) derivedKinds.AddRange(model.Derived);
                     if (model.Foreign is not null) foreach (var known in model.Foreign) if (foreign.Add(known.TypeName)) { kinds.Add(known); if (model.Site is not null) kindSites[known.TypeName] = model.Site; }
                     break;
                 case SystemModelKind.Consumer when model.Consumer is not null:
@@ -163,8 +168,16 @@ internal static partial class SystemReader
             }
         }
         if (auto is not null) systems.Add(auto);
+        foreach (var pair in derivedKinds)
+        {
+            if (kindSites.ContainsKey(pair.Kind.TypeName)) continue;
+            kinds.Add(pair.Kind);
+            kindSites[pair.Kind.TypeName] = pair.Site;
+        }
         consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
+        kinds.Sort(static (a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : string.CompareOrdinal(a.Name, b.Name));
         var withFeeders = consumers.Select(consumer => feeders.TryGetValue(consumer.ConsumerTypeName, out var owned) ? consumer with { Feeders = owned, Methods = [.. consumer.Methods, .. owned.Select(static feeder => feeder.Method)] } : consumer).ToList();
+        DerivedKinds.CheckTwoWriters(kinds, kindSites, withFeeders, sites, diagnostics);
         var assignments = Assign(systems, withFeeders, sites, diagnostics);
         var result = kinds.Count == 0 && !withFeeders.Any(static c => c.Feeders.Count > 0) ? assignments : AssignKinds(systems, assignments, kinds, kindSites, sites, diagnostics);
         return (result, diagnostics, source);
@@ -201,6 +214,19 @@ internal static partial class SystemReader
         foreach (var model in models)
         {
             if (model.Kind != SystemModelKind.Feeder || model.Facts is not { Count: > 0 }) continue;
+            if (model.DerivedColumn is not null)
+            {
+                // a derived kind (Sum/Set/While) owns a writable column of its state type, like NewStyle.Prepare does
+                if (systemColumns.Contains(model.DerivedColumn)) continue;
+                members.Add(model.TypeName);
+                NewStyle.AddColumn(columns, model.DerivedColumn, true);
+                for (var i = 1; i < model.Facts.Count; i++)
+                {
+                    var parts = model.Facts[i].Split('\0');
+                    if (parts.Length == 3 && parts[1] == "1") NewStyle.AddColumn(columns, parts[0], parts[2] == "1");
+                }
+                continue;
+            }
             var meta = model.Facts[0].Split('\0');
             if (meta[1] == "0" && !autoKinds.Contains(meta[0])) continue;
             feedsForeign |= meta[1] == "1";

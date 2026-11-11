@@ -129,13 +129,14 @@ Generator:
 
 ## Phase 8. Developer experience  (needs owner API approval to merge)
 
-- [ ] 8a Derived kinds `Tl.Sum<T>`, `Tl.Set<T>`, `Tl.While<T>` (rules in plan section 7); generator errors for a non-numeric field in `Sum<T>` and for a column with two writers.
-- [ ] 8b `Reset`: `RequestOp.Reset`, `PlaybackTable.Reset(int entity)`, `Requests.Reset()`: zero the entity's slots, purge its kind rows, drop its queued game pulses, add nothing to the closing list. `StopAll` unchanged. This is the fix for #594.
-- [ ] 8c Warning for a clip or column field never connected (#593): a normal Roslyn warning, paid for by Phase 2 generator deletions.
-- [ ] 8d `TimelineWorld.Find(string name)` binary search of the sorted manifest; generated timeline id constants become optional; a clean clone builds with no `.tlib` on disk.
-- [ ] 8e One host-parity fixture (library, request script, expected column bytes per tick) run by both hosts, including `Idle`, `Idle` fed from another assembly, and rewind through an assigning `Idle`.
+- [x] 8a Derived kinds `Tl.Sum<T>`, `Tl.Set<T>`, `Tl.While<T>` (rules in plan section 7); generator errors for a non-numeric field in `Sum<T>` and for a column with two writers.
+- [x] 8b `Reset`: `RequestOp.Reset`, `PlaybackTable.Reset(int entity)`, `Requests.Reset()`: zero the entity's slots, purge its kind rows, drop its queued game pulses, add nothing to the closing list. `StopAll` unchanged. This is the fix for #594.
+- [x] 8c Warning for a clip or column field never connected (#593): a normal Roslyn warning, paid for by Phase 2 generator deletions.
+- [x] 8d `TimelineWorld.Find(string name)` binary search of the sorted manifest; generated timeline id constants become optional; a clean clone builds with no `.tlib` on disk.
+- [x] 8e One host-parity fixture (library, request script, expected column bytes per tick) run by both hosts, including `Idle`, `Idle` fed from another assembly, and rewind through an assigning `Idle`.
 - [ ] Receipts: `demos/hello-side` rewritten with `Sum<Teleported>` gives the same column bytes per tick as today; the silent `SideSwing` version triggers the warning; `Reset(row)` then `Start` in one step gives the new occupant zero pulses from the old one (#594).
 - Public API additions (owner approval): `Sum<T>`, `Set<T>`, `While<T>`, `RequestOp.Reset`, `PlaybackTable.Reset`, `Requests.Reset`, `TimelineWorld.Find`.
+- Phase 8 result (local branch `feat/603-phase8-rebased`): 8a kill rule passed. `DerivedDifferentialTests` runs Sum, Set and While against hand-written Combine/Apply/Idle twins for 600 ticks over 4 rows, 6 timelines, a 40-tick rewind and every request verb, comparing column bytes each tick: identical. Against the shipped `Each`-mode demo kind the bytes are identical for exactly representable values and differ by float addition order when two pulses meet on one row in one tick (the first such tick in the script is 16). 8b: `Reset` tests and the #594 repro; 8c: TLGEN113 (clip field never read) and TLGEN114 (state field never mentioned); 8d: `Find`, ids stay optional sugar, demos build without a .tlib; 8e: `HostParityFixtureTests` and `tests/Tl.Systems.Tests/Parity` (the tl.unity copy is `Tests/Parity`, run in PlayMode).
 - Bytes: about +9,000 [guess]. **Kill rule:** 8a dropped if the synthesised `Sum<T>` kind is not behaviourally byte-identical to the hand-written demo kind across 600 ticks.
 
 ## Unity workstream U (tl.unity; answer each yes / no / what exists, with evidence)

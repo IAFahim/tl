@@ -18,6 +18,7 @@ One request vocabulary in Core (`RequestOp`), written by plain code (`PlaybackTa
 - `Reverse(timeline, on)` and `ReverseChannel(channel, on)` set the playback's direction. A held playback leaves its hold when the new direction faces away from the end it is parked at: it begins again at that tick. A world-wide rewind (`forward = false`) leaves held playbacks parked.
 - `PauseChannel(channel)` and `ResumeChannel(channel)` pause or resume the channel's live playback. Channel 0 means no channel; channel verbs on it do nothing.
 - A paused playback does not move with the step in either direction; it moves only by `Resume` or `Seek`.
+- `Reset(entity)` (`PlaybackTable.Reset`, `Requests.Reset`, `RequestOp.Reset`) says "this row is a new entity": it zeroes the entity's slots, purges its kind rows, drops its queued game pulses and adds nothing to the closing list, so no end pulse of the old occupant reaches the column the new one now uses. `StopAll` keeps its meaning (interrupt, with end pulses). Order in one step: `Reset(row)`, write the new column value, `Start(row, timeline)`, `Tick`. Fixes #594.
 
 ## Speed
 
@@ -28,3 +29,23 @@ Over any number of steps, a playback at any speed applies exactly what 1x applie
 What is exact: kinds and `[Pulse]`. Tests: `KindSpeedTests`, `SpeedRunTests`, `TwoAssemblyRateTests` (rates 0.5x, 1.5x, 2x, 2.5x, 3x, 4x across a handover, a loop, a foreign feeder and a world rewind equal a 1x run bit for bit), and the Inventory scenes `inventory-fast` and `inventory-mixed`, whose hashes `tl run`, Unity and the IL2CPP and CoreCLR players agree on.
 
 Known limit in Unity: `ITlTrack` event consumers (`OnClipStart`, `OnClipEnd`, `ExecuteActive` with `Events<T>`) run once per step at the playback's final tick. At speeds above 1x a clip boundary crossed in an earlier tick of the same step raises no event. Use `[Pulse]` and kinds when a clip boundary must be seen at every speed.
+
+## Derived kinds
+
+`Sum<T>`, `Set<T>` and `While<T>` name a kind whose value type is the column type `T`, so the clip value, the column and the kind need no mirror struct. Use them in `[Feeds]` or `[Pulse]`: `[Pulse(typeof(Sum<Teleported>), On = ClipEvent.Start)] static Teleported Jump(in TlFrame<TeleportClip> frame) => ...`.
+
+| Marker | Accepts | Combine | Apply | Idle |
+|---|---|---|---|---|
+| `Sum<T>` | spans and pulses | field-wise `+` | `column += total` field-wise | none |
+| `Set<T>` | spans and pulses | last entry wins | `column = total` | none |
+| `While<T>` | spans | `\|` for bool and integers, `max` for floats | `column = total` | `column = default` |
+
+The generator writes an internal `[TimelineKind]` struct `Tl.Derived.<Template>_<Namespace>_<Type>` for each `(template, T)` it meets, and the library names that kind the same way, so a derived kind and a hand-written Combine/Apply/Idle kind are interchangeable and leave identical column bytes (`DerivedDifferentialTests`: 600 ticks, rewind and every request verb). Against an `Each`-mode kind the result differs only by float addition order when two pulses meet on one row in one tick. Errors: `TLGEN110` (a `Sum<T>` field that is not numeric, or a value type that is not an unmanaged struct), `TLGEN111` (a `While<T>` field that cannot be combined), `TLGEN112` (a `Set<T>` or `While<T>` column that has another writer). The kind and its feeders must be in one assembly.
+
+## Unconnected fields
+
+`TLGEN113` is a warning for a `[TlClip]` field that no track of the clip reads (`frame.Clip.<Field>` never appears; a clip passed whole to a helper counts as read). `TLGEN114` warns for a `[TlState]` field whose name appears nowhere else in the assembly. Both are ordinary warnings: silence them with `NoWarn` or `#pragma`.
+
+## Finding a timeline by name
+
+`world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
