@@ -193,6 +193,18 @@ public static unsafe class KindRules
         }
         if ((s->Flags & PlaybackFlags.Paused) != 0) return false;
         if ((s->Flags & PlaybackFlags.Ended) != 0) return false;
+        // The common step: by here Stopping, Parked, StartPending, ReenterPending, Paused and Ended have all been handled, so a forward,
+        // non-Reverse slot on a known timeline with room to step does exactly what Move would: tick up, then the events of the new tick.
+        if (stepDir > 0 && (s->Flags & PlaybackFlags.Reverse) == 0)
+        {
+            var index = (uint)(s->Timeline - 1);
+            if (index < (uint)t.TimelineCount && (uint)s->Tick + 1u < (uint)t.Timelines[index].Duration)
+            {
+                s->Tick++;
+                Events(in t, ref rows, row, i, s->Timeline, s->Tick, stepDir);
+                return true;
+            }
+        }
         var before = *s;
         var motion = PlaybackRules.Move(ref *s, t.Timelines, t.TimelineCount, stepDir > 0);
         var dir = (before.Flags & PlaybackFlags.Reverse) != 0 ? -stepDir : stepDir;
