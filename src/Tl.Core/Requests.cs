@@ -58,8 +58,6 @@ public unsafe struct RequestQueue
         queue->_items[queue->_count++] = new RequestRecord(entity, slot, timeline, at, op, queue->_sequence++);
     }
 
-    // Sorts by (entity, slot), stable. Allocation-free (the scratch run is owned by the queue and sized
-    // with it), so it also compiles under Burst, where NativeMemory.AlignedAlloc cannot.
     public static void SortStable(RequestQueue* queue) => SortWith(queue->_items, queue->_count, queue->_scratch);
 
     public static void Sort(RequestRecord* items, int count)
@@ -69,6 +67,8 @@ public unsafe struct RequestQueue
         try { SortWith(items, count, scratch); }
         finally { NativeMemory.AlignedFree(scratch); }
     }
+
+    public static void Sort(RequestRecord* items, int count, RequestRecord* scratch) => SortWith(items, count, scratch);
 
     static void SortWith(RequestRecord* items, int count, RequestRecord* scratch)
     {
@@ -112,7 +112,8 @@ public unsafe struct RequestQueue
             source = destination;
             destination = tmp;
         }
-        if (source != items) new ReadOnlySpan<RequestRecord>(source, count).CopyTo(new Span<RequestRecord>(items, count));
+        if (source != items)
+            for (var i = 0; i < count; i++) items[i] = source[i];
     }
 
     static int Digit(RequestRecord item, int pass)
