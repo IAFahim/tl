@@ -521,7 +521,19 @@ internal static class SystemReader
             }
             perSystem[chosen.TypeName].Add(kind);
         }
-        return assignments.Select(a => a with { Kinds = perSystem[a.System.TypeName] }).ToList();
+        return assignments.Select(a =>
+        {
+            var parallel = a.Parallel;
+            foreach (var kind in perSystem[a.System.TypeName])
+            {
+                var offending = RefContext(a.System, kind.ApplyParams.Concat(kind.IdleParams ?? []));
+                if (offending is null) continue;
+                if (parallel) Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN107", $"System '{a.System.TypeName}' kind '{kind.TypeName}' parameter '{offending.Value.Item1}' ({offending.Value.Item2}) takes context by ref; parallel Run not emitted, runs sequentially.");
+                parallel = false;
+                break;
+            }
+            return a with { Kinds = perSystem[a.System.TypeName], Parallel = parallel };
+        }).ToList();
     }
 
     static bool HasMethod(INamedTypeSymbol type, string name)
@@ -1029,7 +1041,16 @@ internal static class SystemReader
                 if (ownedConsumer.IsMarker) markers.Add(ownedConsumer.MarkerTypeName);
             if (markers.Count > 1)
                 Symbols.Error(diagnostics, sites[mine[0].ConsumerTypeName], "TLGEN99", $"System '{system.TypeName}' has {markers.Count} marker types; a system routes at most one marker type until marker keys ship in the library view.");
-            result.Add(new(system, mine, []));
+            var parallel = true;
+            foreach (var consumer in mine)
+            {
+                var offending = RefContext(system, consumer.Methods.SelectMany(static m => m.Params));
+                if (offending is null) continue;
+                parallel = false;
+                Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN107", $"System '{system.TypeName}' consumer '{consumer.ConsumerTypeName}' parameter '{offending.Value.Item1}' ({offending.Value.Item2}) takes context by ref; parallel Run not emitted, runs sequentially.");
+                break;
+            }
+            result.Add(new(system, mine, []) { Parallel = parallel });
         }
         foreach (var consumer in consumers)
         {
@@ -1112,6 +1133,17 @@ internal static class SystemReader
                         _ => "Events",
                     }, parameter.Kind == ConsumerParamKind.Events ? EventElement(parameter.TypeName) : parameter.TypeName);
             }
+        return null;
+    }
+
+    static (string, string)? RefContext(SystemDecl system, IEnumerable<ConsumerParam> parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            if (parameter.Kind != ConsumerParamKind.Column || parameter.Modifier != "ref ") continue;
+            if (system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) continue;
+            foreach (var field in system.Fields) if (field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal)) return (field.Name, parameter.TypeName);
+        }
         return null;
     }
 

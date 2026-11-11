@@ -69,7 +69,7 @@ public sealed unsafe class KindRunTests : IDisposable
         Assert.Equal(102f, _motion[0].X);
         Step();
         Assert.Equal(104f, _motion[0].X);
-        Assert.Equal(1, _store.GetStats(_store.IndexOf("KindGame.Locomotion")).MaxLength - 1);
+        Assert.Equal(1, _store.GetStats(_store.IndexOf("KindGame.Locomotion")).MaxLength);
     }
 
     [Fact]

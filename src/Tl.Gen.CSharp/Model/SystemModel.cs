@@ -100,4 +100,5 @@ internal sealed record SystemAssignment(
     IReadOnlyList<DeclarationDiagnostic> Diagnostics)
 {
     public IReadOnlyList<KindDecl> Kinds { get; init; } = [];
+    public bool Parallel { get; init; } = true;
 }

@@ -44,8 +44,8 @@ public sealed unsafe class KindTableTests
         Add(table, 1, 1, 100);
         Assert.Equal(Enumerable.Range(0, 9).Select(i => (ushort)i), Steps(table, 0));
         Assert.Equal([(ushort)100], Steps(table, 1));
-        Assert.Equal(9, table->MaxLength);
-        Assert.Equal(3, table->Overflows);
+        Assert.Equal(9, table->ColdMaxLength());
+        Assert.Equal(1, table->ColdOverflows());
         Assert.True(table->IsActive(0));
     });
 

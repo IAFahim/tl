@@ -26,7 +26,7 @@ public sealed class ForceContractPlainTests
         Assert.Contains("global::System.Span<global::Force> C0_Force;", all);
         Assert.Contains("global::ForceKind.Combine(ref __total, in __v);", all);
         Assert.Contains("global::ForceKind.Apply(in __total, ref __c0[__e]);", all);
-        Assert.Contains("new global::Tl.TlFrame<global::ForceClip>(in __f", all);
+        Assert.Contains("new Tl.TlFrame<global::ForceClip>(in __f", all);
         Assert.Contains("global::ForceTrack.Evaluate(in __tf", all);
         var options = new CSharpParseOptions(LanguageVersion.Latest);
         var compiled = Compile(emitted.Artifacts.Select(a => CSharpSyntaxTree.ParseText(a.Content, options, a.RelativePath)));

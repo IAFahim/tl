@@ -28,7 +28,7 @@ internal static class SystemGeneration
         var analysis = NewStyle.Prepare(compilation, id.Length == 0 ? "Game" : id, IsPlainState);
         var autoSystem = analysis.HasAuto ? AutoSystem(analysis) : null;
         var read = SystemReader.Read(compilation, autoSystem, analysis.Members);
-        var errors = read.Diagnostics.Any(static diagnostic => diagnostic.Code != "TLGEN98");
+        var errors = read.Diagnostics.Any(static diagnostic => diagnostic.Code != "TLGEN98" && diagnostic.Code != "TLGEN107");
         var artifacts = new List<CompileArtifact>();
         if (!errors)
         {

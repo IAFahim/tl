@@ -31,6 +31,8 @@ public sealed partial class TimelineWorld
         kinds.TickPass(forward);
     }
 
+
+
     public unsafe void Advance(PlaybackTable players, bool forward = true)
     {
         if (players is null) throw new ArgumentNullException(nameof(players));
@@ -39,8 +41,16 @@ public sealed partial class TimelineWorld
         var timelines = _view.Timelines;
         if (timelines == null) return;
         var count = _view.TimelineCount;
+        AdvanceRange(players, timelines, count, forward, 0, players.PlayingWords);
+        ClosingList.Clear(players.Closing);
+    }
+
+
+    unsafe void AdvanceRange(PlaybackTable players, LibraryTimeline* timelines, int count, bool forward, int firstWord, int endWord)
+    {
         var playing = players.Playing;
-        for (var w = 0; w < players.PlayingWords; w++)
+        if (firstWord < 0) firstWord = 0; if (endWord > players.PlayingWords) endWord = players.PlayingWords;
+        for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
             while (bits != 0)
@@ -50,7 +60,6 @@ public sealed partial class TimelineWorld
                 AdvanceEntity(players, entity, timelines, count, forward);
             }
         }
-        ClosingList.Clear(players.Closing);
     }
 
     unsafe void AdvanceEntity(PlaybackTable players, int entity, LibraryTimeline* timelines, int count, bool forward)

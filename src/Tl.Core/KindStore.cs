@@ -87,6 +87,7 @@ public sealed unsafe class KindStore : IDisposable
     Rows _kindRows;
     readonly Dictionary<(string, int), (nint Routes, int Part)> _joined = new();
     readonly HashSet<string> _feeding = new(StringComparer.Ordinal);
+    readonly object _joinGate = new();
     ushort*[] _routes = new ushort*[0];
     List<int>?[] _parts = Array.Empty<List<int>?>();
     bool _disposed;
@@ -162,7 +163,7 @@ public sealed unsafe class KindStore : IDisposable
     public KindStats GetStats(int kind)
     {
         var t = _tables[kind];
-        return t == null ? default : new KindStats(t->Rows, t->MaxLength, t->Overflows, t->StorageBytesPerRow);
+        return t == null ? default : new KindStats(t->Rows, t->ColdMaxLength(), t->ColdOverflows(), t->StorageBytesPerRow);
     }
 
     public KindPulses<T> Pulses<T>(string kind) where T : unmanaged
@@ -245,52 +246,55 @@ public sealed unsafe class KindStore : IDisposable
 
     public ushort* Join(string kind, int valueBytes, string signature, int key, out int part)
     {
-        part = 0;
-        if (_joined.TryGetValue((kind, key), out var cached))
+        lock (_joinGate)
         {
-            part = cached.Part;
-            return (ushort*)cached.Routes;
+            part = 0;
+            if (_joined.TryGetValue((kind, key), out var cached))
+            {
+                part = cached.Part;
+                return (ushort*)cached.Routes;
+            }
+            var k = IndexOf(kind);
+            if (k < 0) return null;
+            if (_valueBytes[k] != valueBytes) throw new InvalidOperationException($"Kind '{kind}' is {valueBytes} bytes in code but {_valueBytes[k]} in the loaded library; rebake the library with tl.");
+            var library = new List<string>();
+            var ordinals = new List<int>();
+            for (var f = 0; f < _sec.FeederCount; f++)
+            {
+                if (_sec.Feeders[f].Kind != k) continue;
+                library.Add(_sec.Text(_sec.Feeders[f].ConsumerOffset, _sec.Feeders[f].ConsumerLength) + "." + _sec.Text(_sec.Feeders[f].MethodOffset, _sec.Feeders[f].MethodLength) + ":" + _sec.Feeders[f].Trigger);
+                ordinals.Add(_sec.Feeders[f].Ordinal);
+            }
+            var group = _sec.Kinds[k].GroupNameLength != 0 ? "@" + _sec.GroupOf(k) : null;
+            var lines = signature.Length == 0 ? new List<string>() : new List<string>(signature.Split('\n'));
+            var routes = _routes[k];
+            if (routes == null)
+            {
+                routes = (ushort*)Zeroed(256 * 2);
+                for (var i = 0; i < 256; i++) routes[i] = 0xFFFF;
+                _routes[k] = routes;
+            }
+            var parts = _parts[k] ??= new List<int>();
+            var differs = group != null && (lines.Count == 0 || lines[0] != group);
+            if (group != null && !differs) lines.RemoveAt(0);
+            var at = new int[lines.Count];
+            for (var i = 0; i < lines.Count && !differs; i++)
+            {
+                at[i] = library.IndexOf(lines[i]);
+                differs = at[i] < 0 || routes[ordinals[at[i]]] != 0xFFFF;
+            }
+            if (differs || key == 0 && parts.Count == 0 && lines.Count != library.Count && !_feeding.Contains(kind))
+            {
+                var have = (group == null ? "" : group + " ") + string.Join(" ", library);
+                throw new InvalidOperationException($"Kind '{kind}' feeders in the loaded library differ from the compiled game; rebake the library with tl.\nlibrary: {have}\ncode:    {signature.Replace('\n', ' ')}");
+            }
+            part = parts.Count;
+            parts.Add(key);
+            for (var i = 0; i < lines.Count; i++) routes[ordinals[at[i]]] = (ushort)((part << 8) | i);
+            if (key != 0) _feeding.Add(kind);
+            _joined[(kind, key)] = ((nint)routes, part);
+            return routes;
         }
-        var k = IndexOf(kind);
-        if (k < 0) return null;
-        if (_valueBytes[k] != valueBytes) throw new InvalidOperationException($"Kind '{kind}' is {valueBytes} bytes in code but {_valueBytes[k]} in the loaded library; rebake the library with tl.");
-        var library = new List<string>();
-        var ordinals = new List<int>();
-        for (var f = 0; f < _sec.FeederCount; f++)
-        {
-            if (_sec.Feeders[f].Kind != k) continue;
-            library.Add(_sec.Text(_sec.Feeders[f].ConsumerOffset, _sec.Feeders[f].ConsumerLength) + "." + _sec.Text(_sec.Feeders[f].MethodOffset, _sec.Feeders[f].MethodLength) + ":" + _sec.Feeders[f].Trigger);
-            ordinals.Add(_sec.Feeders[f].Ordinal);
-        }
-        var group = _sec.Kinds[k].GroupNameLength != 0 ? "@" + _sec.GroupOf(k) : null;
-        var lines = signature.Length == 0 ? new List<string>() : new List<string>(signature.Split('\n'));
-        var routes = _routes[k];
-        if (routes == null)
-        {
-            routes = (ushort*)Zeroed(256 * 2);
-            for (var i = 0; i < 256; i++) routes[i] = 0xFFFF;
-            _routes[k] = routes;
-        }
-        var parts = _parts[k] ??= new List<int>();
-        var differs = group != null && (lines.Count == 0 || lines[0] != group);
-        if (group != null && !differs) lines.RemoveAt(0);
-        var at = new int[lines.Count];
-        for (var i = 0; i < lines.Count && !differs; i++)
-        {
-            at[i] = library.IndexOf(lines[i]);
-            differs = at[i] < 0 || routes[ordinals[at[i]]] != 0xFFFF;
-        }
-        if (differs || key == 0 && parts.Count == 0 && lines.Count != library.Count && !_feeding.Contains(kind))
-        {
-            var have = (group == null ? "" : group + " ") + string.Join(" ", library);
-            throw new InvalidOperationException($"Kind '{kind}' feeders in the loaded library differ from the compiled game; rebake the library with tl.\nlibrary: {have}\ncode:    {signature.Replace('\n', ' ')}");
-        }
-        part = parts.Count;
-        parts.Add(key);
-        for (var i = 0; i < lines.Count; i++) routes[ordinals[at[i]]] = (ushort)((part << 8) | i);
-        if (key != 0) _feeding.Add(kind);
-        _joined[(kind, key)] = ((nint)routes, part);
-        return routes;
     }
 
     internal int RowOf(int entity, int kind)
@@ -409,8 +413,15 @@ public sealed unsafe class KindStore : IDisposable
     {
         Sync();
         var stepDir = forward ? 1 : -1;
+        TickPassRange(stepDir, 0, _players.PlayingWords);
+        MergePulses();
+    }
+
+    internal void TickPassRange(int stepDir, int firstWord, int endWord)
+    {
         var playing = _players.Playing;
-        for (var w = 0; w < _players.PlayingWords; w++)
+        if (firstWord < 0) firstWord = 0; if (endWord > _players.PlayingWords) endWord = _players.PlayingWords;
+        for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
             while (bits != 0)
@@ -420,8 +431,8 @@ public sealed unsafe class KindStore : IDisposable
                 TickEntity(e, stepDir);
             }
         }
-        MergePulses();
     }
+
 
     void TickEntity(int e, int stepDir)
     {
