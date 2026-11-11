@@ -277,6 +277,7 @@ type Tl.KindTable
   Field Int32 Rows
   Method Void Sample(Int32, Byte, Byte)
   Method Void SetEnabled(Int32, Boolean)
+  Field UInt64* Spilled
   Property Int64 StorageBytesPerRow
   Field Int32 Stride
   Method Void Unsample(Int32)
@@ -498,12 +499,15 @@ type Tl.PlaybackTable
   Method Void StopChannel(Int32, Byte)
   Property Tl.PlaybackView View
 type Tl.PlaybackView
+  Field Tl.Playback* Blocks
   Method Int32 CountOf(Int32)
   Field Int32* Counts
   Field Int32 EntityCount
+  Method Tl.Playback* RunOf(Int32)
   Method Tl.Playback* SlotOf(Int32, Int32)
   Field Tl.Playback* Slots
   Field Int32 SlotsPerEntity
+  Field UInt64* Spilled
 type Tl.PulseAttribute
   Property System.Type Kind
   Property Tl.ClipEvent On

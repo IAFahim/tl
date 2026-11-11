@@ -70,7 +70,7 @@ public sealed partial class TimelineWorld
         {
             if (slots[i].Timeline == 0) continue;
             var result = PlaybackRules.Step(ref slots[i], timelines, count, forward);
-            if (result == AdvanceResult.Removed) players.RemoveSlot(entity, i);
+            if (result == AdvanceResult.Removed) { players.RemoveSlot(entity, i); slots = players.SlotsOf(entity); }
             else if (result == AdvanceResult.Unknown) throw new ArgumentException($"Playback slot {i} of entity {entity} names no timeline in the loaded library.");
         }
         var holds = false;
@@ -116,7 +116,7 @@ public sealed partial class TimelineWorld
             {
                 if (slots[slot].Timeline > _view.TimelineCount && (slots[slot].Flags & PlaybackFlags.Stopping) == 0)
                     throw new ArgumentException($"Playback slot {slot} of entity {entity} names no timeline in the reloaded library.");
-                if (!PlaybackRules.Rebind(ref slots[slot], _view.Timelines, _view.TimelineCount)) players.RemoveSlot(entity, slot);
+                if (!PlaybackRules.Rebind(ref slots[slot], _view.Timelines, _view.TimelineCount)) { players.RemoveSlot(entity, slot); slots = players.SlotsOf(entity); }
             }
         }
         players.LibraryGeneration = _generation;
