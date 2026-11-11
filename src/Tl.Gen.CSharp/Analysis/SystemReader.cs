@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -40,6 +41,14 @@ internal static class SystemReader
 
     internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation, SystemDecl? autoSystem = null, ISet<string>? autoMembers = null)
     {
+        var derived = new List<KindDecl>();
+        var derivedSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
+        var result = ReadCore(compilation, autoSystem, autoMembers, derived, derivedSites);
+        return result;
+    }
+
+    static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) ReadCore(CSharpCompilation compilation, SystemDecl? autoSystem, ISet<string>? autoMembers, List<KindDecl> derived, Dictionary<string, SyntaxNode> derivedSites)
+    {
         var systems = new List<SystemDecl>();
         var consumers = new List<SystemConsumer>();
         var kinds = new List<KindDecl>();
@@ -62,7 +71,7 @@ internal static class SystemReader
                     kinds.Add(kind);
                     kindSites[kind.TypeName] = node;
                 }
-                if (ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign) is { } consumer)
+                if (ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign, derived, derivedSites) is { } consumer)
                 {
                     var owned = autoSystem is not null && autoMembers is not null && autoMembers.Contains(consumer.ConsumerTypeName)
                         ? consumer with { MemberSystems = [autoSystem.TypeName] }
@@ -70,6 +79,14 @@ internal static class SystemReader
                     consumers.Add(owned);
                     sites[owned.ConsumerTypeName] = node;
                 }
+            }
+        }
+        foreach (var pair in derived)
+        {
+            if (!kinds.Any(k => k.Id == pair.Id))
+            {
+                kinds.Add(pair);
+                kindSites[pair.TypeName] = derivedSites[pair.TypeName];
             }
         }
         if (autoSystem is not null) systems.Add(autoSystem);
@@ -82,6 +99,8 @@ internal static class SystemReader
         }
         consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
         kinds.Sort(static (a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : string.CompareOrdinal(a.Name, b.Name));
+        CheckTwoWriters(kinds, consumers, kindSites, sites, diagnostics);
+        WarnUnconnected(compilation, diagnostics);
         var assignments = Assign(systems, consumers, sites, diagnostics);
         return (systems, kinds.Count == 0 && !consumers.Any(static c => c.Feeders.Count > 0) ? assignments : AssignKinds(systems, assignments, kinds, kindSites, sites, diagnostics), diagnostics);
     }
@@ -201,7 +220,7 @@ internal static class SystemReader
     static bool IsTl(INamedTypeSymbol type, string name)
         => type.Name == name && type.ConstructedFrom.ContainingNamespace?.ToDisplayString() == "Tl";
 
-    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign)
+    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, List<KindDecl> derived, Dictionary<string, SyntaxNode> derivedSites)
     {
         if (!TypeAnalyzer.IsNewStyle(type)) return null;
         var name = Symbols.Name(type);
@@ -264,7 +283,7 @@ internal static class SystemReader
                 if (at >= 0) methods[at] = active with { Direct = direct };
             }
         }
-        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign);
+        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign, derived, derivedSites);
         foreach (var feeder in feeders) methods.Add(feeder.Method);
         if (methods.Count == 0 && local.Count == 0)
             Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
@@ -286,7 +305,7 @@ internal static class SystemReader
         return 0;
     }
 
-    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, IAssemblySymbol assembly, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign)
+    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, IAssemblySymbol assembly, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, List<KindDecl> derived, Dictionary<string, SyntaxNode> derivedSites)
     {
         var result = new List<FeederDecl>();
         var name = Symbols.Name(type);
@@ -367,8 +386,12 @@ internal static class SystemReader
             }
             if (!ok) continue;
             if (CheckColumns(type, method.Name, parameters, diagnostics, site) is null) continue;
-            if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
-            result.Add(new(StableName(kindType), trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
+            if (TryDerivedMarker(kindType, out var template, out var value)) result.Add(new(BuildDerived(template, value, kindType, where, derived, derivedSites, diagnostics), trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
+            else
+            {
+                if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
+                result.Add(new(StableName(kindType), trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
+            }
         }
         return result;
     }
@@ -1153,5 +1176,144 @@ internal static class SystemReader
         var start = typeName.IndexOf('<');
         var end = typeName.LastIndexOf('>');
         return start >= 0 && end > start ? typeName.Substring(start + 1, end - start - 1) : typeName;
+    }
+
+    static bool TryDerivedMarker(INamedTypeSymbol kindType, out DerivedKind kind, out INamedTypeSymbol? value)
+    {
+        kind = DerivedKind.None;
+        value = null;
+        if (!kindType.IsGenericType || kindType.TypeArguments.Length != 1)
+            return false;
+        var def = kindType.OriginalDefinition;
+        if (def.ContainingNamespace?.ToDisplayString() != "Tl")
+            return false;
+        if (def.MetadataName == "Sum`1") kind = DerivedKind.Sum;
+        else if (def.MetadataName == "Set`1") kind = DerivedKind.Set;
+        else if (def.MetadataName == "While`1") kind = DerivedKind.While;
+        else return false;
+        value = kindType.TypeArguments[0] as INamedTypeSymbol;
+        return true;
+    }
+
+    static string BuildDerived(DerivedKind template, INamedTypeSymbol? value, INamedTypeSymbol kindType, SyntaxNode site, List<KindDecl> derived, Dictionary<string, SyntaxNode> derivedSites, List<DeclarationDiagnostic> diagnostics)
+    {
+        var templateName = template == DerivedKind.Sum ? "Sum" : template == DerivedKind.Set ? "Set" : "While";
+        var id = StableName(kindType);
+        var typeName = "global::Tl.Derived." + templateName + "_" + (value is null ? "Value" : SimpleName(value)) + "_" + StableKey(id).ToString("x8");
+        foreach (var existing in derived)
+            if (existing.Id == id) return id;
+        var display = value is null ? Symbols.Name(kindType) : Symbols.Name(value);
+        var label = templateName + "<" + display + ">";
+        var fields = new List<DerivedField>();
+        if (value is not { TypeKind: TypeKind.Struct, IsUnmanagedType: true } || value.IsGenericType)
+        {
+            Symbols.Error(diagnostics, site, "TLGEN110", $"Derived kind '{label}' needs a concrete non-generic unmanaged struct as its value type; '{display}' is not one.");
+        }
+        else
+        {
+            foreach (var field in value.GetMembers().OfType<IFieldSymbol>())
+            {
+                if (field.IsStatic || field.IsConst) continue;
+                var kind = DerivedFieldKindOf(field.Type);
+                fields.Add(new(field.Name, Symbols.Name(field.Type), kind));
+                var numeric = IsNumeric(field.Type);
+                if (template == DerivedKind.Sum && !numeric)
+                    Symbols.Error(diagnostics, Symbols.Site(field, site), "TLGEN110", $"Derived kind 'Sum<{display}>' field '{field.Name}' of type '{Symbols.Name(field.Type)}' is not numeric; every field of a Sum value must be integral or floating-point.");
+                else if (template == DerivedKind.While && !numeric && kind != DerivedFieldKind.Boolean)
+                    Symbols.Error(diagnostics, Symbols.Site(field, site), "TLGEN111", $"Derived kind 'While<{display}>' field '{field.Name}' of type '{Symbols.Name(field.Type)}' cannot be combined; While fields are bool, integral, or floating-point only.");
+            }
+        }
+        var column = new ConsumerParam("column", display, "ref ", ConsumerParamKind.Column, -1, "");
+        var accepts = template == DerivedKind.While ? 0 : 2;
+        var decl = new KindDecl(templateName + "_" + (value is null ? "Value" : SimpleName(value)), typeName, display, false, accepts, 0, "", [column], []) { Id = id, Derived = template, DerivedFields = fields, IdleParams = template == DerivedKind.While ? [column] : null };
+        derived.Add(decl);
+        derivedSites[typeName] = site;
+        return id;
+    }
+
+    static bool IsNumeric(ITypeSymbol type)
+        => type.TypeKind == TypeKind.Enum
+            ? false
+            : type.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte
+                or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32
+                or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double;
+
+    static string SimpleName(INamedTypeSymbol type)
+    {
+        var name = type.MetadataName;
+        var box = new StringBuilder();
+        foreach (var c in name)
+        {
+            if (c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '_') box.Append(c);
+        }
+        return box.ToString();
+    }
+
+    static DerivedFieldKind DerivedFieldKindOf(ITypeSymbol fieldType)
+        => fieldType.SpecialType == SpecialType.System_Boolean ? DerivedFieldKind.Boolean
+            : fieldType.SpecialType is SpecialType.System_Single or SpecialType.System_Double ? DerivedFieldKind.Float
+            : DerivedFieldKind.Integer;
+
+    static void CheckTwoWriters(IReadOnlyList<KindDecl> kinds, IReadOnlyList<SystemConsumer> consumers, IReadOnlyDictionary<string, SyntaxNode> kindSites, IReadOnlyDictionary<string, SyntaxNode> consumerSites, List<DeclarationDiagnostic> diagnostics)
+    {
+        var writers = new Dictionary<string, List<(string Name, DerivedKind Derived, SyntaxNode Site)>>(StringComparer.Ordinal);
+        void Add(string column, string name, DerivedKind derived, SyntaxNode node)
+        {
+            if (!writers.TryGetValue(column, out var list)) list = writers[column] = [];
+            if (!list.Any(w => w.Name == name)) list.Add((name, derived, node));
+        }
+        foreach (var kind in kinds)
+        {
+            var node = kindSites[kind.TypeName];
+            foreach (var parameter in kind.ApplyParams)
+                if (parameter.Kind == ConsumerParamKind.Column) Add(parameter.TypeName, kind.Name, kind.Derived, node);
+            if (kind.IdleParams is not null)
+                foreach (var parameter in kind.IdleParams)
+                    if (parameter.Kind == ConsumerParamKind.Column) Add(parameter.TypeName, kind.Name, kind.Derived, node);
+        }
+        foreach (var consumer in consumers)
+            foreach (var method in consumer.Methods)
+                if (method.Kind is ConsumerMethodKind.ExecuteActive or ConsumerMethodKind.ExecuteBatch)
+                    foreach (var parameter in method.Params)
+                        if (parameter.Kind == ConsumerParamKind.Column) Add(parameter.TypeName, consumer.ConsumerTypeName, DerivedKind.None, consumerSites[consumer.ConsumerTypeName]);
+        foreach (var pair in writers)
+        {
+            if (pair.Value.Count < 2) continue;
+            if (!pair.Value.Any(w => w.Derived is DerivedKind.Set or DerivedKind.While)) continue;
+            Symbols.Error(diagnostics, pair.Value[1].Site, "TLGEN112", $"Column '{pair.Key}' is written by both '{pair.Value[0].Name}' and '{pair.Value[1].Name}'; a column written by Set<T> or While<T> must have only that one writer.");
+        }
+    }
+
+    static void WarnUnconnected(CSharpCompilation compilation, List<DeclarationDiagnostic> diagnostics)
+    {
+        var referenced = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tree in compilation.SyntaxTrees)
+            foreach (var node in tree.GetRoot().DescendantNodes())
+            {
+                if (node is MemberAccessExpressionSyntax access) referenced.Add(access.Name.Identifier.Text);
+                else if (node is AssignmentExpressionSyntax assign && assign.Left is IdentifierNameSyntax id) referenced.Add(id.Identifier.Text);
+            }
+        var clip = compilation.GetTypeByMetadataName("Tl.TlClipAttribute");
+        var state = compilation.GetTypeByMetadataName("Tl.TlStateAttribute");
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var node in tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
+            {
+                if (model.GetDeclaredSymbol(node) is not INamedTypeSymbol type) continue;
+                var isClip = clip is not null && type.GetAttributes().Any(a => Symbols.Same(a.AttributeClass?.OriginalDefinition, clip));
+                var isState = state is not null && type.GetAttributes().Any(a => Symbols.Same(a.AttributeClass?.OriginalDefinition, state));
+                if (!isClip && !isState) continue;
+                foreach (var field in type.GetMembers().OfType<IFieldSymbol>())
+                {
+                    if (field.IsConst || field.IsStatic) continue;
+                    if (referenced.Contains(field.Name)) continue;
+                    if (isClip)
+                        Symbols.Error(diagnostics, Symbols.Site(field, node), "TLGEN113", $"Clip '{Symbols.Name(type)}' field '{field.Name}' is never read by any track of this clip; it is never connected to a lane, so it stays 0. Read it as frame.Clip.{field.Name} or remove it.");
+                    else
+                        Symbols.Error(diagnostics, Symbols.Site(field, node), "TLGEN114", $"State '{Symbols.Name(type)}' field '{field.Name}' is never written by any kind, track, or consumer; it is never connected, so it stays default. Write it from a kind Apply or feeder, or remove it.");
+                }
+            }
+        }
     }
 }

@@ -18,19 +18,11 @@ internal sealed record FeederInfo(int Kind, FeederTrigger Trigger, string Consum
 
 internal sealed class KindCatalog
 {
-    internal const string KindAttribute = "Tl.TimelineKindAttribute";
-    internal const string TlKindAttribute = "Tl.TlKindAttribute";
-    internal const string FeedsAttribute = "Tl.FeedsAttribute";
-    internal const string PulseAttribute = "Tl.PulseAttribute";
+    internal const string KindAttribute = "Tl.TimelineKindAttribute", TlKindAttribute = "Tl.TlKindAttribute", FeedsAttribute = "Tl.FeedsAttribute", PulseAttribute = "Tl.PulseAttribute";
 
-    public readonly List<KindInfo> Kinds = new();
-    public readonly List<FeederInfo> Feeders = new();
+    public readonly List<KindInfo> Kinds = new(); public readonly List<FeederInfo> Feeders = new();
 
-    internal static int EntryBytes(KindAccepts accepts, int valueBytes) => accepts == KindAccepts.Spans ? 8 : 8 + ((valueBytes + 3) & ~3);
-
-    internal static int GroupEntryBytes(int largestValueBytes) => 12 + ((largestValueBytes + 3) & ~3);
-
-    public int IndexOf(string name) => Kinds.FindIndex(k => k.FullName == name);
+    internal static int EntryBytes(KindAccepts accepts, int valueBytes) => accepts == KindAccepts.Spans ? 8 : 8 + ((valueBytes + 3) & ~3); public int IndexOf(string name) => Kinds.FindIndex(k => k.FullName == name);
 
     public static KindCatalog Discover(IEnumerable<Assembly> assemblies)
     {
@@ -89,7 +81,7 @@ internal sealed class KindCatalog
                     var where = $"'{type.FullName}.{method.Name}'";
                     if (attribute.ConstructorArguments.Count != 1 || attribute.ConstructorArguments[0].Value is not Type kindType)
                         throw Bad($"{where}: [{Short(name)}] needs typeof(<kind>).");
-                    if (!kindTypes.TryGetValue(kindType, out var kind))
+                    if (!kindTypes.TryGetValue(kindType, out var kind) && !Derived(catalog, kindType, out kind))
                         throw Bad($"{where}: '{kindType.FullName}' is not a [TimelineKind].");
                     var info = catalog.Kinds[kind];
                     var trigger = name == FeedsAttribute ? FeederTrigger.Span : (FeederTrigger)(1 + Named(attribute, "On", 0));
@@ -152,11 +144,7 @@ internal sealed class KindCatalog
 
     static Type Strip(Type type) => type.IsByRef ? type.GetElementType()! : type;
 
-    static int? Inline(CustomAttributeData attribute)
-    {
-        var inline = Named(attribute, "Inline", -1);
-        return inline >= 0 ? inline : null;
-    }
+    static int? Inline(CustomAttributeData attribute) => Named(attribute, "Inline", -1) is var i and >= 0 ? i : null;
 
     static int Named(CustomAttributeData attribute, string name, int fallback)
     {
@@ -165,24 +153,9 @@ internal sealed class KindCatalog
         return fallback;
     }
 
-    static int? SizeOf(Type type)
-    {
-        if (!type.IsValueType) return null;
-        try
-        {
-            var flag = (bool)typeof(RuntimeHelpers).GetMethod(nameof(RuntimeHelpers.IsReferenceOrContainsReferences))!.MakeGenericMethod(type).Invoke(null, null)!;
-            if (flag) return null;
-            return (int)typeof(SizeCell<>).MakeGenericType(type).GetField("Value")!.GetValue(null)!;
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-    }
+    static int? SizeOf(Type type) { if (!type.IsValueType) return null; try { var flag = (bool)typeof(RuntimeHelpers).GetMethod(nameof(RuntimeHelpers.IsReferenceOrContainsReferences))!.MakeGenericMethod(type).Invoke(null, null)!; if (flag) return null; return (int)typeof(SizeCell<>).MakeGenericType(type).GetField("Value")!.GetValue(null)!; } catch (ArgumentException) { return null; } }
 
-    static IEnumerable<Type> GetTypesSafe(Assembly assembly)
-    {
-        try { return assembly.GetTypes(); }
-        catch (ReflectionTypeLoadException ex) { return ex.Types.Where(t => t != null)!; }
-    }
+    static IEnumerable<Type> GetTypesSafe(Assembly assembly) { try{return assembly.GetTypes();}catch(ReflectionTypeLoadException x){return x.Types.Where(t=>t!=null)!;} }
+
+    static bool Derived(KindCatalog c, Type t, out int kind) { kind=-1;if (t.Namespace != "Tl" || !t.IsGenericType || t.GetGenericArguments().Length != 1) return false; var n=t.Name; if (n is not ("Sum`1" or "Set`1" or "While`1")) return false; var v=t.GetGenericArguments()[0]; if (v.IsGenericType) return false; var id=t.FullName!.Substring(0, t.FullName.IndexOf('[')) + "[" + v.FullName + ",]"; if(c.IndexOf(id)is var e and >=0) { kind=e;return true;} c.Kinds.Add(new KindInfo(n, id, v, SizeOf(v)??throw Bad("derived value unmanaged."), n[0]=='W'?KindAccepts.Spans:KindAccepts.Both, KindRule.Combine, 0, null, false)); kind=c.Kinds.Count-1; return true; }
 }

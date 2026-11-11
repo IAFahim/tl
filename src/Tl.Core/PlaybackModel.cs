@@ -152,6 +152,18 @@ public sealed unsafe class PlaybackTable : IDisposable
         else _kinds.Close(entity, slot, ref slots[slot]);
     }
 
+    internal void ResetEntity(int entity)
+    {
+        _kinds?.ResetEntity(entity);
+        var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
+        var count = _counts[entity];
+        for (var i = 0; i < count; i++) slots[i] = default;
+        _counts[entity] = 0;
+        SetPlaying(entity, false);
+    }
+
+    public void Reset(int entity) => RequestQueue.Add(_pending, entity, -1, 0, 0, RequestOp.Reset);
+
     internal void RemoveSlot(int entity, int slot)
     {
         var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;

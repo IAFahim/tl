@@ -110,6 +110,9 @@ public static unsafe class PlaybackRules
             case RequestOp.SpeedChannel:
                 SetSpeed(ref slots, FindChannel(ref slots, (byte)timeline), at);
                 return;
+            case RequestOp.Reset:
+                Reset(ref slots);
+                return;
             default:
                 StopAll(ref slots);
                 return;
@@ -177,6 +180,15 @@ public static unsafe class PlaybackRules
     {
         for (var i = 0; i < slots.Length; i++)
             if (IsLive(in slots[i])) slots.Close(i);
+    }
+
+    public static void Reset<TSlots>(ref TSlots slots) where TSlots : struct, IPlaybackSlots
+    {
+        for (var i = 0; i < slots.Length; i++)
+        {
+            slots.Purge(i);
+            slots[i] = default;
+        }
     }
 
     public static int Find<TSlots>(ref TSlots slots, ushort timeline) where TSlots : struct, IPlaybackSlots

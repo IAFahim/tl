@@ -41,6 +41,35 @@ namespace Tl
         int _byteCount;
         readonly List<nint> _arenas = new();
         internal static long NativeBlockCount;
+        uint _manifestOff;
+        int _manifestCount;
+
+        public ushort Find(string name) => TryFind(name, out var id) ? id : (ushort)0;
+
+        public bool TryFind(string name, out ushort id)
+        {
+            id = 0;
+            if (string.IsNullOrEmpty(name) || _manifestCount <= 0 || _base == null) return false;
+            var lo = 0;
+            var hi = _manifestCount - 1;
+            while (lo <= hi)
+            {
+                var mid = (lo + hi) >> 1;
+                var at = _base + (int)(_manifestOff + (uint)(mid * 32));
+                var nameOff = BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(at + 8, 4));
+                var nameLen = (int)BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(at + 12, 4));
+                var manifest = Encoding.UTF8.GetString(_base + nameOff, nameLen);
+                var cmp = string.CompareOrdinal(manifest, name);
+                if (cmp == 0)
+                {
+                    id = (ushort)BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(at, 4));
+                    return true;
+                }
+                if (cmp < 0) lo = mid + 1;
+                else hi = mid - 1;
+            }
+            return false;
+        }
 
         struct MarkerTable
         {
@@ -164,6 +193,8 @@ namespace Tl
             _view.ByteCount = 0;
             _view.Kinds = default;
             _byteCount = 0;
+            _manifestOff = 0;
+            _manifestCount = 0;
             _generation++;
         }
 
@@ -392,6 +423,8 @@ namespace Tl
             _view.TimelineCount = (int)count;
             _view.ByteCount = total;
             _view.Kinds = default;
+            _manifestOff = count == 0 ? 0 : manifestOff;
+            _manifestCount = (int)count;
             if (count == 0) { _view.Timelines = null; return; }
             var timelines = (LibraryTimeline*)TrackAlloc((nuint)(count * (uint)sizeof(LibraryTimeline)));
             NativeMemory.Clear(timelines, (nuint)(count * (uint)sizeof(LibraryTimeline)));

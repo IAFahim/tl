@@ -457,6 +457,7 @@ type Tl.PlaybackRules
   Method Boolean Pause[TSlots](TSlots ByRef, UInt16, Boolean)
   Method Boolean PauseAt[TSlots](TSlots ByRef, Int32, Boolean)
   Method Boolean Rebind(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32)
+  Method Void Reset[TSlots](TSlots ByRef)
   Method Boolean Resumes(Tl.PlaybackFlags, Boolean)
   Method Boolean Reverse[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, Boolean)
   Method Boolean Seek[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, UInt16)
@@ -480,6 +481,7 @@ type Tl.PlaybackTable
   Method Void Pause(Int32, UInt16)
   Method Void PauseChannel(Int32, Byte)
   Property Tl.RequestQueue* Pending
+  Method Void Reset(Int32)
   Method Void Resume(Int32, UInt16)
   Method Void ResumeChannel(Int32, Byte)
   Method Void Reverse(Int32, UInt16, Boolean)
@@ -507,6 +509,7 @@ type Tl.PulseAttribute
 type Tl.RequestOp
   Field Tl.RequestOp Pause
   Field Tl.RequestOp PauseChannel
+  Field Tl.RequestOp Reset
   Field Tl.RequestOp Resume
   Field Tl.RequestOp ResumeChannel
   Field Tl.RequestOp Reverse
@@ -540,6 +543,7 @@ type Tl.Requests
   Method Tl.Requests For(Int32, Int32)
   Method Void Pause(UInt16)
   Method Void PauseChannel(Byte)
+  Method Void Reset()
   Method Void Resume(UInt16)
   Method Void ResumeChannel(Byte)
   Method Void Reverse(UInt16, Boolean)
@@ -552,6 +556,8 @@ type Tl.Requests
   Method Void Stop(UInt16)
   Method Void StopAll()
   Method Void StopChannel(Byte)
+type Tl.Set`1
+type Tl.Sum`1
 type Tl.SystemDispatch
   Method Void FastFoldAdd(Single*, UInt16*, Single*, Int32)
   Method System.Span`1[Tl.SystemStep] FilteredSteps(Tl.TimelineWorld, UInt64, UInt16, Int32, System.ReadOnlySpan`1[System.UInt64])
@@ -577,9 +583,11 @@ type Tl.TimelineWorld
   Method Void Advance(Tl.PlaybackTable, Boolean)
   Method Void ApplyRequests(Tl.PlaybackTable)
   Method Void Dispose()
+  Method UInt16 Find(System.String)
   Method Void Reload(System.ReadOnlySpan`1[System.Byte])
   Method Tl.Requests Requests(Tl.PlaybackTable)
   Method Void Tick(Tl.PlaybackTable, Boolean)
+  Method Boolean TryFind(System.String, UInt16 ByRef)
   Property Tl.LibraryView View
 type Tl.TlAssetId
   Method Boolean Equals(Tl.TlAssetId)
@@ -647,3 +655,4 @@ type Tl.TlTimeline
   Property Boolean IsValid
 type Tl.TypeKey`1
   Field UInt64 Value
+type Tl.While`1

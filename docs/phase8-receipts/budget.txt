@@ -1,0 +1,5 @@
+src: 58 files; 448416 content bytes + 1842 path bytes = 450258/520000 bytes
+samples: 11 files; 64122 content bytes + 391 path bytes = 64513/66000 bytes
+shipped-tools: 34 files; 343895 content bytes + 1085 path bytes = 344980/345000 bytes
+portable-json-tools: 4 files; 33772 content bytes + 121 path bytes = 33893/36000 bytes
+analyzers: 6 files; 15543 content bytes + 301 path bytes = 15844/24000 bytes

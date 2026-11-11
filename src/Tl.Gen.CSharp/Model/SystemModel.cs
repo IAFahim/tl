@@ -63,6 +63,12 @@ internal enum FeederTrigger : byte
 
 internal sealed record FeederDecl(string KindName, FeederTrigger Trigger, string MethodName, string ConsumerMetadata, string ValueTypeName, ConsumerMethod Method);
 
+internal enum DerivedKind : byte { None, Sum, Set, While }
+
+internal enum DerivedFieldKind : byte { Integer, Float, Boolean }
+
+internal sealed record DerivedField(string Name, string TypeName, DerivedFieldKind FieldKind);
+
 internal sealed record KindDecl(
     string Name,
     string TypeName,
@@ -77,6 +83,8 @@ internal sealed record KindDecl(
     public bool Foreign { get; init; }
     public string Id { get; init; } = "";
     public IReadOnlyList<ConsumerParam>? IdleParams { get; init; }
+    public DerivedKind Derived { get; init; }
+    public IReadOnlyList<DerivedField> DerivedFields { get; init; } = [];
 }
 
 internal sealed record SystemConsumer(

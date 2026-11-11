@@ -1,0 +1,7 @@
+tests/Tl.Core.Tests/PlaybackRulesTests.cs:94:        Assert.True(PlaybackRules.Find(ref slots, 2, out var found));
+tests/Tl.Core.Tests/PlaybackRulesTests.cs:96:        Assert.False(PlaybackRules.Find(ref slots, 0, out _));
+tests/Tl.Systems.Tests/Phase8RuntimeTests.cs:120:        Assert.Equal(Run, _world.Find("run"));
+tests/Tl.Systems.Tests/Phase8RuntimeTests.cs:121:        Assert.Equal(RunLegacy, _world.Find("run_legacy"));
+tests/Tl.Systems.Tests/Phase8RuntimeTests.cs:127:        Assert.Equal((ushort)0, _world.Find("absent"));
+tests/Tl.Systems.Tests/Phase8RuntimeTests.cs:139:        Assert.Equal((ushort)0, _world.Find("j ump"));
+tests/Tl.Systems.Tests/Phase8RuntimeTests.cs:140:        Assert.Equal((ushort)0, _world.Find("⚡"));

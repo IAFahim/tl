@@ -78,7 +78,7 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
     {
         foreach (var diagnostic in analysis.Diagnostics)
             context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(diagnostic.Code, "Invalid timeline declaration", "{0}", "Tl.Generation", diagnostic.Code == "TLGEN98" ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error, true),
+                new DiagnosticDescriptor(diagnostic.Code, "Invalid timeline declaration", "{0}", "Tl.Generation", diagnostic.Code is "TLGEN98" or "TLGEN113" or "TLGEN114" ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error, true),
                 Location(diagnostic), diagnostic.Message));
         foreach (var artifact in analysis.Artifacts)
             context.AddSource(artifact.RelativePath, SourceText.From(JobEmitter.Normalize(artifact.Content), new UTF8Encoding(false)));
