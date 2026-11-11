@@ -116,20 +116,33 @@ public unsafe struct Events<T> : IDisposable
         {
             var high = low + block < count ? low + block : count;
             for (var i = low + 1; i < high; i++)
-                for (var j = i; j > low && Before(items + j, items + j - 1); j--) Swap(items + j, items + j - 1);
+            {
+                if (!Before(items + i, items + i - 1)) continue;
+                var held = items[i];
+                var j = i;
+                do
+                {
+                    items[j] = items[j - 1];
+                    j--;
+                }
+                while (j > low && Before(&held, items + j - 1));
+                items[j] = held;
+            }
         }
         var stack = stackalloc int[192];
+        var buffer = stackalloc long[1024];
+        var capacity = 8192 / sizeof(EventRecord<T>);
         for (var width = block; width < count; width <<= 1)
         {
             for (var low = 0; low + width < count; low += width * 2)
             {
                 var high = low + width * 2 < count ? low + width * 2 : count;
-                if (Before(items + low + width, items + low + width - 1)) Merge(items, low, low + width, high, stack);
+                if (Before(items + low + width, items + low + width - 1)) Merge(items, low, low + width, high, stack, (EventRecord<T>*)buffer, capacity);
             }
         }
     }
 
-    static void Merge(EventRecord<T>* items, int first, int middle, int last, int* stack)
+    static void Merge(EventRecord<T>* items, int first, int middle, int last, int* stack, EventRecord<T>* buffer, int capacity)
     {
         stack[0] = first;
         stack[1] = middle;
@@ -141,6 +154,16 @@ public unsafe struct Events<T> : IDisposable
             var a = stack[top];
             var m = stack[top + 1];
             var b = stack[top + 2];
+            if (m - a <= capacity && m - a <= b - m)
+            {
+                MergeLeft(items, a, m, b, buffer);
+                continue;
+            }
+            if (b - m <= capacity)
+            {
+                MergeRight(items, a, m, b, buffer);
+                continue;
+            }
             if (m - a == 1)
             {
                 var i = m;
@@ -205,6 +228,36 @@ public unsafe struct Events<T> : IDisposable
                 top += 3;
             }
         }
+    }
+
+    static void MergeLeft(EventRecord<T>* items, int a, int m, int b, EventRecord<T>* buffer)
+    {
+        var leftCount = m - a;
+        for (var i = 0; i < leftCount; i++) buffer[i] = items[a + i];
+        var l = 0;
+        var r = m;
+        var k = a;
+        while (l < leftCount && r < b)
+        {
+            if (Before(items + r, buffer + l)) items[k++] = items[r++];
+            else items[k++] = buffer[l++];
+        }
+        while (l < leftCount) items[k++] = buffer[l++];
+    }
+
+    static void MergeRight(EventRecord<T>* items, int a, int m, int b, EventRecord<T>* buffer)
+    {
+        var rightCount = b - m;
+        for (var i = 0; i < rightCount; i++) buffer[i] = items[m + i];
+        var l = m;
+        var r = rightCount;
+        var k = b;
+        while (l > a && r > 0)
+        {
+            if (Before(buffer + r - 1, items + l - 1)) items[--k] = items[--l];
+            else items[--k] = buffer[--r];
+        }
+        while (r > 0) items[--k] = buffer[--r];
     }
 
     static void Rotate(EventRecord<T>* items, int a, int m, int b)
