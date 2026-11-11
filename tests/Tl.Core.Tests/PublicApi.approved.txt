@@ -537,6 +537,7 @@ type Tl.RequestQueue
   Method Void Free(Tl.RequestQueue*)
   Method Tl.RequestRecord& Item(Int32)
   Method Void Sort(Tl.RequestRecord*, Int32)
+  Method Void Sort(Tl.RequestRecord*, Int32, Tl.RequestRecord*)
   Method Void SortStable(Tl.RequestQueue*)
 type Tl.RequestRecord
   Field UInt16 At
