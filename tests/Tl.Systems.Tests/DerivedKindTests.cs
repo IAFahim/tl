@@ -223,6 +223,26 @@ public sealed class DerivedKindTests
     }
 
     [Fact]
+    public void ANewColumnFieldSharingTheNameOfANewClipFieldStillWarns()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            [TlState] public partial struct Teleported { public float Offset; public float SideSwing; }
+            [TlClip("Hello/Teleport")] public struct TeleportClip { public float Distance; public float SideSwing; }
+            [TlKind(Mode = KindMode.Each, Accepts = KindEntries.Pulses)] public struct TeleportKind { public static void Apply(in float move, ref Teleported player) { player.Offset += move; } }
+            public struct TeleportTrack : ITlTrack<TeleportClip>
+            {
+                [Pulse(typeof(TeleportKind), On = ClipEvent.Start)]
+                public static float Jump(in TlFrame<TeleportClip> frame) => frame.Direction * frame.Clip.Distance;
+            }
+            """;
+        var codes = Codes(source);
+        Assert.Contains("TLGEN113", codes);
+        Assert.Contains("TLGEN114", codes);
+    }
+
+    [Fact]
     public void TheDerivedMarkersAreStructsInTheTlNamespace()
     {
         Assert.True(typeof(Sum<>).IsValueType && typeof(Set<>).IsValueType && typeof(While<>).IsValueType);

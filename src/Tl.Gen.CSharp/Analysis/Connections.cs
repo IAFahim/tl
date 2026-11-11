@@ -56,14 +56,14 @@ internal static class Connections
                     if (!pair.Value.Names.Contains(field.Name))
                         Symbols.Error(diagnostics, Symbols.Site(field, pair.Value.Site), "TLGEN113", $"Clip '{Symbols.Name(pair.Key)}' field '{field.Name}' is never read by a track of this clip, so it is never connected and stays 0. Read it as frame.Clip.{field.Name}, remove it, or silence TLGEN113.");
         if (states.Count == 0) return;
-        var mentions = new Dictionary<string, int>(StringComparer.Ordinal);
+        var mentions = new HashSet<string>(StringComparer.Ordinal);
         foreach (var tree in compilation.SyntaxTrees)
             foreach (var token in tree.GetRoot().DescendantTokens())
-                if (token.IsKind(SyntaxKind.IdentifierToken))
-                    mentions[token.ValueText] = mentions.TryGetValue(token.ValueText, out var count) ? count + 1 : 1;
+                if (token.IsKind(SyntaxKind.IdentifierToken) && token.Parent is not VariableDeclaratorSyntax)
+                    mentions.Add(token.ValueText);
         foreach (var pair in states)
             foreach (var field in Fields(pair.Key))
-                if (mentions.TryGetValue(field.Name, out var count) && count <= 1)
+                if (!mentions.Contains(field.Name))
                     Symbols.Error(diagnostics, Symbols.Site(field, pair.Value.Site), "TLGEN114", $"State '{Symbols.Name(pair.Key)}' field '{field.Name}' is declared but its name appears nowhere else in this assembly, so it is never connected and stays default. Write it from a kind, track or consumer, remove it, or silence TLGEN114.");
     }
 
