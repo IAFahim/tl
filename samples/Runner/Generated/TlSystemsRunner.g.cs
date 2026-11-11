@@ -232,8 +232,18 @@ internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable pla
 var __view = world.View; var __pview = players.View;
 Tl.Requests __rq0;
 Tl.Events<global::Game.Cue> __eb0;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -370,13 +380,24 @@ global::Game.Footsteps.OnMarker(in __mf2, ref __eb0);
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, int __n, int __firstWord, int __endWord, Tl.Requests __req0, Tl.Events<global::Game.Cue> __ev0)
 {
 var __view = world.View; var __pview = players.View;
 Tl.Requests __rq0;
 Tl.Events<global::Game.Cue> __eb0;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -525,6 +546,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -597,8 +619,18 @@ internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable pla
 {
 var __view = world.View; var __pview = players.View;
 Tl.Events<global::Game.StompHit> __eb0;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -649,12 +681,23 @@ break;
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::Game.Position* __c0, global::Game.HeadIndex* __c1, int __n, int __firstWord, int __endWord, Tl.Events<global::Game.StompHit> __ev0)
 {
 var __view = world.View; var __pview = players.View;
 Tl.Events<global::Game.StompHit> __eb0;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -717,6 +760,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }

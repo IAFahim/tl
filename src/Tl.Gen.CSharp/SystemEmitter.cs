@@ -328,14 +328,29 @@ internal static class SystemEmitter
         W(writer, "}");
     }
 
+    static void EmitEntityScanOpen(StringBuilder writer, bool ranged)
+    {
+        W(writer, "var __playing = players.Playing;");
+        if (ranged) W(writer, "for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)");
+        else W(writer, "for (var __w = 0; __w < players.PlayingWords; __w++)");
+        W(writer, "{");
+        W(writer, "var __bits = __playing[__w];");
+        W(writer, "while (__bits != 0)");
+        W(writer, "{");
+        W(writer, "var __e = (__w << 6) + global::Tl.KindStore.TrailingZeros(__bits);");
+        W(writer, "__bits &= __bits - 1;");
+        W(writer, "if (__e >= __n) continue;");
+        W(writer, "#if TL_CHECKED");
+        W(writer, "global::Tl.Checked.Visited();");
+        W(writer, "#endif");
+    }
+
     static void EmitLegacyLoop(StringBuilder writer, SystemAssignment assignment, KernelShape shape, bool ranged = false)
     {
         EmitLocalDecls(writer, shape);
         if (!ranged) EmitCloseLoop(writer, assignment, shape);
         EmitBatchDecls(writer, assignment);
-        if (ranged) W(writer, "int __e0; int __e1; global::Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)");
-        else W(writer, "for (var __e = 0; __e < __n; __e++)");
-        W(writer, "{");
+        EmitEntityScanOpen(writer, ranged);
         W(writer, "var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
         W(writer, "if (__count == 0) continue;");
         W(writer, "for (var __s = 0; __s < __count; __s++)");
@@ -362,6 +377,7 @@ internal static class SystemEmitter
         EmitBind(writer, shape, "__e", "__s");
         EmitEntryLoop(writer, assignment, shape, "__steps", "__stage", "__tl", "__tick", "__base", "__backward", "__e", "__s", false);
         EmitMarkers(writer, assignment, shape, "__tl", "__tick", "__base", "__e", "__s");
+        W(writer, "}");
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");
@@ -632,9 +648,7 @@ internal static class SystemEmitter
         EmitLocalDecls(writer, shape);
         if (!ranged) EmitCloseLoop(writer, assignment, shape);
         EmitBatchDecls(writer, assignment);
-        if (ranged) W(writer, "int __e0; int __e1; global::Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)");
-        else W(writer, "for (var __e = 0; __e < __n; __e++)");
-        W(writer, "{");
+        EmitEntityScanOpen(writer, ranged);
         W(writer, "var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
         W(writer, "for (var __s = 0; __s < __cnt; __s++)");
         W(writer, "{");
@@ -677,6 +691,7 @@ internal static class SystemEmitter
         W(writer, "break;");
         W(writer, "}");
         W(writer, "if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) break;");
+        W(writer, "}");
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");

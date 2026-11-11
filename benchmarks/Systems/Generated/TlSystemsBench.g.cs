@@ -181,8 +181,18 @@ break;
 internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -251,11 +261,22 @@ break;
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -336,6 +357,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -414,8 +436,18 @@ break;
 internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -478,11 +510,22 @@ break;
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -557,6 +600,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -635,8 +679,18 @@ break;
 internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int* __c0, float* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -695,11 +749,22 @@ break;
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int* __c0, float* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -770,6 +835,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -944,8 +1010,18 @@ break;
 internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, short* __c2, sbyte* __c3, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -1092,11 +1168,22 @@ break;
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, short* __c2, sbyte* __c3, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -1255,6 +1342,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -1365,8 +1453,18 @@ break;
 internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int* __c0, short* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -1433,11 +1531,22 @@ break;
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int* __c0, short* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -1516,6 +1625,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
@@ -3610,8 +3720,18 @@ break;
 internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int __n, int __firstWord, int __endWord, ref global::Bench.Shared __ctx0)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
@@ -4670,11 +4790,22 @@ break;
 }
 }
 }
+}
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int __n, int __firstWord, int __endWord, ref global::Bench.Shared __ctx0)
 {
 var __view = world.View; var __pview = players.View;
-int __e0; int __e1; Tl.TlWorkers.ClampRange(__n, __firstWord, __endWord, out __e0, out __e1); for (var __e = __e0; __e < __e1; __e++)
+var __playing = players.Playing;
+for (var __w = __firstWord; __w < (__endWord < players.PlayingWords ? __endWord : players.PlayingWords); __w++)
 {
+var __bits = __playing[__w];
+while (__bits != 0)
+{
+var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__bits);
+__bits &= __bits - 1;
+if (__e >= __n) continue;
+#if TL_CHECKED
+Tl.Checked.Visited();
+#endif
 var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
@@ -5745,6 +5876,7 @@ __pview.Counts[__e] = __hw;
 break;
 }
 if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0) break;
+}
 }
 }
 }
