@@ -10,6 +10,8 @@ dotnet benchmarks/BurstScale/bin/Release/net10.0/BurstScale.dll scale.tlib 40000
 
 Arguments are the library file, entity count, active timelines per entity, and total .NET participants including the caller. Use 1M and 4M entities with 1, 2 and 4 active timelines, and 10,000 players with 40, 100 and 150 active timelines. The catalog contains 1,000 available definitions. It does not store 1,000 paused playbacks per player; Core's slot limit is 256.
 
+Optional fifth and sixth arguments set warmup ticks and ticks per measured round. The default is32/32; use256/32 for short player cases so .NET tier-up completes before measuring. Compare identical counts on both arms. A1024/200 run audits1200 measured ticks after warmup. Raw per-round managed allocations are retained with the timings.
+
 Definitions share one looping 1,024-tick span and a sum kind. Each playback starts at a different phase; its feeder reads that phase, materializes its frame and writes a real output. Membership, speed and direction stay fixed. This is a controlled scale fixture, not a gameplay trace.
 
 State and output buffers are native. Setup includes construction, enqueuing requests and the first tick that applies them. `readySetupMs` includes that first tick. `privateDelta` is process private memory before verification, including runtime and allocator effects, rather than an exact live-buffer count.
