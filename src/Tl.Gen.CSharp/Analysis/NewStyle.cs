@@ -222,7 +222,7 @@ internal static class NewStyle
         return new NewStyleAnalysis(compilation, autoName, autoColumns, source, inline, states, members) { AutoEvents = eventFields };
     }
 
-    static List<string> EventElements(INamedTypeSymbol type, INamedTypeSymbol events)
+    internal static List<string> EventElements(INamedTypeSymbol type, INamedTypeSymbol events)
     {
         var elements = new List<string>();
         foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
@@ -274,7 +274,7 @@ internal static class NewStyle
         return true;
     }
 
-    static void AddColumn(List<(string type, bool writable)> columns, string type, bool writable)
+    internal static void AddColumn(List<(string type, bool writable)> columns, string type, bool writable)
     {
         for (var i = 0; i < columns.Count; i++)
             if (columns[i].type == type)
@@ -286,7 +286,7 @@ internal static class NewStyle
         columns.Add((type, writable));
     }
 
-    static string Simple(string type)
+    internal static string Simple(string type)
     {
         var bare = type.StartsWith("global::", StringComparison.Ordinal) ? type.Substring(8) : type;
         var angle = bare.IndexOf('<');

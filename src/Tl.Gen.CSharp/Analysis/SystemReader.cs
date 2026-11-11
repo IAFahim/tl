@@ -8,7 +8,7 @@ using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp.Analysis;
 
-internal static class SystemReader
+internal static partial class SystemReader
 {
     internal sealed record ContractSet(
         INamedTypeSymbol Track,
@@ -210,9 +210,9 @@ internal static class SystemReader
     static bool IsTl(INamedTypeSymbol type, string name)
         => type.Name == name && type.ConstructedFrom.ContainingNamespace?.ToDisplayString() == "Tl";
 
-    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, Dictionary<string, (KindDecl Kind, SyntaxNode Site)> derived)
+    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, Dictionary<string, (KindDecl Kind, SyntaxNode Site)> derived, bool collectFeeders = true)
     {
-        if (!TypeAnalyzer.IsNewStyle(type)) return null;
+        if (collectFeeders && !TypeAnalyzer.IsNewStyle(type)) return null;
         var name = Symbols.Name(type);
         var local = new List<DeclarationDiagnostic>();
         void Err(string code, string message) => Symbols.Error(local, site, code, message);
@@ -273,13 +273,23 @@ internal static class SystemReader
                 if (at >= 0) methods[at] = active with { Direct = direct };
             }
         }
-        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign, derived);
+        var feeders = collectFeeders && kindContracts is not null ? ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign, derived) : new List<FeederDecl>();
         foreach (var feeder in feeders) methods.Add(feeder.Method);
-        if (methods.Count == 0 && local.Count == 0)
+        if (methods.Count == 0 && local.Count == 0 && (collectFeeders || !HasFeederMethods(type)))
             Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
         diagnostics.AddRange(local);
         var key = track is null ? StableKey(marker!) : StablePairKey(track, clip!);
         return new(name, track is null ? "" : Symbols.Name(track), clip is null ? "" : Symbols.Name(clip), marker is null ? "" : Symbols.Name(marker), marker is not null, blendable, key, members, methods, local) { Feeders = feeders };
+    }
+
+    static bool HasFeederMethods(INamedTypeSymbol type)
+    {
+        foreach (var member in type.GetMembers())
+            if (member is IMethodSymbol attributed)
+                foreach (var attribute in attributed.GetAttributes())
+                    if (attribute.AttributeClass is { Name: "FeedsAttribute" or "PulseAttribute", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } })
+                        return true;
+        return false;
     }
 
     static string MetadataName(INamedTypeSymbol type)

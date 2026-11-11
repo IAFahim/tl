@@ -7,7 +7,7 @@ namespace Tl.Systems.Tests;
 
 public sealed class DerivedKindTests
 {
-    const string Head = """
+    internal const string Head = """
         using System;
         using Tl;
         namespace Domain;
@@ -15,7 +15,7 @@ public sealed class DerivedKindTests
         [TlClip("Hello/Teleport")] public struct TeleportClip { public float Distance; public float Side; }
         """;
 
-    static string Track(string kind)
+    internal static string Track(string kind)
         => "public struct TeleportTrack : ITlTrack<TeleportClip>\n{\n[Pulse(typeof(" + kind + "), On = ClipEvent.Start)]\n"
             + "public static Teleported Jump(in TlFrame<TeleportClip> frame) => new() { Forward = frame.Direction * frame.Clip.Distance, Side = frame.Direction * frame.Clip.Side };\n}\n";
 
