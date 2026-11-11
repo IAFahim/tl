@@ -6,7 +6,7 @@ public sealed unsafe class TlWorkers : IDisposable
 {
     readonly int _w;
     readonly Thread[]? _threads;
-    readonly SemaphoreSlim[]? _gates;
+    readonly SemaphoreSlim _gate = new(0);
     readonly ManualResetEventSlim _done = new(false);
     delegate*<void*, int, int, int, void> _body;
     void* _state;
@@ -15,7 +15,7 @@ public sealed unsafe class TlWorkers : IDisposable
     int _next;
     int _d;
     Exception? _error;
-    volatile bool _disposed;
+    bool _disposed;
     public TlWorkers(int workers)
     {
         if (workers < 1) throw new ArgumentOutOfRangeException(nameof(workers));
@@ -23,8 +23,7 @@ public sealed unsafe class TlWorkers : IDisposable
         if (workers > 1)
         {
             _threads = new Thread[workers - 1];
-            _gates = new SemaphoreSlim[workers - 1];
-            for (var i = 0; i < _threads.Length; i++) { var gate = new SemaphoreSlim(0); _gates[i] = gate; var t = new Thread(WorkerLoop) { IsBackground = true, Name = "TlWorkers-" + i }; _threads[i] = t; t.Start(gate); }
+            for (var i = 0; i < _threads.Length; i++) { var t = new Thread(WorkerLoop) { IsBackground = true, Name = "TlWorkers-" + i }; _threads[i] = t; t.Start(); }
         }
     }
     public int WorkerCount => _w;
@@ -65,8 +64,7 @@ public sealed unsafe class TlWorkers : IDisposable
         if (chunks > 0 && ends == null) throw new ArgumentNullException(nameof(ends));
         if (chunks == 0) return;
         if (_w == 1) { for (var c = 0; c < chunks; c++) body(state, c == 0 ? 0 : ends[c - 1], ends[c], c); return; }
-        _next = 0; _d = 0; _error = null; _body = body; _state = state; _ends = ends; _chunks = chunks; _done.Reset();
-        foreach (var gate in _gates!) gate.Release();
+        _next = 0; _d = 0; _error = null; _body = body; _state = state; _ends = ends; _chunks = chunks; _done.Reset(); _gate.Release(_w - 1);
         while (true)
         {
             var c = Interlocked.Increment(ref _next) - 1;
@@ -77,12 +75,11 @@ public sealed unsafe class TlWorkers : IDisposable
         _done.Wait();
         if (_error != null) ExceptionDispatchInfo.Capture(_error).Throw();
     }
-    void WorkerLoop(object? signal)
+    void WorkerLoop()
     {
-        var gate = (SemaphoreSlim)signal!;
         while (true)
         {
-            gate.Wait();
+            try { _gate.Wait(); } catch (ObjectDisposedException) { return; }
             if (_disposed) return;
             var body = _body;
             var state = _state;
@@ -102,7 +99,8 @@ public sealed unsafe class TlWorkers : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        if (_threads != null) { foreach (var gate in _gates!) gate.Release(); foreach (var t in _threads) t.Join(); foreach (var gate in _gates!) gate.Dispose(); }
+        if (_w > 1 && _threads != null) { try { _gate.Release(_w - 1); } catch (SemaphoreFullException) { } foreach (var t in _threads) t.Join(); }
+        _gate.Dispose();
         _done.Dispose();
     }
 }
