@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp.Analysis;
 
@@ -157,6 +158,17 @@ internal static class NewStyle
                         continue;
                     if (attribute.ConstructorArguments.Length != 1 || attribute.ConstructorArguments[0].Value is not INamedTypeSymbol fed)
                         continue;
+                    if (DerivedKinds.TemplateOf(fed, out var derived) != DerivedKind.None)
+                    {
+                        if (derived is null || !isState(derived) || systemColumns.Contains(derived.ToDisplayString(Full)))
+                            continue;
+                        members.Add(consumer.ToDisplayString(Full));
+                        AddColumn(columns, derived.ToDisplayString(Full), true);
+                        foreach (var parameter in method.Parameters)
+                            if (isState(parameter.Type))
+                                AddColumn(columns, parameter.Type.ToDisplayString(Full), parameter.RefKind == RefKind.Ref);
+                        continue;
+                    }
                     var foreign = IsForeignKind(fed, compilation.Assembly);
                     if (!foreign && !autoKinds.Contains(fed.ToDisplayString(Full)))
                         continue;

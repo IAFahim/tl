@@ -45,6 +45,7 @@ internal static class SystemReader
         var kinds = new List<KindDecl>();
         var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
         var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
+        var derived = new Dictionary<string, (KindDecl Kind, SyntaxNode Site)>(StringComparer.Ordinal);
         var kindContracts = KindContractsOf(compilation);
         var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
         var diagnostics = new List<DeclarationDiagnostic>();
@@ -62,7 +63,7 @@ internal static class SystemReader
                     kinds.Add(kind);
                     kindSites[kind.TypeName] = node;
                 }
-                if (ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign) is { } consumer)
+                if (ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign, derived) is { } consumer)
                 {
                     var owned = autoSystem is not null && autoMembers is not null && autoMembers.Contains(consumer.ConsumerTypeName)
                         ? consumer with { MemberSystems = [autoSystem.TypeName] }
@@ -73,6 +74,12 @@ internal static class SystemReader
             }
         }
         if (autoSystem is not null) systems.Add(autoSystem);
+        foreach (var pair in derived)
+        {
+            if (kindSites.ContainsKey(pair.Value.Kind.TypeName)) continue;
+            kinds.Add(pair.Value.Kind);
+            kindSites[pair.Value.Kind.TypeName] = pair.Value.Site;
+        }
         foreach (var pair in foreign)
         {
             if (kindSites.ContainsKey(pair.Key)) continue;
@@ -82,6 +89,8 @@ internal static class SystemReader
         }
         consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
         kinds.Sort(static (a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : string.CompareOrdinal(a.Name, b.Name));
+        DerivedKinds.CheckTwoWriters(kinds, kindSites, consumers, sites, diagnostics);
+        Connections.Warn(compilation, diagnostics);
         var assignments = Assign(systems, consumers, sites, diagnostics);
         return (systems, kinds.Count == 0 && !consumers.Any(static c => c.Feeders.Count > 0) ? assignments : AssignKinds(systems, assignments, kinds, kindSites, sites, diagnostics), diagnostics);
     }
@@ -201,7 +210,7 @@ internal static class SystemReader
     static bool IsTl(INamedTypeSymbol type, string name)
         => type.Name == name && type.ConstructedFrom.ContainingNamespace?.ToDisplayString() == "Tl";
 
-    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign)
+    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, Dictionary<string, (KindDecl Kind, SyntaxNode Site)> derived)
     {
         if (!TypeAnalyzer.IsNewStyle(type)) return null;
         var name = Symbols.Name(type);
@@ -264,7 +273,7 @@ internal static class SystemReader
                 if (at >= 0) methods[at] = active with { Direct = direct };
             }
         }
-        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign);
+        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign, derived);
         foreach (var feeder in feeders) methods.Add(feeder.Method);
         if (methods.Count == 0 && local.Count == 0)
             Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
@@ -286,7 +295,7 @@ internal static class SystemReader
         return 0;
     }
 
-    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, IAssemblySymbol assembly, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign)
+    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, IAssemblySymbol assembly, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, Dictionary<string, (KindDecl Kind, SyntaxNode Site)> derived)
     {
         var result = new List<FeederDecl>();
         var name = Symbols.Name(type);
@@ -367,8 +376,15 @@ internal static class SystemReader
             }
             if (!ok) continue;
             if (CheckColumns(type, method.Name, parameters, diagnostics, site) is null) continue;
-            if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
-            result.Add(new(StableName(kindType), trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
+            var kindName = StableName(kindType);
+            if (DerivedKinds.TemplateOf(kindType, out var value) is var template and not DerivedKind.None)
+            {
+                var decl = DerivedKinds.Build(kindType, template, value, where, diagnostics);
+                kindName = decl.Id;
+                if (!derived.ContainsKey(kindName)) derived[kindName] = (decl, where);
+            }
+            else if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
+            result.Add(new(kindName, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
         }
         return result;
     }
