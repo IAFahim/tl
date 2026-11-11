@@ -212,16 +212,19 @@ if (__ctl is null || __ctl->Duration == 0) continue;
 var __ctick = __cpb.Tick < __ctl->Duration ? __cpb.Tick : (ushort)(__ctl->Duration - 1);
 var __cstage = Tl.LibraryViewReader.StageAt(__ctl, __ctick);
 if (__cstage is null) continue;
-var __csteps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __ctl->Id, (int)(__cstage - __ctl->Stages), PairKeys);
+var __csb = Tl.SystemDispatch.Bind(world, SystemKey, PairKeys);
+var __cg = __csb.StageBase[__ctl->Id - 1] + (int)(__cstage - __ctl->Stages);
+var __cstart = __csb.StepStart[__cg];
 var __cbackward = forward ? (__cpb.Flags & __PF.Reverse) != 0 : (__cpb.Flags & __PF.Reverse) == 0;
 var __cbase = (__cbackward ? __FF.Reverse : __FF.None) | __FF.Interrupted;
 if (__ctick == 0) __cbase |= __FF.TimelineStart;
 if (__ctick == (ushort)(__ctl->Duration - 1)) __cbase |= __FF.TimelineEnd;
 __rq0 = __req0.For(__ce, __cs);
 __eb0 = __ev0; __eb0.Bind(__ce, __cs);
-for (var __i = 0; __i < __csteps.Length; __i++)
+var __end = __csb.StepStart[__cg + 1];
+for (var __i = __cstart; __i < __end; __i++)
 {
-var __entry = __csteps[__i];
+var __entry = __csb.Steps[__i];
 switch (__entry.Consumer)
 {
 case 0:
@@ -319,7 +322,9 @@ if (__tl is null || __tl->Duration == 0) continue;
 var __tick = __pb->Tick;
 var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
 if (__stage is null) continue;
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+var __sb = Tl.SystemDispatch.Bind(world, SystemKey, PairKeys);
+var __g = __sb.StageBase[__tl->Id - 1] + (int)(__stage - __tl->Stages);
+var __start = __sb.StepStart[__g];
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
 var __base = __backward ? __FF.Reverse : __FF.None;
 if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
@@ -327,9 +332,10 @@ if (__tick == 0) __base |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
 __rq0 = __req0.For(__e, __s);
 __eb0 = __ev0; __eb0.Bind(__e, __s);
-for (var __i = 0; __i < __steps.Length; __i++)
+var __end = __sb.StepStart[__g + 1];
+for (var __i = __start; __i < __end; __i++)
 {
-var __entry = __steps[__i];
+var __entry = __sb.Steps[__i];
 switch (__entry.Consumer)
 {
 case 0:
@@ -520,7 +526,9 @@ var __tick = __pb->Tick;
 var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
 if (__stage != null)
 {
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+var __sb = Tl.SystemDispatch.Bind(world, SystemKey, PairKeys);
+var __g = __sb.StageBase[__tl->Id - 1] + (int)(__stage - __tl->Stages);
+var __start = __sb.StepStart[__g];
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
 var __base = __backward ? __FF.Reverse : __FF.None;
 if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
@@ -528,9 +536,10 @@ if (__tick == 0) __base |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
 __rq0 = __req0.For(__e, __s);
 __eb0 = __ev0; __eb0.Bind(__e, __s);
-for (var __i = 0; __i < __steps.Length; __i++)
+var __end = __sb.StepStart[__g + 1];
+for (var __i = __start; __i < __end; __i++)
 {
-var __entry = __steps[__i];
+var __entry = __sb.Steps[__i];
 switch (__entry.Consumer)
 {
 case 0:
@@ -735,15 +744,18 @@ if (__ctl is null || __ctl->Duration == 0) continue;
 var __ctick = __cpb.Tick < __ctl->Duration ? __cpb.Tick : (ushort)(__ctl->Duration - 1);
 var __cstage = Tl.LibraryViewReader.StageAt(__ctl, __ctick);
 if (__cstage is null) continue;
-var __csteps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __ctl->Id, (int)(__cstage - __ctl->Stages), PairKeys);
+var __csb = Tl.SystemDispatch.Bind(world, SystemKey, PairKeys);
+var __cg = __csb.StageBase[__ctl->Id - 1] + (int)(__cstage - __ctl->Stages);
+var __cstart = __csb.StepStart[__cg];
 var __cbackward = forward ? (__cpb.Flags & __PF.Reverse) != 0 : (__cpb.Flags & __PF.Reverse) == 0;
 var __cbase = (__cbackward ? __FF.Reverse : __FF.None) | __FF.Interrupted;
 if (__ctick == 0) __cbase |= __FF.TimelineStart;
 if (__ctick == (ushort)(__ctl->Duration - 1)) __cbase |= __FF.TimelineEnd;
 __eb0 = __ev0; __eb0.Bind(__ce, __cs);
-for (var __i = 0; __i < __csteps.Length; __i++)
+var __end = __csb.StepStart[__cg + 1];
+for (var __i = __cstart; __i < __end; __i++)
 {
-var __entry = __csteps[__i];
+var __entry = __csb.Steps[__i];
 switch (__entry.Consumer)
 {
 case 0:
@@ -796,16 +808,19 @@ if (__tl is null || __tl->Duration == 0) continue;
 var __tick = __pb->Tick;
 var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
 if (__stage is null) continue;
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+var __sb = Tl.SystemDispatch.Bind(world, SystemKey, PairKeys);
+var __g = __sb.StageBase[__tl->Id - 1] + (int)(__stage - __tl->Stages);
+var __start = __sb.StepStart[__g];
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
 var __base = __backward ? __FF.Reverse : __FF.None;
 if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
 if (__tick == 0) __base |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
 __eb0 = __ev0; __eb0.Bind(__e, __s);
-for (var __i = 0; __i < __steps.Length; __i++)
+var __end = __sb.StepStart[__g + 1];
+for (var __i = __start; __i < __end; __i++)
 {
-var __entry = __steps[__i];
+var __entry = __sb.Steps[__i];
 switch (__entry.Consumer)
 {
 case 0:
@@ -866,16 +881,19 @@ var __tick = __pb->Tick;
 var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
 if (__stage != null)
 {
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+var __sb = Tl.SystemDispatch.Bind(world, SystemKey, PairKeys);
+var __g = __sb.StageBase[__tl->Id - 1] + (int)(__stage - __tl->Stages);
+var __start = __sb.StepStart[__g];
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
 var __base = __backward ? __FF.Reverse : __FF.None;
 if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
 if (__tick == 0) __base |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
 __eb0 = __ev0; __eb0.Bind(__e, __s);
-for (var __i = 0; __i < __steps.Length; __i++)
+var __end = __sb.StepStart[__g + 1];
+for (var __i = __start; __i < __end; __i++)
 {
-var __entry = __steps[__i];
+var __entry = __sb.Steps[__i];
 switch (__entry.Consumer)
 {
 case 0:
