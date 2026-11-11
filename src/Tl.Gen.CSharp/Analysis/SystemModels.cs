@@ -4,10 +4,12 @@ using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp.Analysis;
 
-internal enum SystemModelKind : byte { System, Kind, State, Feeder, Consumer, Module }
+internal enum SystemModelKind : byte { System, Kind, State, Consumer, Feeder, Module }
 
 internal sealed record SystemTypeModel(string TypeName, SystemModelKind Kind, string AssemblyName, string Fingerprint, SyntaxNode? Site)
 {
+    public string Metadata { get; init; } = "";
+    public int Ordinal { get; init; }
     public SystemDecl? System { get; init; }
     public KindDecl? KindDecl { get; init; }
     public SystemConsumer? Consumer { get; init; }
@@ -27,7 +29,8 @@ internal static class SystemDigest
     internal static string Of(SystemTypeModel m)
     {
         var b = new StringBuilder();
-        Add(b, m.TypeName); Add(b, m.AssemblyName);
+        Add(b, m.TypeName); Add(b, m.AssemblyName); Add(b, m.Metadata); Add(b, m.Ordinal.ToString());
+        if (m.Site is not null) Add(b, OfDiag(Symbols.Site(m.Site)));
         if (m.System is not null) Add(b, OfSystem(m.System));
         if (m.KindDecl is not null) Add(b, OfKind(m.KindDecl));
         if (m.Consumer is not null) Add(b, OfConsumer(m.Consumer));

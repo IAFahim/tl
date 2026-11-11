@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -9,7 +10,9 @@ namespace Tl.Gen.CSharp.Analysis;
 internal static partial class SystemReader
 {
     static SystemTypeModel Mk(INamedTypeSymbol type, SyntaxNode node, Compilation? compilation, SystemModelKind kind)
-        => new(Symbols.Name(type), kind, compilation?.AssemblyName ?? "", "", node);
+        => new(Symbols.Name(type), kind, compilation?.AssemblyName ?? "", "", node) { Metadata = LookupName(type) };
+    static string LookupName(INamedTypeSymbol type)
+        => type.ContainingType is { } outer ? LookupName(outer) + "+" + type.MetadataName : type.ContainingNamespace is { IsGlobalNamespace: false } space ? space.ToDisplayString() + "." + type.MetadataName : type.MetadataName;
     static SystemTypeModel Stamp(SystemTypeModel model) => model with { Fingerprint = SystemDigest.Of(model) };
 
     internal static SystemTypeModel? KindOf(GeneratorAttributeSyntaxContext context, CancellationToken cancellation)
@@ -87,7 +90,8 @@ internal static partial class SystemReader
                 kindForeign = NewStyle.IsForeignKind(fed, compilation.Assembly);
             }
         facts.Insert(0, kindType + "\0" + (kindForeign ? "1" : "0"));
-        return Stamp(Mk(type, node, compilation, SystemModelKind.Feeder)) with { Diagnostics = diagnostics, Feeders = feeders, Foreign = foreignKinds, Facts = facts };
+        var ordinal = Array.IndexOf(type.GetMembers().ToArray(), method);
+        return Stamp(Mk(type, node, compilation, SystemModelKind.Feeder) with { Ordinal = ordinal }) with { Diagnostics = diagnostics, Feeders = feeders, Foreign = foreignKinds, Facts = facts };
     }
 
     internal static SystemTypeModel? TrackOf(GeneratorSyntaxContext context, CancellationToken cancellation)
@@ -115,31 +119,51 @@ internal static partial class SystemReader
         return ReadConsumer(type, node, contracts, KindContractsOf(compilation), compilation, diagnostics, foreign, collectFeeders: false);
     }
 
+    internal static ImmutableArray<SystemTypeModel> Order(ImmutableArray<SystemTypeModel?> models, Compilation compilation, CancellationToken cancellation)
+    {
+        var trees = new Dictionary<SyntaxTree, int>();
+        foreach (var tree in compilation.SyntaxTrees) trees[tree] = trees.Count;
+        var keyed = new List<(SystemTypeModel Model, long Key)>();
+        foreach (var model in models)
+        {
+            if (model is null) continue;
+            cancellation.ThrowIfCancellationRequested();
+            var key = long.MaxValue;
+            if (model.Metadata.Length > 0 && compilation.Assembly.GetTypeByMetadataName(model.Metadata) is { } type)
+                foreach (var reference in type.DeclaringSyntaxReferences)
+                    if (trees.TryGetValue(reference.SyntaxTree, out var index)) key = Math.Min(key, ((long)index << 32) | (uint)reference.Span.Start);
+            keyed.Add((model, key));
+        }
+        return keyed.OrderBy(static pair => pair.Key).ThenBy(static pair => pair.Model.TypeName, StringComparer.Ordinal)
+            .ThenBy(static pair => (byte)pair.Model.Kind).ThenBy(static pair => pair.Model.Ordinal).Select(static pair => pair.Model).ToImmutableArray();
+    }
+
     internal static (IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics, string AutoSource) AssignModels(IReadOnlyList<SystemTypeModel> models, string id)
     {
         var diagnostics = new List<DeclarationDiagnostic>();
-        foreach (var model in models) diagnostics.AddRange(model.Diagnostics ?? []);
         var (auto, members, source) = AutoOf(models, id);
         var systems = new List<SystemDecl>(); var consumers = new List<SystemConsumer>(); var kinds = new List<KindDecl>();
         var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal); var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
-        var feeders = new Dictionary<string, List<FeederDecl>>(StringComparer.Ordinal);
-        if (auto is not null) systems.Add(auto);
+        var feeders = new Dictionary<string, List<FeederDecl>>(StringComparer.Ordinal); var foreign = new HashSet<string>(StringComparer.Ordinal);
         foreach (var model in models)
+        {
+            if (model.Kind != SystemModelKind.Feeder || !feeders.ContainsKey(model.TypeName)) diagnostics.AddRange(model.Diagnostics ?? []);
             switch (model.Kind)
             {
                 case SystemModelKind.System when model.System is not null: systems.Add(model.System); break;
                 case SystemModelKind.Kind when model.KindDecl is not null:
                     kinds.Add(model.KindDecl); if (model.Site is not null) kindSites[model.KindDecl.TypeName] = model.Site; break;
-                case SystemModelKind.Feeder when model.Feeders is not null:
-                    if (!feeders.TryGetValue(model.TypeName, out var owned)) { owned = []; feeders[model.TypeName] = owned; }
-                    owned.AddRange(model.Feeders);
-                    if (model.Foreign is not null) foreach (var known in model.Foreign) { kinds.Add(known); if (model.Site is not null) kindSites[known.TypeName] = model.Site; }
+                case SystemModelKind.Feeder when model.Feeders is not null && !feeders.ContainsKey(model.TypeName):
+                    feeders[model.TypeName] = [.. model.Feeders];
+                    if (model.Foreign is not null) foreach (var known in model.Foreign) if (foreign.Add(known.TypeName)) { kinds.Add(known); if (model.Site is not null) kindSites[known.TypeName] = model.Site; }
                     break;
                 case SystemModelKind.Consumer when model.Consumer is not null:
                     var consumer = model.Consumer;
                     if (auto is not null && members.Contains(consumer.ConsumerTypeName)) consumer = consumer with { MemberSystems = [auto.TypeName] };
                     consumers.Add(consumer); if (model.Site is not null) sites[consumer.ConsumerTypeName] = model.Site; break;
             }
+        }
+        if (auto is not null) systems.Add(auto);
         consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
         var withFeeders = consumers.Select(consumer => feeders.TryGetValue(consumer.ConsumerTypeName, out var owned) ? consumer with { Feeders = owned } : consumer).ToList();
         var assignments = Assign(systems, withFeeders, sites, diagnostics);

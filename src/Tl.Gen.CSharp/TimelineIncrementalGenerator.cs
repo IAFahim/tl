@@ -55,7 +55,11 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                 return a.Item1.AddRange(a.Item2).AddRange(b).AddRange(c).AddRange(d).AddRange(e).AddRange(tuple.Right);
             })
             .WithTrackingName("Tl.Models");
-        var systemsOutput = models.Select(static (models, cancellation) => AnalyzeModels(models, cancellation))
+        var ordered = models.Combine(context.CompilationProvider)
+            .Select(static (pair, cancellation) => SystemReader.Order(pair.Left, pair.Right, cancellation))
+            .WithComparer(ModelsComparer.Instance)
+            .WithTrackingName("Tl.Ordered");
+        var systemsOutput = ordered.Select(static (models, cancellation) => AnalyzeModels(models, cancellation))
             .WithComparer(AnalysisComparer.Instance)
             .WithTrackingName("Tl.Systems");
         context.RegisterSourceOutput(systemsOutput, static (production, result) => Produce(production, result));
@@ -70,12 +74,10 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
     };
     private static readonly Analysis Empty = new([], [], "");
 
-    private static Analysis AnalyzeModels(ImmutableArray<SystemTypeModel?> models, CancellationToken cancellation)
+    private static Analysis AnalyzeModels(ImmutableArray<SystemTypeModel> ordered, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        var ordered = models.Where(static model => model is not null).Select(static model => model!)
-            .OrderBy(static model => model.TypeName, StringComparer.Ordinal).ThenBy(static model => (byte)model.Kind).ToList();
-        if (ordered.Count == 0) return Empty;
+        if (ordered.Length == 0) return Empty;
         if (!ordered.Any(static model => model.Kind == SystemModelKind.Kind || model.Kind == SystemModelKind.Consumer && model.Events is not null)) return Empty;
         var assemblyName = ordered[0].AssemblyName;
         var id = string.Concat((assemblyName.Length == 0 ? "Game" : assemblyName).Select(static c => char.IsLetterOrDigit(c) ? c : '_'));
@@ -124,6 +126,13 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         IReadOnlyList<DeclarationDiagnostic> Diagnostics,
         IReadOnlyList<CompileArtifact> Artifacts,
         string Fingerprint);
+
+    internal sealed class ModelsComparer : IEqualityComparer<ImmutableArray<SystemTypeModel>>
+    {
+        internal static readonly ModelsComparer Instance = new();
+        public bool Equals(ImmutableArray<SystemTypeModel> left, ImmutableArray<SystemTypeModel> right) => left.SequenceEqual(right);
+        public int GetHashCode(ImmutableArray<SystemTypeModel> value) => value.Length;
+    }
 
     internal sealed class AnalysisComparer : IEqualityComparer<Analysis>
     {
