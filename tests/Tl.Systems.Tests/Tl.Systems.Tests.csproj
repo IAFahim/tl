@@ -37,6 +37,8 @@
     <EmbeddedResource Include="ForceContract\*.cs" />
     <Compile Remove="TwoAssembly\**" />
     <EmbeddedResource Include="TwoAssembly\*.cs" />
+    <Compile Remove="Parity\**" />
+    <EmbeddedResource Include="Parity\*.cs" />
     <EmbeddedResource Include="Generated\TlSystemsKinds.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsIdle.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsSnapshot.g.cs" />
