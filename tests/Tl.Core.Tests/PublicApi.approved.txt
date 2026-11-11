@@ -69,6 +69,7 @@ type Tl.GlideKernel
   Method Void RunScalar(UInt64*, Int32, UInt64)
 type Tl.Horizon
   Field Int32 Max
+  Method Byte OfKindRun(Tl.Playback*, Int32, Tl.KindTables ByRef, Tl.KindCalm ByRef, UInt64, Int32)
   Method Byte OfRun(Tl.Playback*, Int32, Tl.LibraryTimeline*, Int32, UInt64, Int32)
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
@@ -150,6 +151,12 @@ type Tl.Inspection+TablesSnapshot
   Property InternSnapshot Intern
   Property PairSnapshot Pair
   Method System.String ToString()
+type Tl.KindCalm
+  Field Byte* Backward
+  Method Tl.KindCalm Build(Tl.KindTables ByRef, Byte*, Byte*, Int32*)
+  Field Byte* Forward
+  Method Int32 Length(Tl.KindTables ByRef)
+  Field Int32* Start
 type Tl.KindCapacity
   Field Int32 Capacity
   Field Int32 EntryBytes
