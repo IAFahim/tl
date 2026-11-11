@@ -64,7 +64,9 @@ public sealed class KindEmissionTests
 
     static string[] Codes(string body)
     {
-        var diagnostics = SystemReader.Read(Compile(Prelude + body + "\n}\n")).Diagnostics;
+        var compilation = Compile(Prelude + body + "\n}\n");
+        IncrementalParityTests.AssertParity(compilation);
+        var diagnostics = SystemReader.Read(compilation).Diagnostics;
         return diagnostics.Select(static d => d.Code + ": " + d.Message).ToArray();
     }
 

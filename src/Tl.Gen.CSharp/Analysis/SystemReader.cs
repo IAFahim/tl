@@ -203,6 +203,7 @@ internal static partial class SystemReader
 
     static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, bool collectFeeders = true)
     {
+        if (collectFeeders && !TypeAnalyzer.IsNewStyle(type)) return null;
         var name = Symbols.Name(type);
         var local = new List<DeclarationDiagnostic>();
         void Err(string code, string message) => Symbols.Error(local, site, code, message);

@@ -103,11 +103,10 @@ internal static partial class SystemReader
         if (type.AllInterfaces.Any(static i => i.OriginalDefinition is { MetadataName: "ITlModule", ContainingNamespace: { Name: "Tl" } }))
             return Stamp(Mk(type, node, compilation, SystemModelKind.Module));
         var consumer = ReadConsumerFor(compilation, type, node);
-        if (consumer is null) return null;
-        var contracts = Contracts(compilation)!;
         var isTlTrack = type.AllInterfaces.Any(static i => i.OriginalDefinition is { MetadataName: "ITlTrack`1", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } });
+        if (consumer is null && !isTlTrack || Contracts(compilation) is not { } contracts) return null;
         var events = isTlTrack ? NewStyle.EventElements(type, contracts.Events) : null;
-        return Stamp(Mk(type, node, compilation, SystemModelKind.Consumer)) with { Consumer = consumer, Diagnostics = consumer.Diagnostics, Events = events };
+        return Stamp(Mk(type, node, compilation, SystemModelKind.Consumer)) with { Consumer = consumer, Diagnostics = consumer?.Diagnostics, Events = events };
     }
 
     static SystemConsumer? ReadConsumerFor(CSharpCompilation compilation, INamedTypeSymbol type, SyntaxNode node)
@@ -165,7 +164,7 @@ internal static partial class SystemReader
         }
         if (auto is not null) systems.Add(auto);
         consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
-        var withFeeders = consumers.Select(consumer => feeders.TryGetValue(consumer.ConsumerTypeName, out var owned) ? consumer with { Feeders = owned } : consumer).ToList();
+        var withFeeders = consumers.Select(consumer => feeders.TryGetValue(consumer.ConsumerTypeName, out var owned) ? consumer with { Feeders = owned, Methods = [.. consumer.Methods, .. owned.Select(static feeder => feeder.Method)] } : consumer).ToList();
         var assignments = Assign(systems, withFeeders, sites, diagnostics);
         var result = kinds.Count == 0 && !withFeeders.Any(static c => c.Feeders.Count > 0) ? assignments : AssignKinds(systems, assignments, kinds, kindSites, sites, diagnostics);
         return (result, diagnostics, source);
