@@ -157,6 +157,7 @@ internal static class NewStyle
                         continue;
                     if (attribute.ConstructorArguments.Length != 1 || attribute.ConstructorArguments[0].Value is not INamedTypeSymbol fed)
                         continue;
+                    if (TryDerivedMarkerLocal(fed, out var derivedVal)) { members.Add(consumer.ToDisplayString(Full)); AddColumn(columns, derivedVal, true); foreach (var parameter in method.Parameters) if (isState(parameter.Type)) AddColumn(columns, parameter.Type.ToDisplayString(Full), parameter.RefKind == RefKind.Ref); continue; }
                     var foreign = IsForeignKind(fed, compilation.Assembly);
                     if (!foreign && !autoKinds.Contains(fed.ToDisplayString(Full)))
                         continue;
@@ -246,6 +247,19 @@ internal static class NewStyle
             if (IsKindAttribute(attribute.AttributeClass))
                 return true;
         return false;
+    }
+
+    static bool TryDerivedMarkerLocal(INamedTypeSymbol fed, out string derivedVal)
+    {
+        derivedVal = "";
+        if (!fed.IsGenericType || fed.TypeArguments.Length != 1) return false;
+        var def = fed.OriginalDefinition;
+        if (def.ContainingNamespace?.ToDisplayString() != "Tl") return false;
+        if (def.MetadataName is not ("Sum`1" or "Set`1" or "While`1")) return false;
+        var value = fed.TypeArguments[0];
+        if (value is not { TypeKind: TypeKind.Struct, IsUnmanagedType: true } || (value is INamedTypeSymbol named && named.IsGenericType)) return false;
+        derivedVal = value.ToDisplayString(Full);
+        return true;
     }
 
     static bool DirectApply(INamedTypeSymbol kind, Func<ITypeSymbol, bool> isState, ISet<string> systemColumns, out IMethodSymbol? apply)
