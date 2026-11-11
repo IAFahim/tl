@@ -1,0 +1,41 @@
+# Opt-in kind-free playback glide
+
+This implements S1 of SOLVE.Plan: the kind-free `TimelineWorld.Advance` path can cache a proven number of ordinary tick steps. It does not port Horizon to the kind tick, change the Unity scheduler, add SIMD dispatch, or defer observable ticks.
+
+## API and ownership
+
+`new PlaybackTable(entityCapacity, slotsPerEntity, horizonLimit)` opts in with a limit from 0 to255. The existing two-argument constructor uses0. `HorizonLimit` reports the table's remaining eligibility; obtaining its mutable public `View` permanently sets it to0. Retained playback pointers can then be edited under the existing rules without invalidating a hidden cache.
+
+Public `TimelineWorld.View` also exposes mutable library pointers. Obtaining it permanently disables glide for that world. Borrowed `AdoptView` libraries are conservatively ineligible; owned byte-loaded libraries are eligible until a mutable view escapes. Use value-returning `Find`, `IsPlaying` and `CountOf` for inspection when retaining eligibility. The optimization is intentionally conservative about pointer aliases.
+
+The public additions are the three-argument constructor, `PlaybackTable.HorizonLimit`, and the pure `SlotWord`, `Horizon` and `GlideKernel` helpers. Existing signatures remain available. The public API approval records additions only. This local candidate retains the current4.0 preview package version; it does not authorize a release or publish.
+
+`SlotWord.Glide` and `GlideKernel.RunScalar` are unsafe primitives. Call them only on live, caller-owned little-endian8-byte playback storage, under a previously established positive `Horizon.OfRun`, with the same direction, unchanged library and no intervening mutation. They deliberately do not check timeline boundaries. A zero horizon requires the existing motion rules. Counts exclude sample copies and dead inline tails. Table/world mutations and disposal require exclusive ownership; they must not overlap advancement or borrowed pointer use. No slot pointer survives a glide call internally.
+
+## Invariant
+
+An ordinary slot has a nonzero timeline, Rate0 and no flags other than Reverse. Phase may contain any byte because `Step` ignores it at Rate0. An inert slot has Paused or Ended without StartPending, Stopping, StopAged, Began or ReenterPending. It is a fixed point of `Step`, including at nonzero rates because `Moves` prevents `Cross`.
+
+For a valid timeline with positive duration at most65535 and a tick below duration, the forward calm is `Duration-1-Tick`; backward calm is `Tick`. The run horizon is the positive minimum over ordinary slots, capped by the configured limit. Empty and inert slots do not reduce it. Any other live slot, invalid bound, or absence of an ordinary slot yields0.
+
+For every `k <= horizon`, integer glide equals `Step` repeated `k` times, byte for byte. The horizon excludes the edge step. Its positive run contains a slot that stays moving, so the playing bit cannot become false during glide. At zero, the original `AdvanceEntity` executes unchanged, and the new horizon is computed afterward.
+
+The cache keys a unique host world identity, library generation and direction. Identities are allocated lazily with an atomic counter only when an eligible world first glides; adopting/reloading invalidates the identity. Switching through an ineligible world forgets the cache key. Requests invalidate the row before mutation, including exceptional exits; reset, rebind and kind-store attachment invalidate before changing playback. Direction changes clear the byte column once before processing.
+
+The dense64 shortcut requires all64 playing bits, no spilled rows, full live counts in every row and64 positive horizons. It checks every byte before subtracting packed ones, so no subtraction can borrow between bytes. Full counts are necessary: a legal spill/unspill sequence can leave nonzero dead inline slots. Sparse/partial rows only touch `CountOf(entity)` slots. Checked visit accounting includes both paths.
+
+## Memory and execution
+
+Opt-in storage is one64-byte aligned native header and one byte per entity, allocated once and released with the table. The managed table gains one native-owner pointer; no new managed reference or per-tick object is retained. Default tables allocate no native cache. A mutable-view escape disables the cache but retains its allocation until disposal; `NativeBytes` includes it.
+
+At4M x4, logical playback storage including both bitsets grows from145,000,000 bytes to149,000,064 bytes. This is +1 byte/entity plus the fixed header, not a RAM saving. Allocator overhead/RSS is measured separately. The overall setup/memory replacement gate is not implied by S1.
+
+The scalar kernel uses integer arithmetic only, with unchecked word wrapping after horizon proof. It has no intrinsics, allocation, recursion, exceptions or mutable static data. It targets both netstandard2.1 and net10.0; host cache allocation and lazy identity operations are outside that kernel. No claim about Unity's integrated tick speed or wide-vector code follows from this step.
+
+## Verification and reproduction
+
+New tests cover the complete flag byte across representative rates/phases, both directions and boundary shapes; mixed ordinary/inert/empty runs;255-step windows; packed-byte subtraction; dense/partial words; dead unspill tails; retained playback/library aliases; borrowed libraries; equal-generation world switches; reload; exceptional request exits;10,000 deterministic request streams at limits0/1/2/7/255; and process-wide warm allocation across boundaries. They inspect trusted internal storage while comparing, so public view deoptimization cannot silently bypass the tested fast path. Existing test bodies and pinned hash expectations are unchanged.
+
+Run the Core tests in Release, with `TlCoreTfm=netstandard2.1`, and with `TlChecked=true`. Full suite, approval, source budget, package-only consumer, native AOT, ISA-disabled measurements and independent verification receipts accompany the local handoff. Treat any missing receipt as unverified.
+
+The benchmark under `benchmarks/Glide` measures the existing kind-free `Advance` path with the same library and source on baseline/candidate builds. It validates state after timing and reports all rounds, allocation, setup and memory. S1's scalar kill rule is below1.5x at4M x4 and duration at least60; it does not replace the full Unity2x gate.

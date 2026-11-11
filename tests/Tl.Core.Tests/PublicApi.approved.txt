@@ -65,6 +65,11 @@ type Tl.Frame`2
   Field TTrack Track
   Property UInt16 TrackIndex
   Property UInt16 WithinClip
+type Tl.GlideKernel
+  Method Void RunScalar(UInt64*, Int32, UInt64)
+type Tl.Horizon
+  Field Int32 Max
+  Method Byte OfRun(Tl.Playback*, Int32, Tl.LibraryTimeline*, Int32, UInt64, Int32)
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
@@ -476,6 +481,7 @@ type Tl.PlaybackTable
   Method Void Dispose()
   Property Int32 EntityCapacity
   Method Boolean Find(Int32, Byte, Tl.Playback ByRef)
+  Property Int32 HorizonLimit
   Method Boolean IsPlaying(Int32, UInt16)
   Property Tl.KindStore Kinds
   Field Int32 MaxSlots
@@ -565,6 +571,19 @@ type Tl.Requests
   Method Void StopAll()
   Method Void StopChannel(Byte)
 type Tl.Set`1
+type Tl.SlotWord
+  Method UInt64 Glide(UInt64, UInt64)
+  Field UInt64 InertAnyMask
+  Field UInt64 InertNoneMask
+  Method Boolean IsInert(UInt64)
+  Field UInt64 MinusOneTick
+  Method Boolean MovesForward(UInt64, UInt64)
+  Field UInt64 NotPlainMask
+  Field UInt64 OneTick
+  Method UInt64 PlainMask(UInt64)
+  Field UInt64 ReverseBit
+  Field UInt64 TimelineMask
+  Method UInt64 WorldReverse(Boolean)
 type Tl.Sum`1
 type Tl.SystemDispatch
   Method Void FastFoldAdd(Single*, UInt16*, Single*, Int32)

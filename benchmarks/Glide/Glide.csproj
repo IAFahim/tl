@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Tl.Bake.Bench</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CoreProject Condition="'$(CoreProject)' == ''">../../src/Tl.Core/Tl.Core.csproj</CoreProject>
+    <CoreTfm Condition="'$(CoreTfm)' == ''">netstandard2.1</CoreTfm>
+    <GlideBuild Condition="'$(GlideBuild)' == ''">true</GlideBuild>
+    <DefineConstants Condition="'$(GlideBuild)' == 'true'">$(DefineConstants);GLIDE_BUILD</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(CoreProject)" SetTargetFramework="TargetFramework=$(CoreTfm)" />
+    <Compile Include="../../tests/Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" />
+  </ItemGroup>
+</Project>
