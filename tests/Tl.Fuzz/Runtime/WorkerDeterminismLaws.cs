@@ -265,7 +265,7 @@ public sealed unsafe class WorkerDeterminismLaws
     {
         FuzzRunner.Run("T2-WorkerFaults", 0x54320002UL, 30, (rng, _) =>
         {
-            var workerCount = 2 + rng.NextInt(31);
+            var workerCount = 1 + rng.NextInt(32);
             var chunkCount = 1 + rng.NextInt(64);
             var ends = new int[chunkCount];
             var firsts = new int[chunkCount];

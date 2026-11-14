@@ -339,6 +339,11 @@ public sealed class KindLaws
             using var ksg = new KindStore(wg, pg);
             using var ksu = new KindStore(wu, pu);
 
+            var gpA = ksg.Pulses<int>(typeof(GrpSpanKindA).FullName!);
+            var gpB = ksg.Pulses<int>(typeof(GrpSpanKindB).FullName!);
+            var upA = ksu.Pulses<int>(typeof(UngrpSpanKindA).FullName!);
+            var upB = ksu.Pulses<int>(typeof(UngrpSpanKindB).FullName!);
+
             var gA = new SpanGrpOutA[entities];
             var uA = new SpanUngrpOutA[entities];
             var gB = new SpanGrpOutB[entities];
@@ -350,10 +355,17 @@ public sealed class KindLaws
                 for (var r = 0; r < reqs; r++)
                 {
                     var op = LibraryGen.NextRequest(ref rng, entities, timelines, channels, gLib.Durations);
-                    if (op.Op == RequestActionKind.SetSpeed || op.Op == RequestActionKind.SetChannelSpeed)
-                        continue;
                     LibraryGen.ApplyOp(pg, in op);
                     LibraryGen.ApplyOp(pu, in op);
+                }
+
+                var pulses = rng.NextInt(entities * 2);
+                for (var g = 0; g < pulses; g++)
+                {
+                    var e = rng.NextInt(entities);
+                    var v = rng.NextInt(41) - 20;
+                    if (rng.NextBool()) { gpA.To(e, v); upA.To(e, v); }
+                    else { gpB.To(e, v); upB.To(e, v); }
                 }
 
                 var forward = step % 6 != 4;

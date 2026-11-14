@@ -637,28 +637,28 @@ public struct SpanUngrpTrackA : IBlend<SpanUngrpClipA> { public void Blend(in Sp
 public struct SpanUngrpClipB { public int Delta; }
 public struct SpanUngrpTrackB : IBlend<SpanUngrpClipB> { public void Blend(in SpanUngrpClipB a, in SpanUngrpClipB b, float t, out SpanUngrpClipB r) => r = a; }
 
-[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine, Group = "FuzzSpanGrp")]
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine, Group = "FuzzSpanGrp")]
 public struct GrpSpanKindA
 {
     public static void Combine(ref int total, in int next) => total += next;
     public static void Apply(in int total, ref SpanGrpOutA col) => col.V += total;
 }
 
-[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine, Group = "FuzzSpanGrp")]
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine, Group = "FuzzSpanGrp")]
 public struct GrpSpanKindB
 {
     public static void Combine(ref int total, in int next) => total = next;
     public static void Apply(in int total, ref SpanGrpOutB col) => col.V = total;
 }
 
-[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine)]
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine)]
 public struct UngrpSpanKindA
 {
     public static void Combine(ref int total, in int next) => total += next;
     public static void Apply(in int total, ref SpanUngrpOutA col) => col.V += total;
 }
 
-[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine)]
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine)]
 public struct UngrpSpanKindB
 {
     public static void Combine(ref int total, in int next) => total = next;

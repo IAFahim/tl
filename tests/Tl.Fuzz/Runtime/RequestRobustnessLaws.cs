@@ -225,6 +225,63 @@ public sealed unsafe class RequestRobustnessLaws
     }
 
     [Fact]
+    public void RejectedBatch_LeavesStateUntouchedAndNextBatchesApply()
+    {
+        FuzzRunner.Run("T5-RejectedBatch", 0x54350005UL, 30, (rng, _) =>
+        {
+            var entities = 2 + rng.NextInt(16);
+            var timelines = 2 + rng.NextInt(5);
+            var channels = 1 + rng.NextInt(3);
+            var lib = LibraryGen.BuildPlainLibrary(ref rng, timelines, channels, 60, false, true, false);
+            var kinds = rng.NextBool();
+            var kindLib = kinds ? LibraryGen.BuildKindLibrary(ref rng, timelines, channels, 60, true, true, false, true) : lib;
+            using var wA = new TimelineWorld(kindLib.Bytes);
+            using var wB = new TimelineWorld(kindLib.Bytes);
+            using var pA = new PlaybackTable(entities, 4, rng.NextBool() ? 0 : 1 + rng.NextInt(255));
+            using var pB = new PlaybackTable(entities, 4);
+            using var kA = kinds ? new KindStore(wA, pA) : null;
+            using var kB = kinds ? new KindStore(wB, pB) : null;
+            for (var step = 0; step < 40; step++)
+            {
+                if (rng.NextInt(3) == 0)
+                {
+                    var before = rng.NextInt(6);
+                    for (var r = 0; r < before; r++) LibraryGen.ApplyOp(pA, LibraryGen.NextRequest(ref rng, entities, timelines, channels, kindLib.Durations));
+                    if (rng.NextBool()) pA.Start(entities + rng.NextInt(8), 1);
+                    else pA.Start(rng.NextInt(entities), (ushort)(timelines + 1 + rng.NextInt(50)));
+                    var after = rng.NextInt(6);
+                    for (var r = 0; r < after; r++) LibraryGen.ApplyOp(pA, LibraryGen.NextRequest(ref rng, entities, timelines, channels, kindLib.Durations));
+                    Assert.ThrowsAny<ArgumentException>(() => wA.ApplyRequests(pA));
+                    var err = FuzzRunner.ComparePlaybacks(pA, pB);
+                    Assert.True(err == null, $"step {step} after rejected batch: {err}");
+                }
+                var reqs = rng.NextInt(entities * 2);
+                for (var r = 0; r < reqs; r++)
+                {
+                    var op = LibraryGen.NextRequest(ref rng, entities, timelines, channels, kindLib.Durations);
+                    LibraryGen.ApplyOp(pA, in op);
+                    LibraryGen.ApplyOp(pB, in op);
+                }
+                var forward = step % 7 != 5;
+                if (kinds)
+                {
+                    wA.Tick(pA, forward);
+                    wB.Tick(pB, forward);
+                }
+                else
+                {
+                    wA.ApplyRequests(pA);
+                    wB.ApplyRequests(pB);
+                    wA.Advance(pA, forward);
+                    wB.Advance(pB, forward);
+                }
+                var diff = FuzzRunner.ComparePlaybacks(pA, pB);
+                Assert.True(diff == null, $"step {step}: {diff}");
+            }
+        });
+    }
+
+    [Fact]
     public void RequestFlood_WarmPathAllocatesZeroBytesAfterWarmup()
     {
         FuzzRunner.Run("T5-ZeroWarmAlloc", 0x54350002UL, 6, (rng, _) =>
