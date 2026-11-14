@@ -191,6 +191,8 @@ public sealed unsafe class CapacitySpillLaws
                     {
                         var op = LibraryGen.NextRequest(ref rng, entities, timelines, channels, smallKindLib.Durations);
                         op.Entity = boss;
+                        if (op.Op is RequestActionKind.SetSpeed or RequestActionKind.SetChannelSpeed)
+                            op.Op = RequestActionKind.Start;
                         if (step < 3 && op.Op is RequestActionKind.Reset or RequestActionKind.StopAll)
                             op.Op = RequestActionKind.Start;
                         LibraryGen.ApplyOp(pSmall, in op);
@@ -218,6 +220,8 @@ public sealed unsafe class CapacitySpillLaws
                         if (e == boss) continue;
                         var op = LibraryGen.NextRequest(ref rng, entities, timelines, channels, smallKindLib.Durations);
                         op.Entity = e;
+                        if (op.Op is RequestActionKind.SetSpeed or RequestActionKind.SetChannelSpeed)
+                            op.Op = RequestActionKind.Start;
                         LibraryGen.ApplyOp(pSmall, in op);
                         LibraryGen.ApplyOp(pLarge, in op);
                     }

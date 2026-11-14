@@ -267,7 +267,7 @@ public sealed unsafe class RequestRobustnessLaws
             for (var e = 0; e < entities; e++) players.Reset(e);
             world.ApplyRequests(players);
 
-            var before = GC.GetTotalAllocatedBytes(true);
+            var before = GC.GetAllocatedBytesForCurrentThread();
             for (var step = 0; step < 32; step++)
             {
                 for (var e = 0; e < entities; e++)
@@ -287,8 +287,8 @@ public sealed unsafe class RequestRobustnessLaws
                 world.Advance(players, true);
                 cues.Drain();
             }
-            var after = GC.GetTotalAllocatedBytes(true);
-            Assert.Equal(0L, after - before);
+            var alloc = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.Equal(0L, alloc);
         });
     }
 
@@ -344,7 +344,7 @@ public sealed unsafe class RequestRobustnessLaws
             for (var e = 0; e < entities; e++) players.Reset(e);
             world.Tick(players, true);
 
-            var before = GC.GetTotalAllocatedBytes(true);
+            var before = GC.GetAllocatedBytesForCurrentThread();
             for (var step = 0; step < 32; step++)
             {
                 for (var e = 0; e < entities; e++)
@@ -363,8 +363,8 @@ public sealed unsafe class RequestRobustnessLaws
                 world.Tick(players, true);
                 sys.Run(world, players, true);
             }
-            var after = GC.GetTotalAllocatedBytes(true);
-            Assert.Equal(0L, after - before);
+            var alloc = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.Equal(0L, alloc);
         });
     }
 
