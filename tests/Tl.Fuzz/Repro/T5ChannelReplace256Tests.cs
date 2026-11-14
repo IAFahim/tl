@@ -16,11 +16,22 @@ public struct T5ReproTrack : IBlend<T5ReproClip>
         => result = first;
 }
 
+public struct T5ReproCol
+{
+    public int Sum;
+}
+
 [TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine)]
 public struct T5ReproCombineKind
 {
     public static void Combine(ref int total, in int next) => total += next;
-    public static void Apply(in int total, ref int col) => col += total;
+    public static void Apply(in int total, ref T5ReproCol col) => col.Sum += total;
+}
+
+[TimelineSystem]
+public ref partial struct T5ReproSystem
+{
+    public Span<T5ReproCol> Col;
 }
 
 public sealed unsafe class T5ChannelReplace256Tests
