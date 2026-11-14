@@ -65,11 +65,11 @@ public static class LibraryGen
         var names = new string[timelineCount];
         var durations = new uint[timelineCount];
         for (var i = 0; i < timelineCount; i++)
-            names[i] = $"tl_{i + 1}";
+            names[i] = $"tl_{i + 1:D4}";
 
         var channels = new string[channelCount];
         for (var i = 0; i < channelCount; i++)
-            channels[i] = $"ch_{i + 1}";
+            channels[i] = $"ch_{i + 1:D4}";
 
         var manifest = LibraryBake.Manifest(names, channels, 60);
         var typedList = new TypedTimeline[timelineCount];
@@ -161,11 +161,11 @@ public static class LibraryGen
     {
         var names = new string[timelineCount];
         for (var i = 0; i < timelineCount; i++)
-            names[i] = $"ktl_{i + 1}";
+            names[i] = $"ktl_{i + 1:D4}";
 
         var channels = new string[channelCount];
         for (var i = 0; i < channelCount; i++)
-            channels[i] = $"kch_{i + 1}";
+            channels[i] = $"kch_{i + 1:D4}";
 
         var manifest = LibraryBake.Manifest(names, channels, 60);
         var typedList = new TypedTimeline[timelineCount];
@@ -393,7 +393,7 @@ public static class LibraryGen
         }
     }
 
-    static List<(uint Start, uint End)> GenerateTrackSpans(ref FuzzRandom rng, uint duration, bool sparse)
+    public static List<(uint Start, uint End)> GenerateTrackSpans(ref FuzzRandom rng, uint duration, bool sparse)
     {
         var spans = new List<(uint Start, uint End)>();
         if (duration == 0) return spans;

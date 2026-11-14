@@ -621,3 +621,88 @@ public ref partial struct HandDiffSystem
     public Span<HandSetState> Set;
     public Span<HandWhileState> While;
 }
+
+public struct SpanGrpOutA { public int V; }
+public struct SpanGrpOutB { public int V; }
+public struct SpanUngrpOutA { public int V; }
+public struct SpanUngrpOutB { public int V; }
+
+public struct SpanGrpClipA { public int Delta; }
+public struct SpanGrpTrackA : IBlend<SpanGrpClipA> { public void Blend(in SpanGrpClipA a, in SpanGrpClipA b, float t, out SpanGrpClipA r) => r = a; }
+public struct SpanGrpClipB { public int Delta; }
+public struct SpanGrpTrackB : IBlend<SpanGrpClipB> { public void Blend(in SpanGrpClipB a, in SpanGrpClipB b, float t, out SpanGrpClipB r) => r = a; }
+
+public struct SpanUngrpClipA { public int Delta; }
+public struct SpanUngrpTrackA : IBlend<SpanUngrpClipA> { public void Blend(in SpanUngrpClipA a, in SpanUngrpClipA b, float t, out SpanUngrpClipA r) => r = a; }
+public struct SpanUngrpClipB { public int Delta; }
+public struct SpanUngrpTrackB : IBlend<SpanUngrpClipB> { public void Blend(in SpanUngrpClipB a, in SpanUngrpClipB b, float t, out SpanUngrpClipB r) => r = a; }
+
+[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine, Group = "FuzzSpanGrp")]
+public struct GrpSpanKindA
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref SpanGrpOutA col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine, Group = "FuzzSpanGrp")]
+public struct GrpSpanKindB
+{
+    public static void Combine(ref int total, in int next) => total = next;
+    public static void Apply(in int total, ref SpanGrpOutB col) => col.V = total;
+}
+
+[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine)]
+public struct UngrpSpanKindA
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref SpanUngrpOutA col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Spans, Mode = KindMode.Combine)]
+public struct UngrpSpanKindB
+{
+    public static void Combine(ref int total, in int next) => total = next;
+    public static void Apply(in int total, ref SpanUngrpOutB col) => col.V = total;
+}
+
+[TimelineSystemMember(typeof(GroupedSpanFuzzSystem))]
+public readonly struct GrpSpanConsumerA : ITrack<SpanGrpTrackA, SpanGrpClipA>
+{
+    [Feeds(typeof(GrpSpanKindA))]
+    public static int Eval(in Frame<SpanGrpTrackA, SpanGrpClipA> f) => f.Direction * f.Clip.Delta;
+}
+
+[TimelineSystemMember(typeof(GroupedSpanFuzzSystem))]
+public readonly struct GrpSpanConsumerB : ITrack<SpanGrpTrackB, SpanGrpClipB>
+{
+    [Feeds(typeof(GrpSpanKindB))]
+    public static int Eval(in Frame<SpanGrpTrackB, SpanGrpClipB> f) => f.Clip.Delta;
+}
+
+[TimelineSystemMember(typeof(UngroupedSpanFuzzSystem))]
+public readonly struct UngrpSpanConsumerA : ITrack<SpanUngrpTrackA, SpanUngrpClipA>
+{
+    [Feeds(typeof(UngrpSpanKindA))]
+    public static int Eval(in Frame<SpanUngrpTrackA, SpanUngrpClipA> f) => f.Direction * f.Clip.Delta;
+}
+
+[TimelineSystemMember(typeof(UngroupedSpanFuzzSystem))]
+public readonly struct UngrpSpanConsumerB : ITrack<SpanUngrpTrackB, SpanUngrpClipB>
+{
+    [Feeds(typeof(UngrpSpanKindB))]
+    public static int Eval(in Frame<SpanUngrpTrackB, SpanUngrpClipB> f) => f.Clip.Delta;
+}
+
+[TimelineSystem]
+public ref partial struct GroupedSpanFuzzSystem
+{
+    public Span<SpanGrpOutA> A;
+    public Span<SpanGrpOutB> B;
+}
+
+[TimelineSystem]
+public ref partial struct UngroupedSpanFuzzSystem
+{
+    public Span<SpanUngrpOutA> A;
+    public Span<SpanUngrpOutB> B;
+}

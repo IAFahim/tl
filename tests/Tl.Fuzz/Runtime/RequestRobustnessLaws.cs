@@ -293,6 +293,82 @@ public sealed unsafe class RequestRobustnessLaws
     }
 
     [Fact]
+    public void RequestFlood_KindStoreAndPulsesWarmPathAllocatesZeroBytesAfterWarmup()
+    {
+        FuzzRunner.Run("T5-KindZeroWarmAlloc", 0x54350004UL, 6, (rng, _) =>
+        {
+            const int entities = 32;
+            const int timelines = 4;
+            const int channels = 3;
+            var ov = new Dictionary<string, KindOverride>
+            {
+                [typeof(KCombineInt).FullName!] = new KindOverride(inline: 16, gamePulses: 8, maxInlineBytes: 64),
+                [typeof(KEachInt).FullName!] = new KindOverride(inline: 16, gamePulses: 8, maxInlineBytes: 64),
+                [typeof(KIdleInt).FullName!] = new KindOverride(inline: 16, gamePulses: 8, maxInlineBytes: 64),
+            };
+            var lib = LibraryGen.BuildKindLibrary(ref rng, timelines, channels, 60, true, true, false, true, ov);
+
+            using var world = new TimelineWorld(lib.Bytes);
+            using var players = new PlaybackTable(entities, 16);
+            using var store = new KindStore(world, players);
+            var pulses = store.Pulses<int>(typeof(KCombineInt).FullName!);
+
+            var combineCol = new KindIntCol[entities];
+            var eachCol = new KindEachCol[entities];
+            var idleCol = new KindIdleCol[entities];
+            var floatCol = new KindFloatCol[entities];
+            var input = new KindInputCol[entities];
+            for (var e = 0; e < entities; e++) input[e] = new KindInputCol { Factor = 1 };
+
+            var sys = new KindFuzzSystem { CombineCol = combineCol, EachCol = eachCol, IdleCol = idleCol, FloatCol = floatCol, Input = input };
+
+            for (var warm = 0; warm < 200; warm++)
+            {
+                for (var e = 0; e < entities; e++)
+                {
+                    var tl = (ushort)(1 + ((e + warm) % timelines));
+                    players.Start(e, tl, (ushort)(warm & 3));
+                    players.Seek(e, tl, (ushort)(warm + 100));
+                    players.Pause(e, tl);
+                    players.Resume(e, tl);
+                    players.Reverse(e, tl, (warm & 1) != 0);
+                    players.SetSpeed(e, tl, (ushort)(8 + (warm & 3) * 8));
+                    players.Stop(e, (ushort)(timelines + 9));
+                    pulses.To(e, (warm & 3) - 1);
+                    if ((warm & 7) == 7) players.Reset(e);
+                }
+                world.Tick(players, true);
+                sys.Run(world, players, true);
+            }
+
+            for (var e = 0; e < entities; e++) players.Reset(e);
+            world.Tick(players, true);
+
+            var before = GC.GetTotalAllocatedBytes(true);
+            for (var step = 0; step < 32; step++)
+            {
+                for (var e = 0; e < entities; e++)
+                {
+                    var tl = (ushort)(1 + ((e + step) % timelines));
+                    players.Start(e, tl, (ushort)(step & 3));
+                    players.Seek(e, tl, (ushort)(step + 100));
+                    players.Pause(e, tl);
+                    players.Resume(e, tl);
+                    players.Reverse(e, tl, (step & 1) != 0);
+                    players.SetSpeed(e, tl, (ushort)(8 + (step & 3) * 8));
+                    players.Stop(e, (ushort)(timelines + 9));
+                    pulses.To(e, (step & 3) - 1);
+                    if ((step & 7) == 7) players.Reset(e);
+                }
+                world.Tick(players, true);
+                sys.Run(world, players, true);
+            }
+            var after = GC.GetTotalAllocatedBytes(true);
+            Assert.Equal(0L, after - before);
+        });
+    }
+
+    [Fact]
     public void RequestQueue_DistinctEntitySlotKeysGiveIdenticalResultInAnyArrivalOrder()
     {
         FuzzRunner.Run("T5-DistinctKeyPermutation", 0x54350003UL, 40, (rng, _) =>
