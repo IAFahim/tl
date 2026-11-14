@@ -588,9 +588,27 @@ internal static class SystemEmitter
             W(writer, "}");
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
             W(writer, "}");
-            W(writer, "if (__sampled) __kt->RemovePulses(__row);");
-            W(writer, "else if (__pulses == __len) __kt->Clear(__row);");
-            W(writer, "else if (__pulses != 0) __kt->RemovePulses(__row);");
+            if (kind.Group.Length > 0)
+            {
+                W(writer, "if (__sampled || __pulses != 0)");
+                W(writer, "{");
+                W(writer, "var __kept = 0;");
+                W(writer, "for (var __j = 0; __j < __len; __j++)");
+                W(writer, "{");
+                W(writer, "var __q = __data + (nuint)__j * (nuint)__stride;");
+                W(writer, "if ((((global::Tl.KindEntry*)__q)->Flags & global::Tl.KindEntryFlags.Pulse) != 0 && *(ushort*)(__q + 8) == __kid) continue;");
+                W(writer, "if (__kept != __j) global::System.Buffer.MemoryCopy(__q, __data + (nuint)__kept * (nuint)__stride, __stride, __stride);");
+                W(writer, "__kept++;");
+                W(writer, "}");
+                W(writer, "if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;");
+                W(writer, "}");
+            }
+            else
+            {
+                W(writer, "if (__sampled) __kt->RemovePulses(__row);");
+                W(writer, "else if (__pulses == __len) __kt->Clear(__row);");
+                W(writer, "else if (__pulses != 0) __kt->RemovePulses(__row);");
+            }
         }
         W(writer, "}");
         W(writer, "}");

@@ -87,7 +87,7 @@ public sealed unsafe class T5ChannelReplace256Tests
     }
 
     [Fact]
-    public void KindStore_ReplacingChannelOn256SlotEntity_KillsOldPlaybackWithoutStartingReplacement()
+    public void KindStore_ReplacingChannelOn256SlotEntity_RefusesReplacementAndKeepsOldPlayback()
     {
         var bytes = Build258TimelineLibrary();
         using var world = new TimelineWorld(bytes);
@@ -102,11 +102,17 @@ public sealed unsafe class T5ChannelReplace256Tests
         players.Start(0, 2);
         world.Tick(players, true);
 
+        var hasTl1 = false;
         var hasTl2 = false;
         for (var i = 0; i < players.CountOf(0); i++)
-            if (players.SlotsOf(0)[i].Timeline == 2)
-                hasTl2 = true;
+        {
+            ref var slot = ref players.SlotsOf(0)[i];
+            if (slot.Timeline == 1 && (slot.Flags & PlaybackFlags.Stopping) == 0) hasTl1 = true;
+            if (slot.Timeline == 2) hasTl2 = true;
+        }
 
-        Assert.True(hasTl2);
+        Assert.True(hasTl1);
+        Assert.False(hasTl2);
+        Assert.Equal(256, players.CountOf(0));
     }
 }
