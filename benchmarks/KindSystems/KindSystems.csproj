@@ -20,6 +20,7 @@
   </ItemGroup>
   <Import Project="..\..\src\Tl.Gen.CSharp\build\Tl.Gen.CSharp.targets" />
   <ItemGroup>
+    <Compile Remove="Generated/**" />
     <None Include="libs\*.tlib" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
