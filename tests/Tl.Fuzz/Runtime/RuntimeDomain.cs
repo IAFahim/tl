@@ -706,3 +706,186 @@ public ref partial struct UngroupedSpanFuzzSystem
     public Span<SpanUngrpOutA> A;
     public Span<SpanUngrpOutB> B;
 }
+
+public struct B3SplitOutA { public int V; }
+public struct B3SplitOutB { public int V; }
+public struct B3SplitOutC { public int V; }
+public struct B3CombOutA { public int V; }
+public struct B3CombOutB { public int V; }
+public struct B3CombOutC { public int V; }
+public struct B3UngrpOutA { public int V; }
+public struct B3UngrpOutB { public int V; }
+public struct B3UngrpOutC { public int V; }
+
+public struct B3SplitClipA { public int SpanVal; public int PulseVal; }
+public struct B3SplitTrackA : IBlend<B3SplitClipA> { public void Blend(in B3SplitClipA a, in B3SplitClipA b, float t, out B3SplitClipA r) => r = a; }
+public struct B3SplitClipB { public int SpanVal; public int PulseVal; }
+public struct B3SplitTrackB : IBlend<B3SplitClipB> { public void Blend(in B3SplitClipB a, in B3SplitClipB b, float t, out B3SplitClipB r) => r = a; }
+public struct B3SplitClipC { public int PulseVal; }
+public struct B3SplitTrackC : IBlend<B3SplitClipC> { public void Blend(in B3SplitClipC a, in B3SplitClipC b, float t, out B3SplitClipC r) => r = a; }
+
+public struct B3CombClipA { public int SpanVal; public int PulseVal; }
+public struct B3CombTrackA : IBlend<B3CombClipA> { public void Blend(in B3CombClipA a, in B3CombClipA b, float t, out B3CombClipA r) => r = a; }
+public struct B3CombClipB { public int SpanVal; public int PulseVal; }
+public struct B3CombTrackB : IBlend<B3CombClipB> { public void Blend(in B3CombClipB a, in B3CombClipB b, float t, out B3CombClipB r) => r = a; }
+public struct B3CombClipC { public int PulseVal; }
+public struct B3CombTrackC : IBlend<B3CombClipC> { public void Blend(in B3CombClipC a, in B3CombClipC b, float t, out B3CombClipC r) => r = a; }
+
+public struct B3UngrpClipA { public int SpanVal; public int PulseVal; }
+public struct B3UngrpTrackA : IBlend<B3UngrpClipA> { public void Blend(in B3UngrpClipA a, in B3UngrpClipA b, float t, out B3UngrpClipA r) => r = a; }
+public struct B3UngrpClipB { public int SpanVal; public int PulseVal; }
+public struct B3UngrpTrackB : IBlend<B3UngrpClipB> { public void Blend(in B3UngrpClipB a, in B3UngrpClipB b, float t, out B3UngrpClipB r) => r = a; }
+public struct B3UngrpClipC { public int PulseVal; }
+public struct B3UngrpTrackC : IBlend<B3UngrpClipC> { public void Blend(in B3UngrpClipC a, in B3UngrpClipC b, float t, out B3UngrpClipC r) => r = a; }
+
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine, Group = "B3SplitGrp")]
+public struct B3SplitKindA
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref B3SplitOutA col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine, FoldsPulses = true, Group = "B3SplitGrp")]
+public struct B3SplitKindB
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref B3SplitOutB col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each, Group = "B3SplitGrp")]
+public struct B3SplitKindC
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int value, ref B3SplitOutC col) => col.V += value;
+}
+
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine, Group = "B3CombGrp")]
+public struct B3CombKindA
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref B3CombOutA col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine, FoldsPulses = true, Group = "B3CombGrp")]
+public struct B3CombKindB
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref B3CombOutB col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each, Group = "B3CombGrp")]
+public struct B3CombKindC
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int value, ref B3CombOutC col) => col.V += value;
+}
+
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine)]
+public struct B3UngrpKindA
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref B3UngrpOutA col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Both, Mode = KindMode.Combine, FoldsPulses = true)]
+public struct B3UngrpKindB
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref B3UngrpOutB col) => col.V += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each)]
+public struct B3UngrpKindC
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int value, ref B3UngrpOutC col) => col.V += value;
+}
+
+[TimelineSystemMember(typeof(B3SplitSysA))]
+public readonly struct B3SplitConA : ITrack<B3SplitTrackA, B3SplitClipA>
+{
+    [Feeds(typeof(B3SplitKindA))]
+    public static int Eval(in Frame<B3SplitTrackA, B3SplitClipA> f) => f.Direction * f.Clip.SpanVal;
+    [Pulse(typeof(B3SplitKindA), On = ClipEvent.Start)]
+    public static int OnStart(in Frame<B3SplitTrackA, B3SplitClipA> f) => f.Direction * f.Clip.PulseVal;
+}
+
+[TimelineSystemMember(typeof(B3SplitSysB))]
+public readonly struct B3SplitConB : ITrack<B3SplitTrackB, B3SplitClipB>
+{
+    [Feeds(typeof(B3SplitKindB))]
+    public static int Eval(in Frame<B3SplitTrackB, B3SplitClipB> f) => f.Direction * f.Clip.SpanVal;
+    [Pulse(typeof(B3SplitKindB), On = ClipEvent.End)]
+    public static int OnEnd(in Frame<B3SplitTrackB, B3SplitClipB> f) => f.Direction * f.Clip.PulseVal;
+}
+
+[TimelineSystemMember(typeof(B3SplitSysC))]
+public readonly struct B3SplitConC : ITrack<B3SplitTrackC, B3SplitClipC>
+{
+    [Pulse(typeof(B3SplitKindC), On = ClipEvent.Start)]
+    public static int OnStart(in Frame<B3SplitTrackC, B3SplitClipC> f) => f.Direction * f.Clip.PulseVal;
+    [Pulse(typeof(B3SplitKindC), On = ClipEvent.End)]
+    public static int OnEnd(in Frame<B3SplitTrackC, B3SplitClipC> f) => f.Direction * (f.Clip.PulseVal + 3);
+}
+
+[TimelineSystemMember(typeof(B3CombSys))]
+public readonly struct B3CombConA : ITrack<B3CombTrackA, B3CombClipA>
+{
+    [Feeds(typeof(B3CombKindA))]
+    public static int Eval(in Frame<B3CombTrackA, B3CombClipA> f) => f.Direction * f.Clip.SpanVal;
+    [Pulse(typeof(B3CombKindA), On = ClipEvent.Start)]
+    public static int OnStart(in Frame<B3CombTrackA, B3CombClipA> f) => f.Direction * f.Clip.PulseVal;
+}
+
+[TimelineSystemMember(typeof(B3CombSys))]
+public readonly struct B3CombConB : ITrack<B3CombTrackB, B3CombClipB>
+{
+    [Feeds(typeof(B3CombKindB))]
+    public static int Eval(in Frame<B3CombTrackB, B3CombClipB> f) => f.Direction * f.Clip.SpanVal;
+    [Pulse(typeof(B3CombKindB), On = ClipEvent.End)]
+    public static int OnEnd(in Frame<B3CombTrackB, B3CombClipB> f) => f.Direction * f.Clip.PulseVal;
+}
+
+[TimelineSystemMember(typeof(B3CombSys))]
+public readonly struct B3CombConC : ITrack<B3CombTrackC, B3CombClipC>
+{
+    [Pulse(typeof(B3CombKindC), On = ClipEvent.Start)]
+    public static int OnStart(in Frame<B3CombTrackC, B3CombClipC> f) => f.Direction * f.Clip.PulseVal;
+    [Pulse(typeof(B3CombKindC), On = ClipEvent.End)]
+    public static int OnEnd(in Frame<B3CombTrackC, B3CombClipC> f) => f.Direction * (f.Clip.PulseVal + 3);
+}
+
+[TimelineSystemMember(typeof(B3UngrpSysA))]
+public readonly struct B3UngrpConA : ITrack<B3UngrpTrackA, B3UngrpClipA>
+{
+    [Feeds(typeof(B3UngrpKindA))]
+    public static int Eval(in Frame<B3UngrpTrackA, B3UngrpClipA> f) => f.Direction * f.Clip.SpanVal;
+    [Pulse(typeof(B3UngrpKindA), On = ClipEvent.Start)]
+    public static int OnStart(in Frame<B3UngrpTrackA, B3UngrpClipA> f) => f.Direction * f.Clip.PulseVal;
+}
+
+[TimelineSystemMember(typeof(B3UngrpSysB))]
+public readonly struct B3UngrpConB : ITrack<B3UngrpTrackB, B3UngrpClipB>
+{
+    [Feeds(typeof(B3UngrpKindB))]
+    public static int Eval(in Frame<B3UngrpTrackB, B3UngrpClipB> f) => f.Direction * f.Clip.SpanVal;
+    [Pulse(typeof(B3UngrpKindB), On = ClipEvent.End)]
+    public static int OnEnd(in Frame<B3UngrpTrackB, B3UngrpClipB> f) => f.Direction * f.Clip.PulseVal;
+}
+
+[TimelineSystemMember(typeof(B3UngrpSysC))]
+public readonly struct B3UngrpConC : ITrack<B3UngrpTrackC, B3UngrpClipC>
+{
+    [Pulse(typeof(B3UngrpKindC), On = ClipEvent.Start)]
+    public static int OnStart(in Frame<B3UngrpTrackC, B3UngrpClipC> f) => f.Direction * f.Clip.PulseVal;
+    [Pulse(typeof(B3UngrpKindC), On = ClipEvent.End)]
+    public static int OnEnd(in Frame<B3UngrpTrackC, B3UngrpClipC> f) => f.Direction * (f.Clip.PulseVal + 3);
+}
+
+[TimelineSystem] public ref partial struct B3SplitSysA { public Span<B3SplitOutA> A; }
+[TimelineSystem] public ref partial struct B3SplitSysB { public Span<B3SplitOutB> B; }
+[TimelineSystem] public ref partial struct B3SplitSysC { public Span<B3SplitOutC> C; }
+[TimelineSystem] public ref partial struct B3CombSys { public Span<B3CombOutA> A; public Span<B3CombOutB> B; public Span<B3CombOutC> C; }
+[TimelineSystem] public ref partial struct B3UngrpSysA { public Span<B3UngrpOutA> A; }
+[TimelineSystem] public ref partial struct B3UngrpSysB { public Span<B3UngrpOutB> B; }
+[TimelineSystem] public ref partial struct B3UngrpSysC { public Span<B3UngrpOutC> C; }
