@@ -203,8 +203,17 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sampled = false;
+var __sk = 1;
+for (var __j = 0; __j < __len; __j++)
+{
+var __se = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if ((__se->Flags & Tl.KindEntryFlags.Sample) == 0) break;
+if (*(ushort*)((byte*)__se + 8) != __kid) continue;
+__sampled = true;
+var __ph = __pview.SlotOf(__e, __se->Slot)->Phase;
+if (__ph != Tl.KindRules.Marker && __ph + 1 > __sk) __sk = __ph + 1;
+}
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
@@ -314,8 +323,17 @@ if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sampled = false;
+var __sk = 1;
+for (var __j = 0; __j < __len; __j++)
+{
+var __se = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if ((__se->Flags & Tl.KindEntryFlags.Sample) == 0) break;
+if (*(ushort*)((byte*)__se + 8) != __kid) continue;
+__sampled = true;
+var __ph = __pview.SlotOf(__e, __se->Slot)->Phase;
+if (__ph != Tl.KindRules.Marker && __ph + 1 > __sk) __sk = __ph + 1;
+}
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 int __total = default;

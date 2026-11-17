@@ -173,17 +173,21 @@ public sealed partial class TimelineWorld
     {
         if (players.LibraryGeneration == _generation) return;
         players.Thaw();
-        for (var entity = 0; entity < players.EntityCapacity; entity++)
-        {
-            var slots = players.SlotsOf(entity);
-            var count = players.CountOf(entity);
-            for (var slot = 0; slot < count; slot++)
+        for (var pass = 0; pass < 2; pass++)
+            for (var entity = 0; entity < players.EntityCapacity; entity++)
             {
-                if (slots[slot].Timeline > _view.TimelineCount && (slots[slot].Flags & PlaybackFlags.Stopping) == 0)
-                    throw new ArgumentException($"Playback slot {slot} of entity {entity} names no timeline in the reloaded library.");
-                if (!PlaybackRules.Rebind(ref slots[slot], _view.Timelines, _view.TimelineCount)) { players.RemoveSlot(entity, slot); slots = players.SlotsOf(entity); }
+                var slots = players.SlotsOf(entity);
+                var count = players.CountOf(entity);
+                for (var slot = 0; slot < count; slot++)
+                {
+                    if (pass == 0)
+                    {
+                        if (slots[slot].Timeline > _view.TimelineCount && (slots[slot].Flags & PlaybackFlags.Stopping) == 0)
+                            throw new ArgumentException($"Playback slot {slot} of entity {entity} names no timeline in the reloaded library.");
+                    }
+                    else if (!PlaybackRules.Rebind(ref slots[slot], _view.Timelines, _view.TimelineCount)) { players.RemoveSlot(entity, slot); slots = players.SlotsOf(entity); }
+                }
             }
-        }
         players.LibraryGeneration = _generation;
     }
 

@@ -69,7 +69,7 @@
                       Lines="@(_TlGenCompileOptions)"
                       Overwrite="true"
                       WriteOnlyWhenDifferent="true" />
-    <Exec Command="&quot;$(_TlGenDotNet)&quot; &quot;$(TlGenAssembly)&quot; --compile --backend &quot;$(TlGenBackend)&quot; --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
+    <Exec Command="&quot;$(_TlGenDotNet)&quot; &quot;$(TlGenAssembly)&quot; --compile --backend &quot;$(TlGenBackend)&quot; --output &quot;$(_TlGenCompileOut).&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
     <ItemGroup>
       <FileWrites Include="$(_TlGenCompileOut)**\*.g.cs" />
       <FileWrites Include="$(_TlGenCompileSourceList)" />

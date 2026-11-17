@@ -130,8 +130,8 @@ public unsafe struct KindTable
 
     void Grow(int row)
     {
-        var capacity = Math.Max(4, Capacity(row) * 2);
-        if (capacity > ushort.MaxValue) throw new InvalidOperationException($"kind {Kind} row {row} holds more than 65,535 entries.");
+        var capacity = Math.Min(Math.Max(4, Capacity(row) * 2), ushort.MaxValue);
+        if (capacity == Capacity(row)) throw new InvalidOperationException($"kind {Kind} row {row} holds more than 65,535 entries.");
         var raw = (byte*)NativeMemory.AlignedAlloc(8u + (nuint)capacity * (nuint)Stride, 64);
         NativeMemory.Clear(raw, 8u + (nuint)capacity * (nuint)Stride);
         *(int*)raw = capacity;
