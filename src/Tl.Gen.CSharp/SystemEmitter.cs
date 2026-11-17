@@ -475,8 +475,25 @@ internal static class SystemEmitter
         if (!feed)
         {
             W(writer, "var __pulses = 0;");
-            W(writer, "var __sampled = global::Tl.KindRules.IsSampled(__data, __len);");
-            W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;");
+            if (kind.Group.Length == 0)
+            {
+                W(writer, "var __sampled = global::Tl.KindRules.IsSampled(__data, __len);");
+                W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;");
+            }
+            else
+            {
+                W(writer, "var __sampled = false;");
+                W(writer, "var __sk = 1;");
+                W(writer, "for (var __j = 0; __j < __len; __j++)");
+                W(writer, "{");
+                W(writer, "var __se = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
+                W(writer, "if ((__se->Flags & global::Tl.KindEntryFlags.Sample) == 0) break;");
+                W(writer, "if (*(ushort*)((byte*)__se + 8) != __kid) continue;");
+                W(writer, "__sampled = true;");
+                W(writer, "var __ph = __pview.SlotOf(__e, __se->Slot)->Phase;");
+                W(writer, "if (__ph != global::Tl.KindRules.Marker && __ph + 1 > __sk) __sk = __ph + 1;");
+                W(writer, "}");
+            }
             W(writer, "for (var __sj = 0; __sj < __sk; __sj++)");
             W(writer, "{");
         }
@@ -932,9 +949,6 @@ internal static class SystemEmitter
             W(writer, $"if ({tick} == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) {consumer.ConsumerTypeName}.OnClipEnd({CallArgs(shape, end, index, $"__f{index}", entity, $"__fd{index}_")});");
     }
 
-    // Direct-lane step: no Frame construction, no switch dispatch beyond the
-    // entry table, no consumer call. Loads the precomputed lane value(s) and
-    // adds them straight into the written column (times read columns).
     static void EmitDirectStep(StringBuilder writer, KernelShape shape, SystemConsumer consumer, ConsumerMethod active, int index, string entity, string tick, string backward)
     {
         var direct = active.Direct;

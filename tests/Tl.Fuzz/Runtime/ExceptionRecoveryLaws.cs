@@ -487,7 +487,7 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
         });
     }
 
-    [Fact(Skip = "#639")]
+    [Fact]
     public void Reload_CorruptLibraryBytes_LeavesPreviousValidWorldUsable()
     {
         FuzzRunner.Run("B5-ReloadCorrupt", 0x42350003UL, 12, (rng, iter) =>
@@ -570,7 +570,7 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
         });
     }
 
-    [Fact(Skip = "#641")]
+    [Fact]
     public void Reload_PlainSyncMissingTimeline_DoesNotMutatePrecedingEntitiesBeforeThrow()
     {
         FuzzRunner.Run("B5-PlainSyncPartial", 0x42350004UL, 12, (rng, iter) =>
@@ -607,6 +607,7 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
             Assert.Throws<ArgumentException>(() => wPA.Advance(pPA, true));
 
             wPA.Reload(bigPlain);
+            wPC.Reload(bigPlain);
             wPA.ApplyRequests(pPA); wPC.ApplyRequests(pPC);
             new PlainFuzzSystem { Motion = mA, Stats = sA, Input = inp, Requests = wPA.Requests(pPA), Cues = cPA.Writer }.Run(wPA, pPA, true);
             new PlainFuzzSystem { Motion = mC, Stats = sC, Input = inp, Requests = wPC.Requests(pPC), Cues = cPC.Writer }.Run(wPC, pPC, true);
@@ -621,7 +622,7 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
         });
     }
 
-    [Fact(Skip = "#640")]
+    [Fact]
     public void Reload_KindStoreSyncMissingTimelineOrReach_DoesNotSkipRevalidationOrCorruptEntities()
     {
         FuzzRunner.Run("B5-KindSyncPartial", 0x42350006UL, 12, (rng, iter) =>
@@ -660,12 +661,14 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
             Assert.Throws<ArgumentException>(() => wKA.Tick(pKA, true));
             Assert.Throws<ArgumentException>(() => wKA.Tick(pKA, true));
 
-            pKA.Reset(1);
-            wKA.Tick(pKA, true);
-            pKC.Reset(1);
-            wKC.ApplyRequests(pKC);
-            wKC.Reload(smallKind);
-            wKC.Tick(pKC, true);
+            foreach (var (world, players) in new[] { (wKA, pKA), (wKC, pKC) })
+            {
+                world.Reload(bigKind);
+                players.Reset(1);
+                world.Tick(players, true);
+                world.Reload(smallKind);
+                world.Tick(players, true);
+            }
             new KindFuzzSystem { CombineCol = cA, EachCol = eA, IdleCol = iA, FloatCol = fA, Input = inp }.Run(wKA, pKA, true);
             new KindFuzzSystem { CombineCol = cC, EachCol = eC, IdleCol = iC, FloatCol = fC, Input = inp }.Run(wKC, pKC, true);
 

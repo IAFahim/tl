@@ -339,7 +339,7 @@ public sealed class GroupStressLaws
     public void SplitSystems_VaryingOrderDoubleRunPulseMemberPartialReachPulsesAndRebind_MatchUngroupedAndCombinedEveryTick()
         => RunGroupScenario("B3-GroupSplitVsCombined", 0x42330001UL, 16, allowDoubleSpanRun: false);
 
-    [Fact(Skip = "#638")]
+    [Fact]
     public void SplitSystems_DoubleRunSpanOrPulseMemberInAnyOrder_MatchesUngroupedTwinEveryTick()
         => RunGroupScenario("B3-GroupDoubleRunSpan", 0x42330002UL, 12, allowDoubleSpanRun: true);
 

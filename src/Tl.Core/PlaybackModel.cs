@@ -296,8 +296,6 @@ public sealed unsafe class PlaybackTable : IDisposable
         FreeBlock(offset, capacity);
     }
 
-    // Ensures one entity's run holds at least length playbacks and returns
-    // the run pointer. Other entities' runs are untouched.
     internal Playback* Reserve(int entity, int length, int used = 0)
     {
         EnterGate();

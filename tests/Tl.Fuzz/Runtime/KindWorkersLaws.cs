@@ -330,7 +330,7 @@ public sealed unsafe class KindWorkersLaws
         });
     }
 
-    [Fact(Skip = "#642")]
+    [Fact]
     public void KindAndGroupedWorkers_WarmTicksAndPooledRuns_AllocateZeroBytesAfterWarmup()
     {
         FuzzRunner.Run("B6-KindWorkersZeroAlloc", 0x42360002UL, 6, (rng, iter) =>

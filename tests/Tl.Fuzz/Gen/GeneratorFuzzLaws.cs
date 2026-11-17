@@ -980,7 +980,7 @@ public sealed unsafe class GeneratorFuzzLaws
     public void DerivedKindsDomains_MatchHandWrittenTwinsEveryTick()
         => RunDerivedVsHand("B2-DerivedVsHand", 0x42320004UL, 4, useITlTrack: true);
 
-    [Fact(Skip = "#637")]
+    [Fact]
     public void DerivedKinds_ITrackWithTimelineSystem_EmitsThroughIncrementalGenerator()
         => RunDerivedVsHand("B2-DerivedITrack", 0x42320007UL, 4, useITlTrack: false);
 

@@ -251,7 +251,7 @@ public sealed unsafe class LongSoakLaws
         });
     }
 
-    [Fact(Skip = "#643")]
+    [Fact]
     public void SuperSamplingWarmTickUnder65535Entries_DoesNotFailAtHalfRowLimit()
     {
         FuzzRunner.Run("B7-WarmRowOverflowHalfLimit", 0x42370003UL, 1, (rng, iter) =>

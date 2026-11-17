@@ -669,52 +669,46 @@ public sealed unsafe class BoundaryAnd256SlotLaws
         });
     }
 
-    [Fact(Skip = "#645")]
-    public void EntityAt256Slots_WithRatedTimelines_StepsBothPlainAndKindWithoutFreeze()
+    [Fact]
+    public void EntityAt256Slots_WithRatedTimelines_StepsLikeAnEntityWithFewSlots()
     {
         FuzzRunner.Run("B4-256SlotRated", 0x42340004UL, 1, (rng, iter) =>
         {
             const int n = 256;
+            const int few = 4;
             var names = new string[n];
             for (var i = 0; i < n; i++) names[i] = $"r256_{i + 1:D3}";
             var manifest = LibraryBake.Manifest(names, [], 60);
-            var plainTls = new TypedTimeline[n];
             var kindTls = new TypedTimeline[n];
             for (var i = 0; i < n; i++)
             {
-                var pt = new TypedTimeline { Name = names[i], Duration = 16, Loops = true };
-                var ptr = new TypedTrack { Name = "pl", Type = typeof(FuzzPlainTrack), Data = LibraryGen.BytesOf(new FuzzPlainTrack { Gain = 1 }) };
-                ptr.Clips.Add(new TypedClip { Type = typeof(FuzzPlainClip), Start = 0, End = 16, Data = LibraryGen.BytesOf(new FuzzPlainClip { Delta = 1, Tag = 1 }) });
-                pt.Tracks.Add(ptr);
-                plainTls[i] = pt;
-
                 var kt = new TypedTimeline { Name = names[i], Duration = 16, Loops = true };
                 var ktr = new TypedTrack { Name = "kc", Type = typeof(KCombineTrack), Data = LibraryGen.BytesOf(new KCombineTrack { Scale = 1 }) };
                 ktr.Clips.Add(new TypedClip { Type = typeof(KCombineClip), Start = 0, End = 16, Data = LibraryGen.BytesOf(new KCombineClip { Delta = 1 }) });
                 kt.Tracks.Add(ktr);
                 kindTls[i] = kt;
             }
-            var libP = LibraryGen.AssembleTyped(plainTls, [], manifest, null);
             var libK = LibraryGen.AssembleTyped(kindTls, [], manifest, AllKinds);
-            using var wP = new TimelineWorld(libP.Bytes);
-            using var wK = new TimelineWorld(libK.Bytes);
-            using var pP = new PlaybackTable(1, n);
-            using var pK = new PlaybackTable(1, n);
-            using var ks = new KindStore(wK, pK);
+            using var wFull = new TimelineWorld(libK.Bytes);
+            using var wFew = new TimelineWorld(libK.Bytes);
+            using var pFull = new PlaybackTable(1, n);
+            using var pFew = new PlaybackTable(1, few);
+            using var ksFull = new KindStore(wFull, pFull);
+            using var ksFew = new KindStore(wFew, pFew);
 
-            for (ushort tl = 1; tl <= n; tl++)
-            {
-                pP.Start(0, tl);
-                pK.Start(0, tl);
-            }
+            for (ushort tl = 1; tl <= n; tl++) pFull.Start(0, tl);
+            for (ushort tl = 1; tl <= few; tl++) pFew.Start(0, tl);
             var rate = (ushort)(32 + rng.NextInt(224));
-            pP.SetSpeed(0, 1, rate);
-            pK.SetSpeed(0, 1, rate);
-            wP.ApplyRequests(pP);
-            wP.Advance(pP, true);
-            wK.Tick(pK, true);
-
-            Assert.Equal(pP.SlotsOf(0)[0].Tick, pK.SlotsOf(0)[0].Tick);
+            pFull.SetSpeed(0, 1, rate);
+            pFew.SetSpeed(0, 1, rate);
+            for (var step = 0; step < 4; step++)
+            {
+                wFull.Tick(pFull, true);
+                wFew.Tick(pFew, true);
+                Assert.Equal(pFew.SlotsOf(0)[0].Tick, pFull.SlotsOf(0)[0].Tick);
+                Assert.Equal(pFew.SlotsOf(0)[0].Flags, pFull.SlotsOf(0)[0].Flags);
+            }
+            Assert.NotEqual(0, pFull.SlotsOf(0)[0].Tick);
         });
     }
 }

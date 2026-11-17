@@ -100,8 +100,6 @@ public sealed partial class TimelineWorld
     {
         var slots = players.SlotsOf(entity);
         var slotsCount = players.CountOf(entity);
-        // One pass: step every slot and decide in the same visit whether the entity keeps playing. A removal zeroes its slot and keeps
-        // the other indices stable, and a later slot never changes an earlier slot's flags, so this equals stepping all slots first and scanning them after.
         var holds = false;
         for (var i = 0; i < slotsCount; i++)
         {
@@ -136,17 +134,21 @@ public sealed partial class TimelineWorld
     {
         if (players.LibraryGeneration == _generation) return;
         players.ForgetGlide();
-        for (var entity = 0; entity < players.EntityCapacity; entity++)
-        {
-            var slots = players.SlotsOf(entity);
-            var count = players.CountOf(entity);
-            for (var slot = 0; slot < count; slot++)
+        for (var pass = 0; pass < 2; pass++)
+            for (var entity = 0; entity < players.EntityCapacity; entity++)
             {
-                if (slots[slot].Timeline > _view.TimelineCount && (slots[slot].Flags & PlaybackFlags.Stopping) == 0)
-                    throw new ArgumentException($"Playback slot {slot} of entity {entity} names no timeline in the reloaded library.");
-                if (!PlaybackRules.Rebind(ref slots[slot], _view.Timelines, _view.TimelineCount)) { players.RemoveSlot(entity, slot); slots = players.SlotsOf(entity); }
+                var slots = players.SlotsOf(entity);
+                var count = players.CountOf(entity);
+                for (var slot = 0; slot < count; slot++)
+                {
+                    if (pass == 0)
+                    {
+                        if (slots[slot].Timeline > _view.TimelineCount && (slots[slot].Flags & PlaybackFlags.Stopping) == 0)
+                            throw new ArgumentException($"Playback slot {slot} of entity {entity} names no timeline in the reloaded library.");
+                    }
+                    else if (!PlaybackRules.Rebind(ref slots[slot], _view.Timelines, _view.TimelineCount)) { players.RemoveSlot(entity, slot); slots = players.SlotsOf(entity); }
+                }
             }
-        }
         players.LibraryGeneration = _generation;
     }
 

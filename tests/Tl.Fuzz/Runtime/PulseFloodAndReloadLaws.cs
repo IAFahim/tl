@@ -493,7 +493,7 @@ namespace Tl.Fuzz.RuntimeDomain
         });
     }
 
-    [Fact(Skip = "#643")]
+    [Fact]
     public void PulseFloodUpTo65535Entries_SmallInlineRowsDoNotFailAtHalfLimit()
     {
         FuzzRunner.Run("B8-HalfLimitOverflow", 0x42380003UL, 1, (rng, iter) =>
@@ -513,7 +513,7 @@ namespace Tl.Fuzz.RuntimeDomain
         });
     }
 
-    [Fact(Skip = "#644")]
+    [Fact]
     public void PulseFloodOverflow_ClearsFailedQueueSoSubsequentTicksRecover()
     {
         FuzzRunner.Run("B8-QueueWedgeRecovery", 0x42380004UL, 1, (rng, iter) =>
