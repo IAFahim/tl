@@ -90,7 +90,7 @@ public sealed partial class TimelineWorld
                 if ((players.PlayingBits[e >> 6] >> e & 1) == 0) continue;
                 var from = held;
                 players.Next[e] = (ushort)(tick + 1 + LazyTicks.Scan(players.DueOf(e), players.CountOf(e), tick, hits, ref held, (ulong)e << 16));
-                if (from == held) hits[held++] = (ulong)e << 16 | LazyTicks.Far;
+                if (from == held) hits[held++] = (ulong)e << 16;
 #if NET
                 else if (Sse.IsSupported) for (var slots = players.SlotsOf(e); from < held; from++) Sse.Prefetch0(slots + (ushort)hits[from]);
 #endif
@@ -108,6 +108,9 @@ public sealed partial class TimelineWorld
 
     unsafe void Land(PlaybackTable players, ulong* hits, int held, LibraryTimeline* timelines, int count, bool forward, int tick)
     {
+#if !NET
+        for (var k = 0; k < held; k++) System.Threading.Volatile.Read(ref players.SlotsOf((int)(hits[k] >> 16))[(ushort)hits[k]].Tick);
+#endif
         for (var k = 0; k < held; k++)
         {
             var entity = (int)(hits[k] >> 16);
