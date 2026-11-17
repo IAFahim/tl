@@ -203,11 +203,11 @@ static unsafe class Program
     static int PositiveHorizons(PlaybackTable players, int entities)
     {
 #if GLIDE_BUILD
-        var horizons = players.Horizons;
-        if (horizons == null) return 0;
+        var next = players.Next;
+        if (next == null || !players.Frozen) return 0;
         var positive = 0;
         for (var entity = 0; entity < entities; entity++)
-            if (horizons[entity] != 0) positive++;
+            if ((ushort)(next[entity] - players.Clock) > 1) positive++;
         return positive;
 #else
         return 0;

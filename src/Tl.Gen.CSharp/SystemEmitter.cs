@@ -932,9 +932,6 @@ internal static class SystemEmitter
             W(writer, $"if ({tick} == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) {consumer.ConsumerTypeName}.OnClipEnd({CallArgs(shape, end, index, $"__f{index}", entity, $"__fd{index}_")});");
     }
 
-    // Direct-lane step: no Frame construction, no switch dispatch beyond the
-    // entry table, no consumer call. Loads the precomputed lane value(s) and
-    // adds them straight into the written column (times read columns).
     static void EmitDirectStep(StringBuilder writer, KernelShape shape, SystemConsumer consumer, ConsumerMethod active, int index, string entity, string tick, string backward)
     {
         var direct = active.Direct;

@@ -138,7 +138,6 @@ namespace Tl
         }
         internal void AdoptView(LibraryView view)
         {
-            _glideIdentity = 0;
             _glideViewEscaped = true;
             Free();
             _view = view;
@@ -147,7 +146,6 @@ namespace Tl
 
         public unsafe void Reload(ReadOnlySpan<byte> library)
         {
-            _glideIdentity = 0;
             Free();
             LoadLibrary(library);
             _generation++;

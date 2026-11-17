@@ -175,6 +175,91 @@ public sealed unsafe class GlideDifferentialLaws
     }
 
     [Fact]
+    public void LazyAdvance_MatchesEagerRules_WithoutEverLeavingTheLazyPath()
+    {
+        var skipped = 0L;
+        var found = 0;
+        FuzzRunner.Run("T1-LazyAdvance", 0x54310004UL, 96, (rng, iter) =>
+        {
+            var entities = rng.NextInt(3) == 0 ? 1 + rng.NextInt(6) : PickEntityCount(ref rng);
+            var slotsPerEntity = 1 + rng.NextInt(6);
+            var timelines = 1 + rng.NextInt(6);
+            var channels = 1 + rng.NextInt(12);
+            var lib1 = LibraryGen.BuildPlainLibrary(ref rng, timelines, channels, 300, true, true, true);
+            var lib2 = LibraryGen.BuildPlainLibrary(ref rng, timelines, channels, 300, true, true, true);
+            var reloadAt = rng.NextInt(3) == 0 ? 5 + rng.NextInt(60) : -1;
+            var steps = 60 + rng.NextInt(600);
+            var busy = 1 + rng.NextInt(12);
+
+            using var world0 = new TimelineWorld(lib1.Bytes);
+            using var worldL = new TimelineWorld(lib1.Bytes);
+            using var guest = new TimelineWorld(lib1.Bytes);
+            using var players0 = new PlaybackTable(entities, slotsPerEntity, 0);
+            using var playersL = new PlaybackTable(entities, slotsPerEntity, PickHorizonLimit(ref rng));
+
+            var curLib = lib1;
+            var forward = true;
+            for (var step = 0; step < steps; step++)
+            {
+                if (step == reloadAt)
+                {
+                    world0.Reload(lib2.Bytes);
+                    worldL.Reload(lib2.Bytes);
+                    guest.Reload(lib2.Bytes);
+                    curLib = lib2;
+                }
+                if (rng.NextInt(24) == 0) forward = !forward;
+                if (step == 0 || rng.NextInt(busy) == 0)
+                {
+                    var opsCount = 1 + rng.NextInt(Math.Min(entities, 64));
+                    for (var k = 0; k < opsCount; k++)
+                    {
+                        var op = LibraryGen.NextRequest(ref rng, entities, curLib.TimelineCount, curLib.ChannelCount, curLib.Durations);
+                        RemapDurations(ref op, curLib.Durations);
+                        LibraryGen.ApplyOp(players0, in op);
+                        LibraryGen.ApplyOp(playersL, in op);
+                    }
+                    if (rng.NextInt(12) == 0)
+                    {
+                        var target = rng.NextInt(entities);
+                        var unknown = (ushort)(curLib.TimelineCount + 1 + rng.NextInt(9));
+                        players0.Start(target, unknown);
+                        playersL.Start(target, unknown);
+                        Assert.Throws<ArgumentException>(() => world0.ApplyRequests(players0));
+                        Assert.Throws<ArgumentException>(() => worldL.ApplyRequests(playersL));
+                    }
+                    else
+                    {
+                        world0.ApplyRequests(players0);
+                        worldL.ApplyRequests(playersL);
+                    }
+                }
+
+                world0.Advance(players0, forward);
+                (rng.NextInt(40) == 0 ? guest : worldL).Advance(playersL, forward);
+                Assert.True(playersL.Frozen, $"step {step}: the lazy table thawed");
+
+                var err = FuzzRunner.ComparePlaybacks(players0, playersL);
+                Assert.True(err == null, $"step {step}: {err}");
+
+                var probe = rng.NextInt(entities);
+                var channel = (byte)(1 + rng.NextInt(curLib.ChannelCount));
+                var found0 = players0.Find(probe, channel, out var slot0);
+                var foundL = playersL.Find(probe, channel, out var slotL);
+                Assert.Equal(found0, foundL);
+                Assert.Equal(*(ulong*)&slot0, *(ulong*)&slotL);
+                if (foundL) found++;
+
+                for (var e = 0; e < entities; e++)
+                    if ((playersL.PlayingBits[e >> 6] >> (e & 63) & 1) != 0 && (ushort)(playersL.Next[e] - playersL.Clock) > 1) skipped++;
+            }
+            Assert.NotEqual(0, playersL.HorizonLimit);
+        });
+        Assert.True(skipped > 100000, $"lazy tables skipped only {skipped} entity ticks");
+        Assert.True(found > 100, $"Find decoded only {found} lazy slots");
+    }
+
+    [Fact]
     public void HorizonGlide_MatchesKindRules_OnKindStoreAndCalmOracle()
     {
         FuzzRunner.Run("T1-KindGlide", 0x54310002UL, 24, (rng, _) =>

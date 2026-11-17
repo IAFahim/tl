@@ -452,7 +452,7 @@ public sealed unsafe class KindStore : IDisposable
 
     internal void TickPassRange(int stepDir, int firstWord, int endWord)
     {
-        var playing = _players.Playing;
+        var playing = _players.PlayingBits;
         if (firstWord < 0) firstWord = 0; if (endWord > _players.PlayingWords) endWord = _players.PlayingWords;
         for (var w = firstWord; w < endWord; w++)
         {

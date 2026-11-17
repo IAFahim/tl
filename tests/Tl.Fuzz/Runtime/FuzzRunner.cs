@@ -106,17 +106,19 @@ public static class FuzzRunner
             return $"PlayingWords {pw} != {right.PlayingWords}";
         for (var w = 0; w < pw; w++)
         {
-            if (left.Playing[w] != right.Playing[w])
-                return $"Playing[{w}] 0x{left.Playing[w]:X16} != 0x{right.Playing[w]:X16}";
+            if (left.PlayingBits[w] != right.PlayingBits[w])
+                return $"Playing[{w}] 0x{left.PlayingBits[w]:X16} != 0x{right.PlayingBits[w]:X16}";
         }
+        var ls = stackalloc Playback[PlaybackTable.MaxSlots];
+        var rs = stackalloc Playback[PlaybackTable.MaxSlots];
         for (var e = 0; e < n; e++)
         {
             var lc = left.CountOf(e);
             var rc = right.CountOf(e);
             if (lc != rc)
                 return $"entity {e} slot count {lc} != {rc}";
-            var ls = left.SlotsOf(e);
-            var rs = right.SlotsOf(e);
+            Decode(left, e, ls);
+            Decode(right, e, rs);
             var lw = (ulong*)ls;
             var rw = (ulong*)rs;
             for (var s = 0; s < lc; s++)
@@ -128,15 +130,26 @@ public static class FuzzRunner
         return null;
     }
 
+    public static unsafe void Decode(PlaybackTable players, int entity, Playback* into)
+    {
+        var count = players.CountOf(entity);
+        new ReadOnlySpan<Playback>(players.SlotsOf(entity), count).CopyTo(new Span<Playback>(into, count));
+        if (players.Frozen) LazyTicks.Shift(into, count, players.Clock, players.Forward);
+    }
+
     public static void MixPlaybacks(ref TlStateHash hash, PlaybackTable players)
     {
         unsafe
         {
             var n = players.EntityCapacity;
+            var slots = stackalloc Playback[PlaybackTable.MaxSlots];
             for (var w = 0; w < players.PlayingWords; w++)
-                hash.Lane(players.Playing[w]);
+                hash.Lane(players.PlayingBits[w]);
             for (var e = 0; e < n; e++)
-                hash.Slots(players.SlotsOf(e), players.CountOf(e));
+            {
+                Decode(players, e, slots);
+                hash.Slots(slots, players.CountOf(e));
+            }
         }
     }
 }

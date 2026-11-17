@@ -216,7 +216,6 @@ internal static partial class SystemReader
             if (model.Kind != SystemModelKind.Feeder || model.Facts is not { Count: > 0 }) continue;
             if (model.DerivedColumn is not null)
             {
-                // a derived kind (Sum/Set/While) owns a writable column of its state type, like NewStyle.Prepare does
                 if (systemColumns.Contains(model.DerivedColumn)) continue;
                 members.Add(model.TypeName);
                 NewStyle.AddColumn(columns, model.DerivedColumn, true);

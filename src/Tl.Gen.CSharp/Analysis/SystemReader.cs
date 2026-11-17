@@ -581,11 +581,6 @@ internal static partial class SystemReader
         return members;
     }
 
-    // Direct-lane detection: ExecuteActive must be a single `col += rhs` /
-    // `col -= rhs` statement where rhs mentions only fold feeds, read-only
-    // columns, and lane-constant frame members (Direction/Track.*/Clip.*),
-    // with an empty OnClipEnd and no start/marker/batch/requests/events.
-    // Anything else fails closed to the generic dispatch path.
     static DirectLane AnalyzeDirect(INamedTypeSymbol type, ConsumerMethod active, ConsumerMethod? fold, SemanticModel semantic)
     {
         var site = type.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
@@ -702,8 +697,6 @@ internal static partial class SystemReader
 
     static int FoldOffsetOf(ConsumerMethod? fold, int feed)
     {
-        // Lane layout mirrors EmitFeeds: fold outs packed in declaration order.
-        // Only float outs participate; anything else fails closed.
         if (fold is null) return -1;
         var offset = 0;
         for (var o = 0; o < fold.Params.Count; o++)

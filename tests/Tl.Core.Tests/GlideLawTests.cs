@@ -118,21 +118,4 @@ public sealed unsafe class GlideLawTests
         for (var i = 1; i < 258; i++) Assert.Equal((ushort)(1000 + i + ((i & 1) == 0 ? 255 : -255)), slots[i].Tick);
     }
 
-    [Fact]
-    public void PackedDecrementValidatesEveryByteBeforeWriting()
-    {
-        var bytes = stackalloc byte[64];
-        var before = new byte[64];
-        for (var zero = -1; zero < 64; zero++)
-        {
-            for (var i = 0; i < 64; i++) bytes[i] = (byte)(1 + (i * 37 % 255));
-            if (zero >= 0) bytes[zero] = 0;
-            new ReadOnlySpan<byte>(bytes, 64).CopyTo(before);
-            Assert.Equal(zero < 0, Horizon.Decrement64(bytes));
-            for (var i = 0; i < 64; i++) Assert.Equal(zero < 0 ? (byte)(before[i] - 1) : before[i], bytes[i]);
-        }
-        for (var i = 0; i < 64; i++) bytes[i] = 1;
-        Assert.True(Horizon.Decrement64(bytes));
-        Assert.True(new ReadOnlySpan<byte>(bytes, 64).SequenceEqual(new byte[64]));
-    }
 }

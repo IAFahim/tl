@@ -15,30 +15,39 @@ public sealed unsafe class GlideWorldTests
         public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
     }
 
-    static byte[] Library(int duration = 1024, int count = 8)
+    static byte[] Library(int duration = 1024, int count = 8, bool loop = true)
     {
-        var tlb = new DomainBaker().Track<Track, Clip>(default).Clip(0, 0, (uint)duration, new Clip { Value = 1 }).Looping().Bake();
+        var baker = new DomainBaker().Track<Track, Clip>(default).Clip(0, 0, (uint)duration, new Clip { Value = 1 });
+        var tlb = (loop ? baker.Looping() : baker).Bake();
         var parts = new LibraryPart[count];
         for (var i = 0; i < count; i++) parts[i] = new() { Name = "Run" + i.ToString("D4"), Tlb = tlb };
         return LibraryAssembler.Assemble(parts, 60, LibrarySettings.Default);
     }
 
+    static ulong Word(PlaybackTable table, int entity, int slot)
+    {
+        var playback = table.SlotsOf(entity)[slot];
+        if (table.Frozen && slot < table.CountOf(entity)) LazyTicks.Shift(&playback, 1, table.Clock, table.Forward);
+        return *(ulong*)&playback;
+    }
+
     static void Same(PlaybackTable expected, PlaybackTable actual, int entity)
     {
         Assert.Equal(expected.CountOf(entity), actual.CountOf(entity));
-        var a = expected.SlotsOf(entity);
-        var b = actual.SlotsOf(entity);
+        Assert.Equal(expected.IsSpilled(entity), actual.IsSpilled(entity));
         var count = expected.IsSpilled(entity) ? expected.CountOf(entity) : expected.SlotsPerEntity;
-        for (var i = 0; i < count; i++) Assert.Equal(((ulong*)a)[i], ((ulong*)b)[i]);
-        Assert.Equal(expected.Playing[entity >> 6], actual.Playing[entity >> 6]);
+        for (var i = 0; i < count; i++) Assert.Equal(Word(expected, entity, i), Word(actual, entity, i));
+        Assert.Equal(expected.PlayingBits[entity >> 6], actual.PlayingBits[entity >> 6]);
     }
+
+    static int Wait(PlaybackTable table, int entity) => (ushort)(table.Next[entity] - table.Clock);
 
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
     [InlineData(7)]
     [InlineData(255)]
-    public void DenseAndPartialWordsActuallyGlideAndMatchEverySlotByte(int limit)
+    public void DenseAndPartialWordsStayUntouchedBetweenBoundariesAndMatchEverySlotByte(int limit)
     {
         using var world = new TimelineWorld(Library());
         using var old = new PlaybackTable(129);
@@ -53,11 +62,17 @@ public sealed unsafe class GlideWorldTests
         world.ApplyRequests(fast);
         world.Advance(old);
         world.Advance(fast);
-        Assert.Equal((byte)limit, fast.Horizons[0]);
+        Assert.True(fast.Frozen);
+        Assert.Equal(1019, Wait(fast, 0));
+        Assert.Equal(891, Wait(fast, 128));
+        var stored = ((ulong*)fast.SlotsOf(128))[3];
         world.Advance(old);
         world.Advance(fast);
-        Assert.Equal((byte)(limit - 1), fast.Horizons[0]);
-        Assert.Equal((byte)(limit - 1), fast.Horizons[128]);
+        Assert.Equal(1018, Wait(fast, 0));
+        Assert.Equal(890, Wait(fast, 128));
+        Assert.Equal(stored, ((ulong*)fast.SlotsOf(128))[3]);
+        Assert.Equal((ushort)134, old.SlotsOf(128)[3].Tick);
+        for (var row = 0; row < 129; row++) Same(old, fast, row);
         for (var tick = 0; tick < 2200; tick++)
         {
             world.Advance(old, (tick / 97 & 1) == 0);
@@ -96,7 +111,8 @@ public sealed unsafe class GlideWorldTests
             for (var row = 0; row < 64; row++) Same(old, fast, row);
         }
         Assert.Equal(tail, ((ulong*)fast.SlotsOf(0))[3]);
-        Assert.True(fast.Horizons[0] > 0);
+        Assert.True(fast.Frozen);
+        Assert.Equal(914, Wait(fast, 0));
     }
 
     [Fact]
@@ -111,10 +127,13 @@ public sealed unsafe class GlideWorldTests
         world.ApplyRequests(fast);
         world.Advance(old);
         world.Advance(fast);
-        Assert.True(fast.Horizons[0] > 0);
+        Assert.True(fast.Frozen);
+        Assert.Equal(25, Wait(fast, 0));
         var oldView = old.View;
         var retained = fast.View;
         Assert.Equal(0, fast.HorizonLimit);
+        Assert.False(fast.Frozen);
+        Assert.Equal((ushort)6, retained.SlotOf(0, 0)->Tick);
         oldView.SlotOf(0, 0)->Tick = 30;
         retained.SlotOf(0, 0)->Tick = 30;
         for (var i = 0; i < 40; i++)
@@ -142,13 +161,15 @@ public sealed unsafe class GlideWorldTests
         world.ApplyRequests(fast);
         world.Advance(old);
         world.Advance(fast);
-        Assert.True(fast.Horizons[0] > 0);
+        Assert.True(fast.Frozen);
+        Assert.Equal(25, Wait(fast, 0));
         var view = world.View;
         view.Timelines[0].Duration = 7;
         for (var i = 0; i < 40; i++)
         {
             world.Advance(old);
             world.Advance(fast);
+            Assert.False(fast.Frozen);
             Same(old, fast, 0);
         }
     }
@@ -178,7 +199,7 @@ public sealed unsafe class GlideWorldTests
     }
 
     [Fact]
-    public void BorrowedLibraryPointersNeverAcquireAHorizon()
+    public void BorrowedLibraryPointersNeverFreezeATable()
     {
         var timeline = new LibraryTimeline { Id = 1, Duration = 1000, Loop = 1 };
         using var world = new TimelineWorld();
@@ -191,7 +212,7 @@ public sealed unsafe class GlideWorldTests
         world.ApplyRequests(fast);
         world.Advance(old);
         world.Advance(fast);
-        Assert.Equal((byte)0, fast.Horizons[0]);
+        Assert.False(fast.Frozen);
         timeline.Duration = 7;
         world.Advance(old);
         world.Advance(fast);
@@ -199,7 +220,7 @@ public sealed unsafe class GlideWorldTests
     }
 
     [Fact]
-    public void ReturningToACachedWorldAfterAnUncachedWorldRebuildsTheHorizon()
+    public void ReturningToALazyWorldAfterAnEagerWorldFreezesAgain()
     {
         using var cached = new TimelineWorld(Library(31));
         using var uncached = new TimelineWorld(Library(3));
@@ -214,49 +235,213 @@ public sealed unsafe class GlideWorldTests
         {
             world.Advance(old);
             world.Advance(fast);
+            Assert.Equal(world == cached, fast.Frozen);
             Same(old, fast, 0);
         }
     }
 
     [Fact]
-    public void FailedRequestsInvalidateBeforeReturningControlToTheCaller()
+    public void RejectedRequestsLeaveTheLazyStateExactBeforeReturningControlToTheCaller()
     {
         using var world = new TimelineWorld(Library(31));
+        using var old = new PlaybackTable(1);
         using var fast = new PlaybackTable(1, 4, 255);
-        fast.Start(0, 1, 5);
-        world.ApplyRequests(fast);
-        world.Advance(fast);
-        Assert.True(fast.Horizons[0] > 0);
-        fast.Start(0, 500);
-        Assert.Throws<ArgumentException>(() => world.ApplyRequests(fast));
-        Assert.Equal((byte)0, fast.Horizons[0]);
+        foreach (var table in new[] { old, fast })
+        {
+            table.Start(0, 1, 5);
+            world.ApplyRequests(table);
+            world.Advance(table);
+            table.Start(0, 2, 9);
+            table.Start(0, 500);
+            Assert.Throws<ArgumentException>(() => world.ApplyRequests(table));
+        }
+        Assert.True(fast.Frozen);
+        Assert.Equal(25, Wait(fast, 0));
+        Assert.Equal(1, fast.CountOf(0));
+        Assert.Equal((ushort)6, old.SlotsOf(0)[0].Tick);
+        Same(old, fast, 0);
+        for (var i = 0; i < 70; i++)
+        {
+            world.Advance(old);
+            world.Advance(fast);
+            Same(old, fast, 0);
+        }
+        Assert.True(fast.Frozen);
+    }
+
+    [Fact]
+    public void UnknownTimelineThrowsWithTheSameMessageAndTheSameHalfSteppedStateAsEager()
+    {
+        using var big = new TimelineWorld(Library(31));
+        using var small = new TimelineWorld(Library(31, 2));
+        using var old = new PlaybackTable(3);
+        using var fast = new PlaybackTable(3, 4, 255);
+        var messages = new string[2];
+        var index = 0;
+        foreach (var table in new[] { old, fast })
+        {
+            table.Start(0, 1, 3);
+            table.Start(0, 2, 4);
+            table.Start(1, 1, 3);
+            table.Start(1, 5, 4);
+            table.Start(1, 2, 5);
+            table.Start(2, 1, 3);
+            big.ApplyRequests(table);
+            for (var i = 0; i < 3; i++) big.Advance(table);
+            messages[index++] = Assert.Throws<ArgumentException>(() => small.Advance(table)).Message;
+        }
+        Assert.Equal(messages[0], messages[1]);
+        Assert.False(fast.Frozen);
+        Assert.Equal((ushort)7, fast.SlotsOf(0)[0].Tick);
+        Assert.Equal((ushort)8, fast.SlotsOf(0)[1].Tick);
+        Assert.Equal((ushort)7, fast.SlotsOf(1)[0].Tick);
+        Assert.Equal((ushort)7, fast.SlotsOf(1)[1].Tick);
+        Assert.Equal((ushort)8, fast.SlotsOf(1)[2].Tick);
+        Assert.Equal((ushort)6, fast.SlotsOf(2)[0].Tick);
+        for (var row = 0; row < 3; row++) Same(old, fast, row);
+        for (var i = 0; i < 70; i++)
+        {
+            big.Advance(old);
+            big.Advance(fast);
+            Assert.True(fast.Frozen);
+            for (var row = 0; row < 3; row++) Same(old, fast, row);
+        }
+    }
+
+    [Fact]
+    public void OneShotsEndingInsideASpilledRunCarryTheRemainingDuesBackInline()
+    {
+        using var world = new TimelineWorld(Library(40, 8, false));
+        using var old = new PlaybackTable(2, 2);
+        using var fast = new PlaybackTable(2, 2, 255);
+        foreach (var table in new[] { old, fast })
+        {
+            table.Start(0, 1, 30);
+            table.Start(0, 2, 2);
+            world.ApplyRequests(table);
+            world.Advance(table);
+            table.Start(0, 3, 20);
+            table.Start(0, 4, 36);
+            table.Start(0, 5, 33);
+            table.Seek(0, 2, 10);
+            table.Start(1, 6, 1);
+            world.ApplyRequests(table);
+        }
+        Assert.True(fast.Frozen);
+        Assert.True(fast.IsSpilled(0));
+        Assert.Equal(5, fast.CountOf(0));
+        var unspilled = -1;
+        for (var tick = 0; tick < 60; tick++)
+        {
+            world.Advance(old);
+            world.Advance(fast);
+            if (unspilled < 0 && !fast.IsSpilled(0)) unspilled = tick;
+            for (var row = 0; row < 2; row++) Same(old, fast, row);
+        }
+        Assert.Equal(19, unspilled);
+        Assert.Equal(0, fast.CountOf(0));
+        Assert.Equal(0ul, fast.PlayingBits[0]);
+        Assert.True(fast.Frozen);
+    }
+
+    [Fact]
+    public void ATickThatFillsTheHitBufferToItsLastLaneLandsEveryBoundaryOnce()
+    {
+        using var world = new TimelineWorld(Library(32, 256));
+        using var old = new PlaybackTable(72, 4);
+        using var fast = new PlaybackTable(72, 4, 255);
+        foreach (var table in new[] { old, fast })
+        {
+            for (var row = 0; row < 63; row++) table.Start(row, 1);
+            for (ushort timeline = 1; timeline <= 256; timeline++)
+            {
+                table.Start(63, timeline);
+                table.Start(71, timeline);
+            }
+            world.ApplyRequests(table);
+        }
+        Assert.Equal(PlaybackTable.MaxSlots, fast.CountOf(63));
+        for (var tick = 0; tick < 100; tick++)
+        {
+            world.Advance(old);
+            world.Advance(fast);
+            for (var row = 0; row < 72; row++) Same(old, fast, row);
+        }
+        Assert.True(fast.Frozen);
+        Assert.Equal(28, Wait(fast, 63));
+    }
+
+    [Fact]
+    public void ClockWrapPausedSlotsAndDirectionFlipsStayExactForTwoHundredThousandTicks()
+    {
+        using var world = new TimelineWorld(Library(1000));
+        using var old = new PlaybackTable(4);
+        using var fast = new PlaybackTable(4, 4, 255);
+        foreach (var table in new[] { old, fast })
+        {
+            table.Start(0, 1, 5);
+            table.Start(1, 1, 7);
+            table.Start(1, 2, 400);
+            table.Start(2, 3, 9);
+            table.Start(3, 4, 11);
+            world.ApplyRequests(table);
+            table.Pause(1, 2);
+            table.Reverse(2, 3, true);
+            table.Pause(3, 4);
+            world.ApplyRequests(table);
+        }
+        for (var tick = 0; tick < 200000; tick++)
+        {
+            if (tick == 100000)
+                foreach (var table in new[] { old, fast })
+                {
+                    table.Resume(1, 2);
+                    table.Resume(3, 4);
+                    world.ApplyRequests(table);
+                }
+            world.Advance(old, tick < 150000);
+            world.Advance(fast, tick < 150000);
+            Assert.True(fast.Frozen);
+            for (var row = 0; row < 4; row++) Same(old, fast, row);
+        }
+        Assert.Equal(255, fast.HorizonLimit);
     }
 
 #if TL_CHECKED
     [Fact]
-    public void CheckedVisitsIncludeDenseAndPartialGlides()
+    public void CheckedVisitsCountOnlyTheEntitiesThatReachABoundary()
     {
         using var world = new TimelineWorld(Library());
+        using var old = new PlaybackTable(129);
         using var fast = new PlaybackTable(129, 4, 255);
-        for (var row = 0; row < 129; row++)
-            for (ushort timeline = 1; timeline <= 4; timeline++) fast.Start(row, timeline, 10);
-        world.ApplyRequests(fast);
-        world.Advance(fast);
+        foreach (var table in new[] { old, fast })
+        {
+            for (var row = 0; row < 129; row++)
+                for (ushort timeline = 1; timeline <= 4; timeline++) table.Start(row, timeline, 10);
+            world.ApplyRequests(table);
+            world.Advance(table);
+        }
         Checked.ResetVisited();
         world.Advance(fast);
+        Assert.Equal(0, Checked.VisitedEntities);
+        for (var i = 0; i < 1023; i++) world.Advance(fast);
         Assert.Equal(129, Checked.VisitedEntities);
+        Checked.ResetVisited();
+        for (var i = 0; i < 1024; i++) world.Advance(old);
+        Assert.Equal(129 * 1024, Checked.VisitedEntities);
+        for (var row = 0; row < 129; row++) Same(old, fast, row);
     }
 #endif
 
     [Fact]
-    public void OptInCacheHasOneBytePerEntityAndOneFixedHeader()
+    public void OptInLazyStateHasTwoBytesPerInlineSlotAndPerEntityLane()
     {
         using var old = new PlaybackTable(1001);
         using var fast = new PlaybackTable(1001, 4, 255);
-        Assert.Equal(1001 + 64, fast.NativeBytes - old.NativeBytes);
+        Assert.Equal(1001 * 5 * 2, fast.NativeBytes - old.NativeBytes);
         _ = fast.View;
         Assert.Equal(0, fast.HorizonLimit);
-        Assert.Equal(1001 + 64, fast.NativeBytes - old.NativeBytes);
+        Assert.Equal(1001 * 5 * 2, fast.NativeBytes - old.NativeBytes);
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaybackTable(1, 4, -1));
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaybackTable(1, 4, 256));
     }
@@ -303,7 +488,7 @@ public sealed unsafe class GlideWorldTests
                     for (var i = 1; i < tables.Length; i++)
                     {
                         Same(tables[0], tables[i], entity);
-                        if (tables[i].Horizons[entity] > 0) hits++;
+                        if (tables[i].Frozen && (tables[i].PlayingBits[entity >> 6] >> (entity & 63) & 1) != 0 && Wait(tables[i], entity) > 1) hits++;
                     }
                 }
                 for (var row = 0; row < 65; row++)
@@ -360,7 +545,8 @@ public sealed unsafe class GlideWorldTests
         b.Join();
         Assert.Null(failure);
         for (var row = 0; row < 65; row++) Same(first, second, row);
-        Assert.True(first.Horizons[0] > 0);
-        Assert.True(second.Horizons[0] > 0);
+        Assert.True(first.Frozen);
+        Assert.True(second.Frozen);
+        Assert.Equal(Wait(first, 0), Wait(second, 0));
     }
 }
