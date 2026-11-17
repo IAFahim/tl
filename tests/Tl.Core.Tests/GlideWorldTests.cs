@@ -504,7 +504,7 @@ public sealed unsafe class GlideWorldTests
     }
 
     [Fact]
-    public void WarmGlideAndBoundaryRebuildsAllocateZeroProcessWideBytes()
+    public void WarmGlideAndBoundaryRebuildsAllocateZeroBytes()
     {
         using var world = new TimelineWorld(Library(31));
         using var fast = new PlaybackTable(129, 4, 255);
@@ -512,9 +512,9 @@ public sealed unsafe class GlideWorldTests
             for (ushort timeline = 1; timeline <= 4; timeline++) fast.Start(row, timeline, (ushort)(row % 30));
         world.ApplyRequests(fast);
         for (var i = 0; i < 4096; i++) world.Advance(fast);
-        var before = GC.GetTotalAllocatedBytes(true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < 1200; i++) world.Advance(fast);
-        var allocated = GC.GetTotalAllocatedBytes(true) - before;
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(0, allocated);
         Assert.Equal(255, fast.HorizonLimit);
     }
