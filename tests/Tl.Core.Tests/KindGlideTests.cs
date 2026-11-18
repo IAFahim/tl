@@ -72,10 +72,6 @@ public sealed unsafe class KindGlideTests
             return Slots;
         }
 
-        public void Sample(int row, byte slot, byte sample) => Log.Add("sample " + row + " " + slot + " " + sample);
-
-        public void Unsample(int row) => Log.Add("unsample " + row);
-
         public void Sampled(int row, int samples) { }
 
         public void Seal()

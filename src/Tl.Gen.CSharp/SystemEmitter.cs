@@ -540,7 +540,7 @@ internal static class SystemEmitter
         W(writer, "if (__pb->Timeline == 0 || !global::Tl.KindScore.Listed(__pb->Flags)) continue;");
         W(writer, "var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);");
         W(writer, "if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;");
-        if (feed) W(writer, "if (__i < __cnt ? __pb->Rate != 0 : __pb->Phase == global::Tl.KindRules.Marker) continue;");
+        if (feed) W(writer, "if (__i < __cnt && __pb->Rate != 0) continue;");
         else
         {
             W(writer, "if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }");
@@ -562,20 +562,11 @@ internal static class SystemEmitter
         W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;");
         W(writer, $"{value} __v = default;");
         W(writer, "var __ok = false;");
-        var any = false;
-        for (var i = 0; i < feeders.Count; i++)
-        {
-            var (c, feeder) = feeders[i];
-            if (feeder.Trigger != FeederTrigger.Span) continue;
-            if (!any) { W(writer, "switch (__r & 0xff)"); W(writer, "{"); any = true; }
-            EmitFeederCase(writer, assignment, shape, i, c, feeder);
-        }
-        if (any) W(writer, "}");
-        W(writer, "if (!__ok) continue;");
+        EmitCases(writer, assignment, shape, feeders, true);
         if (feed)
         {
             W(writer, "var __add = __kt->Append(__row);");
-            W(writer, "*__add = new global::Tl.KindEntry { Timeline = __pb->Timeline, Step = __sp->Window, Slot = (byte)__i, Feeder = __sp->Ordinal, Flags = global::Tl.KindEntryFlags.Span | global::Tl.KindEntryFlags.Pulse | global::Tl.KindEntryFlags.Ready | (__i < __cnt ? 0 : global::Tl.KindEntryFlags.Sample) };");
+            W(writer, "*__add = new global::Tl.KindEntry { Timeline = __pb->Timeline, Step = __sp->Window, Slot = (byte)__i, Feeder = __sp->Ordinal, Flags = global::Tl.KindEntryFlags.Span | global::Tl.KindEntryFlags.Pulse | global::Tl.KindEntryFlags.Ready };");
             if (kind.Group.Length > 0) W(writer, "*(ushort*)((byte*)__add + 8) = (ushort)__kid;");
             W(writer, $"global::System.Runtime.CompilerServices.Unsafe.WriteUnaligned((byte*)__add + {valueAt}, __v);");
         }
@@ -589,30 +580,7 @@ internal static class SystemEmitter
         W(writer, "}");
     }
 
-    static void EmitFeederCase(StringBuilder writer, SystemAssignment assignment, KernelShape shape, int i, int c, FeederDecl feeder)
-    {
-        var consumer = assignment.Consumers[c];
-        W(writer, $"case {i}:");
-        W(writer, "{");
-        if (feeder.Trigger == FeederTrigger.Marker)
-        {
-            W(writer, $"byte* __mptr{c};");
-            W(writer, $"if (!global::Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __ks.MarkerOf(__en->Timeline, __en->Step), sizeof({consumer.MarkerTypeName}), out __mptr{c})) throw new global::System.InvalidOperationException(\"Tl: marker values are not published for this library.\");");
-            W(writer, $"{consumer.MarkerTypeName} __m{c} = *({consumer.MarkerTypeName}*)__mptr{c};");
-            W(writer, $"var __mf{c} = new global::Tl.MarkerFrame<{consumer.MarkerTypeName}>(in __m{c}, __tick, 0, __kflags);");
-            W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, $"__mf{c}", "__e", "")});");
-        }
-        else
-        {
-            EmitFeederBody(writer, assignment, shape, c, feeder);
-            return;
-        }
-        W(writer, "__ok = true;");
-        W(writer, "break;");
-        W(writer, "}");
-    }
-
-    static void EmitEntryHead(StringBuilder writer, List<(int consumer, FeederDecl feeder)> feeders)
+    static void EmitEntryHead(StringBuilder writer)
     {
         W(writer, "var __pb = __pview.SlotOf(__e, __en->Slot);");
         W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));");
@@ -626,43 +594,48 @@ internal static class SystemEmitter
         W(writer, "var __ok = false;");
     }
 
-    static void EmitEntryCases(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<(int consumer, FeederDecl feeder)> feeders)
+    static void EmitCases(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<(int consumer, FeederDecl feeder)> feeders, bool spans)
     {
         var any = false;
         for (var i = 0; i < feeders.Count; i++)
         {
             var (c, feeder) = feeders[i];
-            if (feeder.Trigger == FeederTrigger.Span) continue;
+            if ((feeder.Trigger == FeederTrigger.Span) != spans) continue;
             if (!any) { W(writer, "switch (__r & 0xff)"); W(writer, "{"); any = true; }
-            if (feeder.Trigger != FeederTrigger.Marker)
+            var consumer = assignment.Consumers[c];
+            W(writer, $"case {i}:");
+            W(writer, "{");
+            if (feeder.Trigger == FeederTrigger.Marker)
             {
-                W(writer, $"case {i}:");
-                W(writer, "{");
-                W(writer, "var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);");
-                W(writer, "if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;");
-                EmitFeederBody(writer, assignment, shape, c, feeder);
+                W(writer, $"byte* __mptr{c};");
+                W(writer, $"if (!global::Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __ks.MarkerOf(__en->Timeline, __en->Step), sizeof({consumer.MarkerTypeName}), out __mptr{c})) throw new global::System.InvalidOperationException(\"Tl: marker values are not published for this library.\");");
+                W(writer, $"{consumer.MarkerTypeName} __m{c} = *({consumer.MarkerTypeName}*)__mptr{c};");
+                W(writer, $"var __mf{c} = new global::Tl.MarkerFrame<{consumer.MarkerTypeName}>(in __m{c}, __tick, 0, __kflags);");
+                W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, $"__mf{c}", "__e", "")});");
             }
-            else EmitFeederCase(writer, assignment, shape, i, c, feeder);
+            else
+            {
+                if (!spans)
+                {
+                    W(writer, "var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);");
+                    W(writer, "if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;");
+                }
+                EmitMaterialize(writer, consumer, c, "__tl", "__tick", "__backward", "__kflags");
+                if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, c);
+                var frameVar = $"__f{c}";
+                if (IsTlFrame(feeder.Method))
+                {
+                    frameVar = $"__tf{c}";
+                    W(writer, $"var {frameVar} = new global::Tl.TlFrame<{consumer.ClipTypeName}>(in __f{c});");
+                }
+                W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, frameVar, "__e", $"__fd{c}_")});");
+            }
+            W(writer, "__ok = true;");
+            W(writer, "break;");
+            W(writer, "}");
         }
         if (any) W(writer, "}");
         W(writer, "if (!__ok) continue;");
-    }
-
-    static void EmitFeederBody(StringBuilder writer, SystemAssignment assignment, KernelShape shape, int c, FeederDecl feeder)
-    {
-        var consumer = assignment.Consumers[c];
-        EmitMaterialize(writer, consumer, c, "__tl", "__tick", "__backward", "__kflags");
-        if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, c);
-        var frameVar = $"__f{c}";
-        if (IsTlFrame(feeder.Method))
-        {
-            frameVar = $"__tf{c}";
-            W(writer, $"var {frameVar} = new global::Tl.TlFrame<{consumer.ClipTypeName}>(in __f{c});");
-        }
-        W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, frameVar, "__e", $"__fd{c}_")});");
-        W(writer, "__ok = true;");
-        W(writer, "break;");
-        W(writer, "}");
     }
 
     static void EmitEntryWalk(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, string value, int valueAt, string tail)
@@ -671,7 +644,7 @@ internal static class SystemEmitter
         W(writer, "{");
         W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
         if (kind.Group.Length > 0) W(writer, "if (*(ushort*)((byte*)__en + 8) != __kid) continue;");
-        W(writer, "if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;");
+        W(writer, "if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __run, __cnt)) continue;");
         W(writer, $"{value} __v = default;");
         W(writer, "__pulses++;");
         W(writer, "if (__en->Timeline == 0)");
@@ -687,8 +660,8 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "else");
         W(writer, "{");
-        EmitEntryHead(writer, feeders);
-        EmitEntryCases(writer, assignment, shape, feeders);
+        EmitEntryHead(writer);
+        EmitCases(writer, assignment, shape, feeders, false);
         W(writer, "}");
         W(writer, "}");
         if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __v{tail});");
@@ -710,8 +683,8 @@ internal static class SystemEmitter
         W(writer, "var __r = __routes[__en->Feeder];");
         W(writer, "if ((__r >> 8) != __me) continue;");
         W(writer, $"{value} __v = default;");
-        EmitEntryHead(writer, feeders);
-        EmitEntryCases(writer, assignment, shape, feeders);
+        EmitEntryHead(writer);
+        EmitCases(writer, assignment, shape, feeders, false);
         W(writer, $"global::System.Runtime.CompilerServices.Unsafe.WriteUnaligned((byte*)__en + {valueAt}, __v);");
         W(writer, "__en->Flags |= global::Tl.KindEntryFlags.Ready;");
         W(writer, "}");

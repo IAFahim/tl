@@ -274,7 +274,12 @@ public sealed unsafe class KindTickTests : IDisposable
                     }
                 }
             }
-            run.Store.ClearPulses();
+            for (var k = 0; k < run.Store.KindCount; k++)
+            {
+                var consumed = run.Store.Table(k);
+                if (consumed == null) continue;
+                for (var r = 0; r < consumed->Rows; r++) consumed->RemovePulses(r);
+            }
         }
         _ = damage;
         Assert.Equal(0, mismatches);

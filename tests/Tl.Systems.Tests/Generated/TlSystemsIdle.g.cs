@@ -183,7 +183,7 @@ else { __total = __v; __has = true; }
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __run, __cnt)) continue;
 int __v = default;
 __pulses++;
 if (__en->Timeline == 0)
@@ -327,7 +327,7 @@ else { __total = __v; __has = true; }
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __run, __cnt)) continue;
 int __v = default;
 __pulses++;
 if (__en->Timeline == 0)

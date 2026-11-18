@@ -236,16 +236,14 @@ public sealed unsafe class KindStore : IDisposable
 
     public static int TrailingZeros(ulong value) => Tz(value);
 
-    public LibraryStep* StepOf(ushort timeline, int window, ushort tick) => new Steps { Store = this }.StepOf(timeline, window, tick);
-
     struct Steps : IKindSteps
     {
         public KindStore Store;
 
-        public LibraryStep* StepOf(ushort timeline, int window, ushort tick) => Store.Step(timeline, window, tick);
+        public LibraryStep* StepOf(ushort timeline, int window, ushort tick) => Store.StepOf(timeline, window, tick);
     }
 
-    LibraryStep* Step(ushort timeline, int window, ushort tick)
+    public LibraryStep* StepOf(ushort timeline, int window, ushort tick)
     {
         var t = timeline - 1;
         if ((uint)t >= (uint)_timelineCount) return null;
@@ -324,25 +322,6 @@ public sealed unsafe class KindStore : IDisposable
         var mask = _mask[entity];
         if ((mask & (1ul << kind)) == 0) return -1;
         return _rows[_offset[entity] + Pop(mask & ((1ul << kind) - 1))];
-    }
-
-    internal void ClearPulses()
-    {
-        for (var k = 0; k < _kindCount; k++)
-        {
-            _queues[k].Count = 0;
-            var t = _tables[k];
-            if (t == null || _owner[k] != k) continue;
-            for (var w = 0; w < t->Words; w++)
-            {
-                var bits = t->Active[w];
-                while (bits != 0)
-                {
-                    t->RemovePulses((w << 6) + Tz(bits));
-                    bits &= bits - 1;
-                }
-            }
-        }
     }
 
     internal void ValidateStart(int entity, ushort timeline)
@@ -431,38 +410,6 @@ public sealed unsafe class KindStore : IDisposable
         public PlaybackTable Players;
 
         public Playback* Reserve(int entity, int used, int length) => Players.Reserve(entity, length, used);
-
-        public void Sample(int entity, byte slot, byte sample)
-        {
-            var kinds = Mask[entity];
-            while (kinds != 0)
-            {
-                var kind = Tz(kinds);
-                kinds &= kinds - 1;
-                if (!Repeat(entity, kind)) Tables[kind]->Sample(RowOf(entity, kind), slot, sample);
-            }
-        }
-
-        bool Repeat(int entity, int kind)
-        {
-            var table = Tables[kind];
-            if (!table->Grouped) return false;
-            var prior = Mask[entity] & ((1ul << kind) - 1);
-            for (; prior != 0; prior &= prior - 1)
-                if (Tables[Tz(prior)] == table) return true;
-            return false;
-        }
-
-        public void Unsample(int entity)
-        {
-            var kinds = Mask[entity];
-            while (kinds != 0)
-            {
-                var kind = Tz(kinds);
-                kinds &= kinds - 1;
-                Tables[kind]->Unsample(RowOf(entity, kind));
-            }
-        }
     }
 
     internal void Sync()
@@ -659,7 +606,7 @@ public sealed unsafe class KindStore : IDisposable
                 member++;
             }
             var grouped = row.GroupNameLength != 0;
-            var table = KindTable.Create(o, new ReadOnlySpan<int>(members, count), (int)(grouped ? row.GroupCapacity : row.Capacity), grouped ? 12 + (int)((largest + 3u) & ~3u) : 8 + (int)((row.ValueBytes + 3u) & ~3u), grouped);
+            var table = KindTable.Create(o, new ReadOnlySpan<int>(members, count), grouped ? (int)row.GroupCapacity : row.Accepts == (byte)KindEntries.Spans ? 0 : (int)row.Capacity, grouped ? 12 + (int)((largest + 3u) & ~3u) : 8 + (int)((row.ValueBytes + 3u) & ~3u), grouped);
             NativeMemory.AlignedFree(members);
             for (var k = o; k < _kindCount; k++)
                 if (_owner[k] == o) _tables[k] = table;
@@ -747,7 +694,7 @@ public sealed unsafe class KindStore : IDisposable
         else Buffer.MemoryCopy(from, to, bytes, bytes);
     }
 
-    static void* Zeroed(nuint bytes)
+    internal static void* Zeroed(nuint bytes)
     {
         var p = NativeMemory.AlignedAlloc(bytes == 0 ? 1 : bytes, 64);
         NativeMemory.Clear(p, bytes);

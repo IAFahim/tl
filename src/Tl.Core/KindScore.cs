@@ -31,16 +31,14 @@ public unsafe struct KindScore
         return (mask & bit) == 0 ? -1 : CellBase[timeline - 1] + tick * KindStore.Pop(mask) + KindStore.Pop(mask & (bit - 1));
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Listed(PlaybackFlags f) => (f & (PlaybackFlags.StartPending | PlaybackFlags.Ended | PlaybackFlags.Stopping)) == 0 && (f & (PlaybackFlags.ReenterPending | PlaybackFlags.Began)) != PlaybackFlags.ReenterPending;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Synthetic(PlaybackFlags f, int tick, LibraryStep* step, bool backward)
         => (f & PlaybackFlags.Began) != 0 && ((f & PlaybackFlags.ReenterPending) != 0 || tick != (backward ? step->WindowEnd - 1 : step->WindowStart));
 
     public static KindScore Build<TSteps>(in KindTables t, ref TSteps steps) where TSteps : struct, IKindSteps
     {
-        var s = new KindScore { CellBase = (int*)Alloc((nuint)(t.TimelineCount + 1) * 4) };
+        var s = new KindScore { CellBase = (int*)KindStore.Zeroed((nuint)(t.TimelineCount + 1) * 4) };
         for (var i = 0; i < t.TimelineCount; i++)
         {
             s.CellBase[i] = s.Cells;
@@ -67,20 +65,13 @@ public unsafe struct KindScore
                 }
             }
         }
-        s.Start = (int*)Alloc((nuint)(s.Cells + 1) * 4);
-        s.Spans = (KindSpan*)Alloc((nuint)Math.Max(1, spans.Count) * 16);
+        s.Start = (int*)KindStore.Zeroed((nuint)(s.Cells + 1) * 4);
+        s.Spans = (KindSpan*)KindStore.Zeroed((nuint)Math.Max(1, spans.Count) * 16);
         foreach (var cell in cells) s.Start[cell + 1]++;
         for (var n = 0; n < s.Cells; n++) s.Start[n + 1] += s.Start[n];
         var next = new int[s.Cells + 1];
         for (var n = 0; n < cells.Count; n++) s.Spans[s.Start[cells[n]] + next[cells[n]]++] = spans[n];
         return s;
-    }
-
-    static void* Alloc(nuint bytes)
-    {
-        var p = NativeMemory.AlignedAlloc(bytes == 0 ? 1 : bytes, 64);
-        NativeMemory.Clear(p, bytes);
-        return p;
     }
 
     public void Free()

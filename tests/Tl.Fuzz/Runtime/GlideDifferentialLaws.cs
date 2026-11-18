@@ -363,8 +363,6 @@ public sealed unsafe class GlideDifferentialLaws
             Events++;
             return null;
         }
-        public void Sample(int row, byte slot, byte sample) => Events++;
-        public void Unsample(int row) => Events++;
         public void Sampled(int row, int samples) { }
         public void Seal() { }
     }

@@ -21,8 +21,6 @@ public unsafe interface IKindRows
     KindEntry* Append(int row, LibraryFeeder* feeder);
     void Purge(int row, byte slot, ushort timeline);
     Playback* Reserve(int row, int used, int length);
-    void Sample(int row, byte slot, byte sample);
-    void Unsample(int row);
     void Sampled(int row, int samples);
 }
 
@@ -58,38 +56,17 @@ public static unsafe class KindRules
         }
     }
 
-    public const byte Marker = 255;
     public const int MaxSampleSlots = 256;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsSampled(byte* data, int length) => length != 0 && (((KindEntry*)data)->Flags & KindEntryFlags.Sample) != 0;
-
-    public static int SampleDepth(byte* data, int length, int stride, Playback* slots)
-    {
-        var depth = 1;
-        for (var i = 0; i < length; i++)
-        {
-            var e = (KindEntry*)(data + (nuint)i * (nuint)stride);
-            if ((e->Flags & KindEntryFlags.Sample) == 0) break;
-            var j = slots[e->Slot].Phase;
-            if (j != Marker && j + 1 > depth) depth = j + 1;
-        }
-        return depth;
-    }
 
     public static int Depth(Playback* copies, int samples)
     {
         var depth = 1;
-        for (var i = 0; i < samples; i++)
-            if (copies[i].Phase != Marker && copies[i].Phase + 1 > depth) depth = copies[i].Phase + 1;
+        for (var i = 0; i < samples; i++) depth = Math.Max(depth, copies[i].Phase + 1);
         return depth;
     }
 
-    public static bool Due(KindEntry* entry, int substep, Playback* slot)
-    {
-        if ((entry->Flags & KindEntryFlags.Sample) != 0) return slot->Phase == substep;
-        return substep == 0 && (entry->Timeline == 0 || (entry->Flags & KindEntryFlags.Pulse) != 0 || slot->Rate == 0);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool Due(KindEntry* entry, int substep, Playback* run, int count) => entry->Timeline != 0 && entry->Slot >= count ? run[entry->Slot].Phase == substep : substep == 0;
 
     public static bool TickEntity<TRows>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int stepDir) where TRows : struct, IKindRows
     {
@@ -147,32 +124,22 @@ public static unsafe class KindRules
             live = TickSlot(in t, ref rows, row, i, s, stepDir);
             return slots;
         }
-        if (samples == 0) rows.Unsample(row);
         var crossings = PlaybackRules.Cross(ref *s);
         var room = MaxSampleSlots - count - samples;
-        if (room <= 0 && crossings == 0) return slots;
-        if (room > 0)
+        if (crossings > 0 && room > 0)
         {
-            slots = rows.Reserve(row, count + samples, count + samples + Math.Min(crossings == 0 ? 1 : crossings, room));
+            slots = rows.Reserve(row, count + samples, count + samples + Math.Min(crossings, room));
             s = slots + i;
-        }
-        if (crossings == 0)
-        {
-            var mark = count + samples++;
-            slots[mark] = *s;
-            slots[mark].Phase = Marker;
-            rows.Sample(row, (byte)i, (byte)mark);
-            return slots;
         }
         for (var j = 0; j < crossings; j++)
         {
-            live = TickSlot(in t, ref rows, row, i, s, stepDir);
-            if (j < room)
+            var at = j < room ? count + samples : i;
+            live = TickSlot(in t, ref rows, row, at, s, stepDir);
+            if (at != i)
             {
-                var at = count + samples++;
                 slots[at] = *s;
                 slots[at].Phase = (byte)j;
-                rows.Sample(row, (byte)i, (byte)at);
+                samples++;
             }
             if (!live || s->Timeline == 0 || (s->Flags & (PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0) break;
         }
