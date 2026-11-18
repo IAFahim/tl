@@ -100,6 +100,7 @@ internal sealed record SystemConsumer(
     IReadOnlyList<DeclarationDiagnostic> Diagnostics)
 {
     public IReadOnlyList<FeederDecl> Feeders { get; init; } = [];
+    public bool ClipBlendable { get; init; }
 }
 
 internal sealed record SystemAssignment(

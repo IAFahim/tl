@@ -164,7 +164,7 @@ Each timeline file is the whole input format — authored by a designer, naming 
 - windows are half-open `[start, end)`; execution order is authored clip order
 - `data` fields map onto struct fields by name (`Scale` → `ArcTrack.Scale`); an omitted `data` on a track or clip bakes the type's default state
 - an optional `name` on the timeline, each track, and each clip labels the asset for tools and reports
-- two clips overlapping on one track blend through the type's `IBlend` with the authored factor; overlap on a track whose type lacks `IBlend` fails the bake
+- two clips overlapping on one track blend through the type's `IBlend` with the authored factor (0 on the first tick of the overlap, 1 on its last); overlap on a track whose type lacks `IBlend` fails the bake. A short-form `ITlTrack<TClip>` track (`TlNoSettings<TClip>`) blends through the clip's own `IBlend<TClip>` when the clip implements it and otherwise keeps the first clip; the long form keeps calling the track's `Blend`
 - `loop: true` wraps at `duration`; finite timelines without `next` disappear at the end; `hold: true` keeps the last tick with `Ended` instead
 - `next` names the timeline that takes over the same slot and channel at tick 0 when this one ends; it is incompatible with `loop: true`
 - `channel` names an exclusive lane per entity with replacement semantics; a timeline with no channel stacks with everything

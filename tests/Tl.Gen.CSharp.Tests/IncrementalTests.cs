@@ -82,6 +82,23 @@ public sealed class IncrementalTests
     }
 
     [Fact]
+    public void AddingIBlendToOnlyTheClipFileSwitchesTheFrameToTheClipsBlendAndRemovingItSwitchesBack()
+    {
+        const string track = "using Tl;\nnamespace Portable;\n[TlState] public partial struct Glow { public float X; }\n[TlKind] public struct GlowKind { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref Glow glow) => glow.X = total; }\npublic struct GlowTrack : ITlTrack<GlowClip> { [Feeds(typeof(GlowKind))] public static float Evaluate(in TlFrame<GlowClip> frame) => frame.Clip.X; }\n";
+        const string plainClip = "using Tl;\nnamespace Portable;\n[TlClip(\"Glow\")] public struct GlowClip { public float X; }\n";
+        const string blendingClip = "using Tl;\nnamespace Portable;\n[TlClip(\"Glow\")] public struct GlowClip : IBlend<GlowClip> { public float X; public void Blend(in GlowClip first, in GlowClip second, float factor, out GlowClip result) => result = new GlowClip { X = first.X + (second.X - first.X) * factor }; }\n";
+        var driver = NewDriver();
+        var (_, plain) = Step(ref driver, Compile(("Track.cs", track), ("Clip.cs", plainClip)));
+        Assert.Contains(plain, tree => tree.Contains("track.Blend(in clip, in __second, blend, out clip);", StringComparison.Ordinal));
+        Assert.DoesNotContain(plain, tree => tree.Contains("clip = __Blend(clip, in __second, blend);", StringComparison.Ordinal));
+        var (_, blending) = Step(ref driver, Compile(("Track.cs", track), ("Clip.cs", blendingClip)));
+        Assert.Contains(blending, tree => tree.Contains("clip = __Blend(clip, in __second, blend);", StringComparison.Ordinal));
+        Assert.DoesNotContain(blending, tree => tree.Contains("track.Blend(in clip, in __second, blend, out clip);", StringComparison.Ordinal));
+        var (_, back) = Step(ref driver, Compile(("Track.cs", track), ("Clip.cs", plainClip)));
+        Assert.Equal(plain, back);
+    }
+
+    [Fact]
     public void EditingARelevantTypeModifiesItsStepAndReassigns()
     {
         var driver = NewDriver();

@@ -55,6 +55,6 @@ internal static class SystemDigest
         static string OfFeeder(FeederDecl f) => $"{f.KindName}\0{(byte)f.Trigger}\0{f.MethodName}\0{f.ConsumerMetadata}\0{f.ValueTypeName}\0{OfMethod(f.Method)}";
         static string OfKind(KindDecl k) => $"{k.Name}\0{k.TypeName}\0{k.ValueTypeName}\0{k.Each}\0{k.Accepts}\0{k.Order}\0{k.Group}\0{k.Foreign}\0{k.Id}" + string.Join("\0", k.ApplyParams.Select(OfParam)) + "|" + string.Join("\0", k.MemberSystems) + "|" + (k.IdleParams is null ? "" : string.Join("\0", k.IdleParams.Select(OfParam)));
         static string OfSystem(SystemDecl s) => $"{s.TypeName}\0{s.IsRef}\0{s.SystemKey}" + string.Join("\0", s.Fields.Select(OfField));
-        static string OfConsumer(SystemConsumer c) => $"{c.ConsumerTypeName}\0{c.TrackTypeName}\0{c.ClipTypeName}\0{c.MarkerTypeName}\0{c.IsMarker}\0{c.TrackBlendable}\0{c.PairKey}" + string.Join("\0", c.MemberSystems) + "|" + string.Join("\0", c.Methods.Select(OfMethod)) + "|" + string.Join("\0", c.Diagnostics.Select(OfDiag)) + "|" + string.Join("\0", c.Feeders.Select(OfFeeder));
+        static string OfConsumer(SystemConsumer c) => $"{c.ConsumerTypeName}\0{c.TrackTypeName}\0{c.ClipTypeName}\0{c.MarkerTypeName}\0{c.IsMarker}\0{c.TrackBlendable}\0{c.ClipBlendable}\0{c.PairKey}" + string.Join("\0", c.MemberSystems) + "|" + string.Join("\0", c.Methods.Select(OfMethod)) + "|" + string.Join("\0", c.Diagnostics.Select(OfDiag)) + "|" + string.Join("\0", c.Feeders.Select(OfFeeder));
     }
 }

@@ -118,7 +118,7 @@ public sealed class HostParityFixtureTests
         {
             new() { Name = "a_line", Duration = 30, Tracks = { TestDomain.Track(line, (3, 10, Ints(7)), (14, 20, Ints(9))) } },
             new() { Name = "b_mood", Duration = 30, Tracks = { TestDomain.Track(mood, (2, 12, Ints(5)), (18, 26, Ints(6))) } },
-            new() { Name = "c_reel", Duration = 30, Tracks = { TestDomain.Track(reel, (5, 15, Ints(3))) } },
+            new() { Name = "c_reel", Duration = 30, Tracks = { TestDomain.Track(reel, (5, 15, Ints(3)), (10, 25, Ints(40))) } },
             new() { Name = "d_all", Duration = 40, Tracks = { TestDomain.Track(line, (4, 24, Ints(21))), TestDomain.Track(mood, (10, 30, Ints(8))), TestDomain.Track(reel, (0, 12, Ints(4))) } },
             new() { Name = "e_loop", Duration = 16, Loops = true, Tracks = { TestDomain.Track(line, (0, 8, Ints(11))) } },
         };
