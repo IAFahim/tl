@@ -27,40 +27,63 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
             .WithComparer(AnalysisComparer.Instance)
             .WithTrackingName("Tl.Analysis");
         context.RegisterSourceOutput(analysis, static (production, result) => Produce(production, result));
-        var newStyle = context.SyntaxProvider
+        IncrementalValuesProvider<SystemTypeModel?> TypeAttr(string name, Func<GeneratorAttributeSyntaxContext, CancellationToken, SystemTypeModel?> turn)
+            => context.SyntaxProvider.ForAttributeWithMetadataName(name, static (node, _) => node is TypeDeclarationSyntax, turn).WithTrackingName(TypeStep);
+        IncrementalValuesProvider<SystemTypeModel?> MethodAttr(string name, Func<GeneratorAttributeSyntaxContext, CancellationToken, SystemTypeModel?> turn)
+            => context.SyntaxProvider.ForAttributeWithMetadataName(name, static (node, _) => node is MethodDeclarationSyntax, turn).WithTrackingName(TypeStep);
+        var kinds = TypeAttr("Tl.TlKindAttribute", static (ctx, ct) => SystemReader.KindOf(ctx, ct));
+        var kindsLegacy = TypeAttr("Tl.TimelineKindAttribute", static (ctx, ct) => SystemReader.KindOf(ctx, ct));
+        var systems = TypeAttr("Tl.TimelineSystemAttribute", static (ctx, ct) => SystemReader.SystemOf(ctx, ct));
+        var states = TypeAttr("Tl.TlStateAttribute", static (ctx, ct) => SystemReader.StateOf(ctx, ct));
+        var feeds = MethodAttr("Tl.FeedsAttribute", static (ctx, ct) => SystemReader.FeederOf(ctx, ct));
+        var pulses = MethodAttr("Tl.PulseAttribute", static (ctx, ct) => SystemReader.FeederOf(ctx, ct));
+        var tracks = context.SyntaxProvider
             .CreateSyntaxProvider(
-                static (node, _) => node is TypeDeclarationSyntax syntax && (syntax.AttributeLists.Count > 0 || syntax.BaseList is not null),
-                static (syntax, cancellation) => IsNewStyle(syntax.SemanticModel, (TypeDeclarationSyntax)syntax.Node, cancellation))
-            .Where(static found => found)
-            .Collect();
-        var systems = newStyle.Combine(context.CompilationProvider)
-            .Select(static (pair, cancellation) => pair.Left.IsEmpty ? Empty : AnalyzeSystems(pair.Right, cancellation))
+                static (node, _) => node is TypeDeclarationSyntax syntax && syntax.BaseList is not null && syntax.BaseList.Types.Any(candidate => Base(candidate.Type) is "ITlTrack" or "ITrack" or "IMarker" or "ITlModule"),
+                static (syntax, cancellation) => SystemReader.TrackOf(syntax, cancellation))
+            .WithTrackingName(TypeStep);
+        var models = kinds.Collect().Combine(kindsLegacy.Collect()).Combine(systems.Collect()).Combine(states.Collect())
+            .Combine(feeds.Collect()).Combine(pulses.Collect()).Combine(tracks.Collect())
+            .Select(static (tuple, cancellation) =>
+            {
+                cancellation.ThrowIfCancellationRequested();
+                var a = tuple.Left.Left.Left.Left.Left;
+                var b = tuple.Left.Left.Left.Left.Right;
+                var c = tuple.Left.Left.Left.Right;
+                var d = tuple.Left.Left.Right;
+                var e = tuple.Left.Right;
+                return a.Item1.AddRange(a.Item2).AddRange(b).AddRange(c).AddRange(d).AddRange(e).AddRange(tuple.Right);
+            })
+            .WithTrackingName("Tl.Models");
+        var systemsOutput = models.Select(static (models, cancellation) => AnalyzeModels(models, cancellation))
             .WithComparer(AnalysisComparer.Instance)
             .WithTrackingName("Tl.Systems");
-        context.RegisterSourceOutput(systems, static (production, result) => Produce(production, result));
+        context.RegisterSourceOutput(systemsOutput, static (production, result) => Produce(production, result));
     }
 
+    static string Base(TypeSyntax type) => type switch
+    {
+        IdentifierNameSyntax identifier => identifier.Identifier.Text,
+        QualifiedNameSyntax qualified => qualified.Right.Identifier.Text,
+        GenericNameSyntax generic => generic.Identifier.Text,
+        _ => "",
+    };
     private static readonly Analysis Empty = new([], [], "");
 
-    private static bool IsNewStyle(SemanticModel semantic, TypeDeclarationSyntax syntax, CancellationToken cancellation)
-    {
-        if (semantic.GetDeclaredSymbol(syntax, cancellation) is not INamedTypeSymbol type) return false;
-        foreach (var attribute in type.GetAttributes())
-            if (NewStyle.IsKindAttribute(attribute.AttributeClass)) return true;
-        foreach (var candidate in type.AllInterfaces)
-            if (candidate.OriginalDefinition is { MetadataName: "ITlTrack`1", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } }) return true;
-        return false;
-    }
-
-    private static Analysis AnalyzeSystems(Compilation compilation, CancellationToken cancellation)
+    private static Analysis AnalyzeModels(ImmutableArray<SystemTypeModel?> models, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (compilation is not CSharpCompilation csharp) return Empty;
-        var id = string.Concat((compilation.AssemblyName ?? "Game").Select(static c => char.IsLetterOrDigit(c) ? c : '_'));
-        if (compilation.Assembly.GetTypeByMetadataName("TlSystems.TlModule_" + id) is not null) return Empty;
-        var emitted = SystemGeneration.Emit(csharp, id);
-        var fingerprint = string.Join("\0", emitted.Diagnostics.Select(DiagnosticFingerprint).Concat(emitted.Artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));
-        return new Analysis(emitted.Diagnostics, emitted.Artifacts, fingerprint);
+        var ordered = models.Where(static model => model is not null).Select(static model => model!)
+            .OrderBy(static model => model.TypeName, StringComparer.Ordinal).ThenBy(static model => (byte)model.Kind).ToList();
+        if (ordered.Count == 0) return Empty;
+        if (!ordered.Any(static model => model.Kind == SystemModelKind.Kind || model.Kind == SystemModelKind.Consumer && model.Events is not null)) return Empty;
+        var assemblyName = ordered[0].AssemblyName;
+        var id = string.Concat((assemblyName.Length == 0 ? "Game" : assemblyName).Select(static c => char.IsLetterOrDigit(c) ? c : '_'));
+        if (ordered.Any(model => model.Kind == SystemModelKind.Module && model.TypeName == "global::TlSystems.TlModule_" + id)) return Empty;
+        var read = SystemReader.AssignModels(ordered, id);
+        var artifacts = SystemGeneration.ArtifactsFor(read.Assignments, read.Diagnostics, read.AutoSource, assemblyName, id);
+        var fingerprint = string.Join("\0", read.Diagnostics.Select(DiagnosticFingerprint).Concat(artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));
+        return new Analysis(read.Diagnostics, artifacts, fingerprint);
     }
 
     private static Analysis Analyze(ImmutableArray<TypeAnalysis?> models, CancellationToken cancellation)
