@@ -194,9 +194,10 @@ var __stride = __kt->Stride;
 var __score = __ks.Score;
 var __pl = __ks.Playing;
 var __whole = __ks.RowsAreEntities(__kid);
+var __lst = __ks.ListedOf(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -301,7 +302,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Burn.Apply(in __total, ref __c5[__e]);
 }
-if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
+if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled || __pulses != 0)
 {
 var __kept = 0;
@@ -336,9 +337,10 @@ var __stride = __kt->Stride;
 var __score = __ks.Score;
 var __pl = __ks.Playing;
 var __whole = __ks.RowsAreEntities(__kid);
+var __lst = __ks.ListedOf(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -445,7 +447,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Chill.Apply(in __total, ref __c4[__e]);
 }
-if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
+if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled || __pulses != 0)
 {
 var __kept = 0;
@@ -480,9 +482,10 @@ var __stride = __kt->Stride;
 var __score = __ks.Score;
 var __pl = __ks.Playing;
 var __whole = __ks.RowsAreEntities(__kid);
+var __lst = __ks.ListedOf(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -596,7 +599,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Lift.Apply(in __total, ref __c0[__e]);
 }
-if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
+if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -622,9 +625,10 @@ var __stride = __kt->Stride;
 var __score = __ks.Score;
 var __pl = __ks.Playing;
 var __whole = __ks.RowsAreEntities(__kid);
+var __lst = __ks.ListedOf(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -728,7 +732,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Locomotion.Apply(in __total, ref __c0[__e]);
 }
-if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
+if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -754,9 +758,10 @@ var __stride = __kt->Stride;
 var __score = __ks.Score;
 var __pl = __ks.Playing;
 var __whole = __ks.RowsAreEntities(__kid);
+var __lst = __ks.ListedOf(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -867,7 +872,7 @@ if (!__ok) continue;
 global::KindGame.StatChange.Apply(in __v, ref __c4[__e]);
 }
 }
-if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
+if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1166,9 +1171,10 @@ var __stride = __kt->Stride;
 var __score = __ks.Score;
 var __pl = __ks.Playing;
 var __whole = __ks.RowsAreEntities(__kid);
+var __lst = __ks.ListedOf(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1274,7 +1280,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindGame.Damage.Apply(in __total, ref __c0[__e]);
 }
-if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
+if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
