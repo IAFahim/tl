@@ -145,9 +145,12 @@ public sealed class ClipBlendTests
     }
 
     [Fact]
-    public void AClipThatImplementsIBlendExplicitlyBlendsTheSameWay()
+    public void AClipThatImplementsIBlendExplicitlyCrossfadesTheSameWay()
     {
         var lamp = Run.Value.Lamp;
+        for (var tick = SecondStart; tick < FirstEnd; tick++) Assert.Equal(Crossfade(tick), lamp[tick].FadingExplicitly);
+        Assert.NotEqual(FirstBrightness, lamp[SecondStart + 7].FadingExplicitly);
+        Assert.NotEqual(SecondBrightness, lamp[SecondStart + 7].FadingExplicitly);
         for (var tick = 0; tick < Ticks; tick++) Assert.Equal(lamp[tick].Fading, lamp[tick].FadingExplicitly);
     }
 
@@ -159,11 +162,22 @@ public sealed class ClipBlendTests
         for (var tick = FirstEnd; tick < SecondEnd; tick++) Assert.Equal(SecondBrightness, lamp[tick].Staying);
     }
 
+    static string FrameHelperOf(string generated, string trackType)
+    {
+        var at = generated.IndexOf("out " + trackType + " track,", StringComparison.Ordinal);
+        Assert.True(at >= 0, "no frame helper for " + trackType);
+        var end = generated.IndexOf("frame = new", at, StringComparison.Ordinal);
+        return generated.Substring(at, end - at);
+    }
+
     [Fact]
     public void TheLongFormKeepsCallingTheTracksBlendWhenItsClipAlsoBlends()
     {
         var (domain, lamp) = Run.Value;
-        Assert.Contains("track.Blend(in clip, in __second, blend, out clip);", domain.Generated);
+        var longForm = FrameHelperOf(domain.Generated, "global::ClipBlend.SnapToSecondTrack");
+        Assert.Contains("track.Blend(in clip, in __second, blend, out clip);", longForm);
+        Assert.DoesNotContain("__Blend", longForm);
+        Assert.Contains("clip = __Blend(clip, in __second, blend);", FrameHelperOf(domain.Generated, "Tl.TlNoSettings<global::ClipBlend.FadeClip>"));
         for (var tick = FirstStart; tick < SecondStart; tick++) Assert.Equal(FirstBrightness, lamp[tick].LongForm);
         for (var tick = SecondStart; tick < SecondEnd; tick++) Assert.Equal(SecondBrightness, lamp[tick].LongForm);
     }
