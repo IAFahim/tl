@@ -306,7 +306,7 @@ namespace Tl.Fuzz.RuntimeDomain
 
                 var actualLen = eachTbl->Length[floodEachRow];
                 var clipEntries = actualLen - expectedEachSeq.Count;
-                if (clipEntries is < 1 or > 2)
+                if (clipEntries is < 0 or > 1)
                     FuzzRunner.Fail("B8-PulseFloodSpill", FuzzRunner.HasExplicitSeed ? FuzzRunner.ExplicitSeed : 0x42380001UL, iter, $"round={round} rowLen={actualLen} flood={expectedEachSeq.Count}");
 
                 for (var idx = 0; idx < expectedEachSeq.Count; idx++)
@@ -318,7 +318,7 @@ namespace Tl.Fuzz.RuntimeDomain
 
                 var foldTbl = store.Table(foldK);
                 var floodFoldRow = store.RowOf(floodEntity, foldK);
-                if (foldTbl == null || floodFoldRow < 0 || foldTbl->Length[floodFoldRow] is < 2 or > 3)
+                if (foldTbl == null || floodFoldRow < 0 || foldTbl->Length[floodFoldRow] is < 1 or > 2)
                     FuzzRunner.Fail("B8-PulseFloodSpill", FuzzRunner.HasExplicitSeed ? FuzzRunner.ExplicitSeed : 0x42380001UL, iter, $"round={round} folded burst did not collapse into 1 pulse entry len={(foldTbl == null ? -1 : foldTbl->Length[floodFoldRow])}");
 
                 for (var e = 0; e < entities; e++)
@@ -354,7 +354,7 @@ namespace Tl.Fuzz.RuntimeDomain
                 sysK.Run(world, players, true);
                 sysF.Run(world, players, true);
 
-                if (eachTbl->Length[floodEachRow] != 1 || foldTbl->Length[floodFoldRow] != 1)
+                if (eachTbl->Length[floodEachRow] != 0 || foldTbl->Length[floodFoldRow] != 0)
                     FuzzRunner.Fail("B8-PulseFloodSpill", FuzzRunner.HasExplicitSeed ? FuzzRunner.ExplicitSeed : 0x42380001UL, iter, $"round={round} post-run trim left pulses each={eachTbl->Length[floodEachRow]} fold={foldTbl->Length[floodFoldRow]}");
 
                 if (comb[floodEntity].Sum != expectedCombTotal[floodEntity] || each[floodEntity].Sum != expectedEachTotal[floodEntity] || folded[floodEntity].Value != expectedFoldTotal[floodEntity])

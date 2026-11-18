@@ -465,9 +465,10 @@ internal static class SystemEmitter
         W(writer, "var __score = __ks.Score;");
         W(writer, "var __pl = __ks.Playing;");
         W(writer, "var __whole = __ks.RowsAreEntities(__kid);");
+        W(writer, "var __lst = __ks.ListedOf(__kid);");
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
-        W(writer, "var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);");
+        W(writer, "var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);");
         W(writer, "while (__kb != 0)");
         W(writer, "{");
         W(writer, "var __row = (__kw << 6) + global::Tl.KindStore.TrailingZeros(__kb);");
@@ -500,7 +501,7 @@ internal static class SystemEmitter
         {
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
             W(writer, "}");
-            W(writer, "if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));");
+            W(writer, "if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));");
             if (kind.Group.Length > 0)
             {
                 W(writer, "if (__sampled || __pulses != 0)");
@@ -721,7 +722,7 @@ internal static class SystemEmitter
         var idleArgs = CallArgs(shape, new ConsumerMethod(ConsumerMethodKind.ExecuteActive, kind.IdleParams!, [], []), 0, "", "__e", "");
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
-        W(writer, "var __kb = ~(__kt->Active[__kw] | __kt->Listed[__kw]) & __kt->Enabled[__kw];");
+        W(writer, "var __kb = ~(__kt->Active[__kw] | __lst[__kw]) & __kt->Enabled[__kw];");
         W(writer, "while (__kb != 0)");
         W(writer, "{");
         W(writer, "var __e = __kt->Entity[(__kw << 6) + global::Tl.KindStore.TrailingZeros(__kb)];");

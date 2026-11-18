@@ -87,6 +87,7 @@ public sealed unsafe class KindStore : IDisposable
     Rows _kindRows;
     KindScore _score;
     byte* _samples;
+    ulong** _listed;
     readonly Dictionary<(string, int), (nint Routes, int Part)> _joined = new();
     readonly HashSet<string> _feeding = new(StringComparer.Ordinal);
     readonly object _joinGate = new();
@@ -229,6 +230,8 @@ public sealed unsafe class KindStore : IDisposable
 
     public int SamplesOf(int entity) => _samples[entity];
 
+    public ulong* ListedOf(int kind) => _listed[kind];
+
     public bool RowsAreEntities(int kind) => _tables[kind] != null && _tables[kind]->Rows == _players.EntityCapacity;
 
     public static int TrailingZeros(ulong value) => Tz(value);
@@ -360,10 +363,15 @@ public sealed unsafe class KindStore : IDisposable
 
     internal void ResetEntity(int entity)
     {
+        _samples[entity] = 0;
         for (var k = 0; k < _kindCount; k++)
         {
             var row = RowOf(entity, k);
-            if (row >= 0 && _tables[k] != null) _tables[k]->Clear(row);
+            if (row >= 0 && _tables[k] != null)
+            {
+                _tables[k]->Clear(row);
+                _listed[k][row >> 6] &= ~(1ul << (row & 63));
+            }
             var q = _queues + k;
             var kept = 0;
             for (var n = 0; n < q->Count; n++)
@@ -685,6 +693,8 @@ public sealed unsafe class KindStore : IDisposable
         var steps = new Steps { Store = this };
         _score = KindScore.Build(in _t, ref steps);
         _samples = (byte*)Zeroed((nuint)entities);
+        _listed = (ulong**)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(nint));
+        for (var k = 0; k < _kindCount; k++) _listed[k] = (ulong*)Zeroed((nuint)(_tables[k] == null ? 1 : _tables[k]->Words) * 8);
         _kindRows = new Rows { Tables = _tables, Mask = _mask, Offset = _offset, Row = _rows, Players = _players, Samples = _samples };
     }
 
@@ -758,9 +768,12 @@ public sealed unsafe class KindStore : IDisposable
         _routes = new ushort*[0];
         _parts = Array.Empty<List<int>?>();
         _score.Free();
-        foreach (var block in new void*[] { _tables, _queues, _mask, _offset, _rows, _closure, _pairs, _pairStart, _windowBase, _windows, _samples })
+        if (_listed != null)
+            for (var k = 0; k < _kindCount; k++) NativeMemory.AlignedFree(_listed[k]);
+        foreach (var block in new void*[] { _tables, _queues, _mask, _offset, _rows, _closure, _pairs, _pairStart, _windowBase, _windows, _samples, _listed })
             if (block != null) NativeMemory.AlignedFree(block);
         _samples = null;
+        _listed = null;
         _tables = null;
         _queues = null;
         _mask = null;

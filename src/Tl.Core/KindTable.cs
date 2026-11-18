@@ -40,7 +40,6 @@ public unsafe struct KindTable
     byte** _heap;
     public ulong* Active;
     public ulong* Enabled;
-    public ulong* Listed;
     public int MaxLength;
     public int Overflows;
 
@@ -62,7 +61,6 @@ public unsafe struct KindTable
         if (inlineCapacity == 0) t->_heap = (byte**)Zeroed((nuint)t->Rows * (nuint)sizeof(nint));
         t->Active = (ulong*)Zeroed((nuint)t->Words * 8);
         t->Enabled = (ulong*)Zeroed((nuint)t->Words * 8);
-        t->Listed = (ulong*)Zeroed((nuint)t->Words * 8);
         for (var w = 0; w < t->Words; w++) t->Enabled[w] = ~0ul;
         if ((t->Rows & 63) != 0) t->Enabled[t->Words - 1] = (1ul << (t->Rows & 63)) - 1;
         return t;
@@ -86,7 +84,6 @@ public unsafe struct KindTable
         NativeMemory.AlignedFree(t->Spilled);
         NativeMemory.AlignedFree(t->Active);
         NativeMemory.AlignedFree(t->Enabled);
-        NativeMemory.AlignedFree(t->Listed);
         NativeMemory.AlignedFree(t);
     }
 
