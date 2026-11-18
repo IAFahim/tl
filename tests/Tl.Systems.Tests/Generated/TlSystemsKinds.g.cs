@@ -200,11 +200,12 @@ var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
 __kb &= __kb - 1;
 var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
+var __pbase = __pview.RunOf(__e);
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
 var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pbase) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
@@ -213,7 +214,7 @@ for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
 if (*(ushort*)((byte*)__en + 8) != __kid) continue;
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pbase + __en->Slot)) continue;
 float __v = default;
 if (__en->Timeline == 0)
 {
@@ -233,7 +234,7 @@ __en->Flags &= ~Tl.KindEntryFlags.Ready;
 }
 else
 {
-var __pb = __pview.SlotOf(__e, __en->Slot);
+var __pb = __pbase + __en->Slot;
 if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
@@ -302,11 +303,12 @@ var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
 __kb &= __kb - 1;
 var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
+var __pbase = __pview.RunOf(__e);
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
 var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pbase) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 int __total = default;
@@ -315,7 +317,7 @@ for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
 if (*(ushort*)((byte*)__en + 8) != __kid) continue;
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pbase + __en->Slot)) continue;
 int __v = default;
 if (__en->Timeline == 0)
 {
@@ -335,7 +337,7 @@ __en->Flags &= ~Tl.KindEntryFlags.Ready;
 }
 else
 {
-var __pb = __pview.SlotOf(__e, __en->Slot);
+var __pb = __pbase + __en->Slot;
 if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
@@ -403,11 +405,12 @@ var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
 __kb &= __kb - 1;
 var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
+var __pbase = __pview.RunOf(__e);
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
 var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pbase) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
@@ -415,7 +418,7 @@ var __has = false;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pbase + __en->Slot)) continue;
 float __v = default;
 if (__en->Timeline == 0)
 {
@@ -435,7 +438,7 @@ __en->Flags &= ~Tl.KindEntryFlags.Ready;
 }
 else
 {
-var __pb = __pview.SlotOf(__e, __en->Slot);
+var __pb = __pbase + __en->Slot;
 if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
@@ -513,11 +516,12 @@ var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
 __kb &= __kb - 1;
 var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
+var __pbase = __pview.RunOf(__e);
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
 var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pbase) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 global::KindGame.Speed __total = default;
@@ -525,7 +529,7 @@ var __has = false;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pbase + __en->Slot)) continue;
 global::KindGame.Speed __v = default;
 if (__en->Timeline == 0)
 {
@@ -545,7 +549,7 @@ __en->Flags &= ~Tl.KindEntryFlags.Ready;
 }
 else
 {
-var __pb = __pview.SlotOf(__e, __en->Slot);
+var __pb = __pbase + __en->Slot;
 if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
@@ -613,17 +617,18 @@ var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
 __kb &= __kb - 1;
 var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
+var __pbase = __pview.RunOf(__e);
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
 var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pbase) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pbase + __en->Slot)) continue;
 int __v = default;
 if (__en->Timeline == 0)
 {
@@ -643,7 +648,7 @@ __en->Flags &= ~Tl.KindEntryFlags.Ready;
 }
 else
 {
-var __pb = __pview.SlotOf(__e, __en->Slot);
+var __pb = __pbase + __en->Slot;
 if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
@@ -992,11 +997,12 @@ var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
 __kb &= __kb - 1;
 var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
+var __pbase = __pview.RunOf(__e);
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
 var __pulses = 0;
 var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pbase) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 int __total = default;
@@ -1004,7 +1010,7 @@ var __has = false;
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pbase + __en->Slot)) continue;
 int __v = default;
 if (__en->Timeline == 0)
 {
@@ -1024,7 +1030,7 @@ __en->Flags &= ~Tl.KindEntryFlags.Ready;
 }
 else
 {
-var __pb = __pview.SlotOf(__e, __en->Slot);
+var __pb = __pbase + __en->Slot;
 if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;

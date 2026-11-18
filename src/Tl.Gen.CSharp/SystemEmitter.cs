@@ -470,13 +470,14 @@ internal static class SystemEmitter
         W(writer, "__kb &= __kb - 1;");
         W(writer, "var __e = __kt->Entity[__row];");
         W(writer, "if (__e >= __n) continue;");
+        W(writer, "var __pbase = __pview.RunOf(__e);");
         W(writer, "var __len = (int)__kt->Length[__row];");
         W(writer, "byte* __data = __kt->Data(__row);");
         if (!feed)
         {
             W(writer, "var __pulses = 0;");
             W(writer, "var __sampled = global::Tl.KindRules.IsSampled(__data, __len);");
-            W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;");
+            W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pbase) : 1;");
             W(writer, "for (var __sj = 0; __sj < __sk; __sj++)");
             W(writer, "{");
         }
@@ -489,7 +490,7 @@ internal static class SystemEmitter
         W(writer, "{");
         W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
         if (kind.Group.Length > 0) W(writer, "if (*(ushort*)((byte*)__en + 8) != __kid) continue;");
-        if (!feed) W(writer, "if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;");
+        if (!feed) W(writer, "if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pbase + __en->Slot)) continue;");
         W(writer, $"{value} __v = default;");
         if (feed)
         {
@@ -519,7 +520,7 @@ internal static class SystemEmitter
             W(writer, "else");
             W(writer, "{");
         }
-        W(writer, "var __pb = __pview.SlotOf(__e, __en->Slot);");
+        W(writer, "var __pb = __pbase + __en->Slot;");
         W(writer, "if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;");
         W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));");
         W(writer, "ushort __tick = __pb->Tick;");
