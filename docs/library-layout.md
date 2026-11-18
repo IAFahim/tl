@@ -211,6 +211,8 @@ name, so the attribute types may live in any assembly:
   must accept pulses.
 - A feeder returns exactly the kind's value type.
 
+Spans are not stored per entity. When a library loads, both hosts build one `KindScore` from this section: for every `(timeline, tick, kind)` it lists the span windows live at that tick (pair order, with the step resolved for that tick). A kind's generated loop walks each entity's playback slots (a rated playback's per-crossing copies by substep) and evaluates the spans listed for the slot's `(timeline, tick)`; playbacks that have not begun, have ended, are stopping, or are waiting to re-enter list nothing, and paused ones list spans without evaluating them. Within one entity the spans combine in slot order, then authored pair order. A kind's per-entity row holds only what is not a pure function of the playback: timeline pulses (start, end, marker, synthetic and interrupted), game pulses and a foreign feeder's ready values. A kind that accepts spans only keeps no inline entries.
+
 Kinds that share a `Group` share one table per entity in the .NET runtime. A group entry is `12 + align4(largest pulse value)` bytes: the 8-byte entry header, a `u16` kind index and 2 bytes of padding, then the value. Members apply only their own entries.
 
 Kinds are ordered and identified by full type name (namespace and name, `+`
