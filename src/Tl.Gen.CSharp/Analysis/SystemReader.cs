@@ -279,8 +279,13 @@ internal static partial class SystemReader
             Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
         diagnostics.AddRange(local);
         var key = track is null ? StableKey(marker!) : StablePairKey(track, clip!);
-        return new(name, track is null ? "" : Symbols.Name(track), clip is null ? "" : Symbols.Name(clip), marker is null ? "" : Symbols.Name(marker), marker is not null, blendable, key, members, methods, local) { Feeders = feeders };
+        return new(name, track is null ? "" : Symbols.Name(track), clip is null ? "" : Symbols.Name(clip), marker is null ? "" : Symbols.Name(marker), marker is not null, blendable, key, members, methods, local) { Feeders = feeders, ClipBlendable = ClipBlends(type, contracts) };
     }
+
+    internal static bool ClipBlends(INamedTypeSymbol type, ContractSet? contracts)
+        => contracts is not null && type.AllInterfaces.FirstOrDefault(face => Symbols.Same(face.OriginalDefinition, contracts.Track)) is { } pair
+        && Symbols.Same(pair.TypeArguments[0].OriginalDefinition, contracts.NoSettings)
+        && pair.TypeArguments[1].AllInterfaces.Any(blend => Symbols.Same(blend.OriginalDefinition, contracts.Blend) && Symbols.Same(blend.TypeArguments[0], pair.TypeArguments[1]));
 
     static bool HasFeederMethods(INamedTypeSymbol type)
     {

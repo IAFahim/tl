@@ -126,14 +126,19 @@ internal static partial class SystemReader
         var trees = new Dictionary<SyntaxTree, int>();
         foreach (var tree in compilation.SyntaxTrees) trees[tree] = trees.Count;
         var keyed = new List<(SystemTypeModel Model, long Key)>();
-        foreach (var model in models)
+        var contracts = Contracts(compilation);
+        foreach (var read in models)
         {
-            if (model is null) continue;
+            if (read is null) continue;
             cancellation.ThrowIfCancellationRequested();
             var key = long.MaxValue;
+            var model = read;
             if (model.Metadata.Length > 0 && compilation.Assembly.GetTypeByMetadataName(model.Metadata) is { } type)
+            {
                 foreach (var reference in type.DeclaringSyntaxReferences)
                     if (trees.TryGetValue(reference.SyntaxTree, out var index)) key = Math.Min(key, ((long)index << 32) | (uint)reference.Span.Start);
+                if (model.Consumer is { } consumer && consumer.ClipBlendable != ClipBlends(type, contracts)) model = Stamp(model with { Consumer = consumer with { ClipBlendable = !consumer.ClipBlendable } });
+            }
             keyed.Add((model, key));
         }
         return keyed.OrderBy(static pair => pair.Key).ThenBy(static pair => pair.Model.TypeName, StringComparer.Ordinal)
