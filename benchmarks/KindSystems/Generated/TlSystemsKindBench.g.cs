@@ -1197,16 +1197,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.Dmg", sizeof(int), "KindBench.Hit.Start:1", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.Dmg"));
+var __kid = __ks.IndexOf("KindBench.Dmg");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1215,27 +1219,57 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 int __total = default;
 var __has = false;
+for (var __q = 0; __q < __cnt + __smp; __q++)
+{
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+int __v = default;
+var __ok = false;
+if (!__ok) continue;
+if (__has) global::KindBench.Dmg.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
 for (var __j = 0; __j < __len; __j++)
 {
 var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
 if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
 int __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
 __pulses++;
-}
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
 else
 {
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
 var __r = __routes[__en->Feeder];
 if ((__r >> 8) != __me)
 {
@@ -1246,7 +1280,6 @@ __en->Flags &= ~Tl.KindEntryFlags.Ready;
 else
 {
 var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
@@ -1283,6 +1316,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.Dmg.Apply(in __total, ref __c1[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1297,16 +1331,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K0", sizeof(float), "KindBench.C0.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K0"));
+var __kid = __ks.IndexOf("KindBench.K0");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1315,53 +1353,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row0 = (byte*)__def->FrameRow;
 byte* __first0 = __row0 + sizeof(global::KindBench.T0);
 byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::KindBench.V0);
@@ -1376,6 +1407,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K0.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K0.Combine(ref __total, in __v);
@@ -1383,6 +1448,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K0.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1397,16 +1463,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K1", sizeof(float), "KindBench.C1.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K1"));
+var __kid = __ks.IndexOf("KindBench.K1");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1415,53 +1485,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row1 = (byte*)__def->FrameRow;
 byte* __first1 = __row1 + sizeof(global::KindBench.T1);
 byte* __second1 = __def->FactorSpan == 0 ? null : __first1 + sizeof(global::KindBench.V1);
@@ -1476,6 +1539,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K1.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K1.Combine(ref __total, in __v);
@@ -1483,6 +1580,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K1.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1497,16 +1595,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K10", sizeof(float), "KindBench.C10.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K10"));
+var __kid = __ks.IndexOf("KindBench.K10");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1515,53 +1617,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row2 = (byte*)__def->FrameRow;
 byte* __first2 = __row2 + sizeof(global::KindBench.T10);
 byte* __second2 = __def->FactorSpan == 0 ? null : __first2 + sizeof(global::KindBench.V10);
@@ -1576,6 +1671,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K10.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K10.Combine(ref __total, in __v);
@@ -1583,6 +1712,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K10.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1597,16 +1727,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K11", sizeof(float), "KindBench.C11.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K11"));
+var __kid = __ks.IndexOf("KindBench.K11");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1615,53 +1749,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row3 = (byte*)__def->FrameRow;
 byte* __first3 = __row3 + sizeof(global::KindBench.T11);
 byte* __second3 = __def->FactorSpan == 0 ? null : __first3 + sizeof(global::KindBench.V11);
@@ -1676,6 +1803,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K11.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K11.Combine(ref __total, in __v);
@@ -1683,6 +1844,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K11.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1697,16 +1859,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K12", sizeof(float), "KindBench.C12.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K12"));
+var __kid = __ks.IndexOf("KindBench.K12");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1715,53 +1881,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row4 = (byte*)__def->FrameRow;
 byte* __first4 = __row4 + sizeof(global::KindBench.T12);
 byte* __second4 = __def->FactorSpan == 0 ? null : __first4 + sizeof(global::KindBench.V12);
@@ -1776,6 +1935,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K12.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K12.Combine(ref __total, in __v);
@@ -1783,6 +1976,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K12.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1797,16 +1991,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K13", sizeof(float), "KindBench.C13.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K13"));
+var __kid = __ks.IndexOf("KindBench.K13");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1815,53 +2013,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row5 = (byte*)__def->FrameRow;
 byte* __first5 = __row5 + sizeof(global::KindBench.T13);
 byte* __second5 = __def->FactorSpan == 0 ? null : __first5 + sizeof(global::KindBench.V13);
@@ -1876,6 +2067,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K13.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K13.Combine(ref __total, in __v);
@@ -1883,6 +2108,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K13.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1897,16 +2123,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K14", sizeof(float), "KindBench.C14.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K14"));
+var __kid = __ks.IndexOf("KindBench.K14");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -1915,53 +2145,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row6 = (byte*)__def->FrameRow;
 byte* __first6 = __row6 + sizeof(global::KindBench.T14);
 byte* __second6 = __def->FactorSpan == 0 ? null : __first6 + sizeof(global::KindBench.V14);
@@ -1976,6 +2199,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K14.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K14.Combine(ref __total, in __v);
@@ -1983,6 +2240,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K14.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -1997,16 +2255,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K15", sizeof(float), "KindBench.C15.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K15"));
+var __kid = __ks.IndexOf("KindBench.K15");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2015,53 +2277,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row7 = (byte*)__def->FrameRow;
 byte* __first7 = __row7 + sizeof(global::KindBench.T15);
 byte* __second7 = __def->FactorSpan == 0 ? null : __first7 + sizeof(global::KindBench.V15);
@@ -2076,6 +2331,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K15.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K15.Combine(ref __total, in __v);
@@ -2083,6 +2372,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K15.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2097,16 +2387,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K16", sizeof(float), "KindBench.C16.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K16"));
+var __kid = __ks.IndexOf("KindBench.K16");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2115,53 +2409,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row8 = (byte*)__def->FrameRow;
 byte* __first8 = __row8 + sizeof(global::KindBench.T16);
 byte* __second8 = __def->FactorSpan == 0 ? null : __first8 + sizeof(global::KindBench.V16);
@@ -2176,6 +2463,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K16.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K16.Combine(ref __total, in __v);
@@ -2183,6 +2504,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K16.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2197,16 +2519,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K17", sizeof(float), "KindBench.C17.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K17"));
+var __kid = __ks.IndexOf("KindBench.K17");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2215,53 +2541,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row9 = (byte*)__def->FrameRow;
 byte* __first9 = __row9 + sizeof(global::KindBench.T17);
 byte* __second9 = __def->FactorSpan == 0 ? null : __first9 + sizeof(global::KindBench.V17);
@@ -2276,6 +2595,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K17.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K17.Combine(ref __total, in __v);
@@ -2283,6 +2636,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K17.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2297,16 +2651,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K18", sizeof(float), "KindBench.C18.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K18"));
+var __kid = __ks.IndexOf("KindBench.K18");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2315,53 +2673,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row10 = (byte*)__def->FrameRow;
 byte* __first10 = __row10 + sizeof(global::KindBench.T18);
 byte* __second10 = __def->FactorSpan == 0 ? null : __first10 + sizeof(global::KindBench.V18);
@@ -2376,6 +2727,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K18.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K18.Combine(ref __total, in __v);
@@ -2383,6 +2768,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K18.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2397,16 +2783,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K19", sizeof(float), "KindBench.C19.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K19"));
+var __kid = __ks.IndexOf("KindBench.K19");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2415,53 +2805,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row11 = (byte*)__def->FrameRow;
 byte* __first11 = __row11 + sizeof(global::KindBench.T19);
 byte* __second11 = __def->FactorSpan == 0 ? null : __first11 + sizeof(global::KindBench.V19);
@@ -2476,6 +2859,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K19.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K19.Combine(ref __total, in __v);
@@ -2483,6 +2900,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K19.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2497,16 +2915,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K2", sizeof(float), "KindBench.C2.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K2"));
+var __kid = __ks.IndexOf("KindBench.K2");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2515,53 +2937,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row12 = (byte*)__def->FrameRow;
 byte* __first12 = __row12 + sizeof(global::KindBench.T2);
 byte* __second12 = __def->FactorSpan == 0 ? null : __first12 + sizeof(global::KindBench.V2);
@@ -2576,6 +2991,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K2.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K2.Combine(ref __total, in __v);
@@ -2583,6 +3032,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K2.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2597,16 +3047,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K20", sizeof(float), "KindBench.C20.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K20"));
+var __kid = __ks.IndexOf("KindBench.K20");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2615,53 +3069,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row13 = (byte*)__def->FrameRow;
 byte* __first13 = __row13 + sizeof(global::KindBench.T20);
 byte* __second13 = __def->FactorSpan == 0 ? null : __first13 + sizeof(global::KindBench.V20);
@@ -2676,6 +3123,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K20.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K20.Combine(ref __total, in __v);
@@ -2683,6 +3164,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K20.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2697,16 +3179,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K21", sizeof(float), "KindBench.C21.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K21"));
+var __kid = __ks.IndexOf("KindBench.K21");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2715,53 +3201,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row14 = (byte*)__def->FrameRow;
 byte* __first14 = __row14 + sizeof(global::KindBench.T21);
 byte* __second14 = __def->FactorSpan == 0 ? null : __first14 + sizeof(global::KindBench.V21);
@@ -2776,6 +3255,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K21.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K21.Combine(ref __total, in __v);
@@ -2783,6 +3296,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K21.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2797,16 +3311,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K22", sizeof(float), "KindBench.C22.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K22"));
+var __kid = __ks.IndexOf("KindBench.K22");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2815,53 +3333,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row15 = (byte*)__def->FrameRow;
 byte* __first15 = __row15 + sizeof(global::KindBench.T22);
 byte* __second15 = __def->FactorSpan == 0 ? null : __first15 + sizeof(global::KindBench.V22);
@@ -2876,6 +3387,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K22.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K22.Combine(ref __total, in __v);
@@ -2883,6 +3428,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K22.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2897,16 +3443,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K23", sizeof(float), "KindBench.C23.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K23"));
+var __kid = __ks.IndexOf("KindBench.K23");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -2915,53 +3465,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row16 = (byte*)__def->FrameRow;
 byte* __first16 = __row16 + sizeof(global::KindBench.T23);
 byte* __second16 = __def->FactorSpan == 0 ? null : __first16 + sizeof(global::KindBench.V23);
@@ -2976,6 +3519,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K23.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K23.Combine(ref __total, in __v);
@@ -2983,6 +3560,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K23.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -2997,16 +3575,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K24", sizeof(float), "KindBench.C24.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K24"));
+var __kid = __ks.IndexOf("KindBench.K24");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3015,53 +3597,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row17 = (byte*)__def->FrameRow;
 byte* __first17 = __row17 + sizeof(global::KindBench.T24);
 byte* __second17 = __def->FactorSpan == 0 ? null : __first17 + sizeof(global::KindBench.V24);
@@ -3076,6 +3651,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K24.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K24.Combine(ref __total, in __v);
@@ -3083,6 +3692,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K24.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3097,16 +3707,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K25", sizeof(float), "KindBench.C25.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K25"));
+var __kid = __ks.IndexOf("KindBench.K25");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3115,53 +3729,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row18 = (byte*)__def->FrameRow;
 byte* __first18 = __row18 + sizeof(global::KindBench.T25);
 byte* __second18 = __def->FactorSpan == 0 ? null : __first18 + sizeof(global::KindBench.V25);
@@ -3176,6 +3783,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K25.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K25.Combine(ref __total, in __v);
@@ -3183,6 +3824,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K25.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3197,16 +3839,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K26", sizeof(float), "KindBench.C26.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K26"));
+var __kid = __ks.IndexOf("KindBench.K26");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3215,53 +3861,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row19 = (byte*)__def->FrameRow;
 byte* __first19 = __row19 + sizeof(global::KindBench.T26);
 byte* __second19 = __def->FactorSpan == 0 ? null : __first19 + sizeof(global::KindBench.V26);
@@ -3276,6 +3915,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K26.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K26.Combine(ref __total, in __v);
@@ -3283,6 +3956,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K26.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3297,16 +3971,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K27", sizeof(float), "KindBench.C27.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K27"));
+var __kid = __ks.IndexOf("KindBench.K27");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3315,53 +3993,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row20 = (byte*)__def->FrameRow;
 byte* __first20 = __row20 + sizeof(global::KindBench.T27);
 byte* __second20 = __def->FactorSpan == 0 ? null : __first20 + sizeof(global::KindBench.V27);
@@ -3376,6 +4047,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K27.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K27.Combine(ref __total, in __v);
@@ -3383,6 +4088,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K27.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3397,16 +4103,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K28", sizeof(float), "KindBench.C28.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K28"));
+var __kid = __ks.IndexOf("KindBench.K28");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3415,53 +4125,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row21 = (byte*)__def->FrameRow;
 byte* __first21 = __row21 + sizeof(global::KindBench.T28);
 byte* __second21 = __def->FactorSpan == 0 ? null : __first21 + sizeof(global::KindBench.V28);
@@ -3476,6 +4179,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K28.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K28.Combine(ref __total, in __v);
@@ -3483,6 +4220,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K28.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3497,16 +4235,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K29", sizeof(float), "KindBench.C29.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K29"));
+var __kid = __ks.IndexOf("KindBench.K29");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3515,53 +4257,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row22 = (byte*)__def->FrameRow;
 byte* __first22 = __row22 + sizeof(global::KindBench.T29);
 byte* __second22 = __def->FactorSpan == 0 ? null : __first22 + sizeof(global::KindBench.V29);
@@ -3576,6 +4311,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K29.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K29.Combine(ref __total, in __v);
@@ -3583,6 +4352,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K29.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3597,16 +4367,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K3", sizeof(float), "KindBench.C3.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K3"));
+var __kid = __ks.IndexOf("KindBench.K3");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3615,53 +4389,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row23 = (byte*)__def->FrameRow;
 byte* __first23 = __row23 + sizeof(global::KindBench.T3);
 byte* __second23 = __def->FactorSpan == 0 ? null : __first23 + sizeof(global::KindBench.V3);
@@ -3676,6 +4443,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K3.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K3.Combine(ref __total, in __v);
@@ -3683,6 +4484,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K3.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3697,16 +4499,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K30", sizeof(float), "KindBench.C30.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K30"));
+var __kid = __ks.IndexOf("KindBench.K30");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3715,53 +4521,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row24 = (byte*)__def->FrameRow;
 byte* __first24 = __row24 + sizeof(global::KindBench.T30);
 byte* __second24 = __def->FactorSpan == 0 ? null : __first24 + sizeof(global::KindBench.V30);
@@ -3776,6 +4575,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K30.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K30.Combine(ref __total, in __v);
@@ -3783,6 +4616,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K30.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3797,16 +4631,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K31", sizeof(float), "KindBench.C31.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K31"));
+var __kid = __ks.IndexOf("KindBench.K31");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3815,53 +4653,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row25 = (byte*)__def->FrameRow;
 byte* __first25 = __row25 + sizeof(global::KindBench.T31);
 byte* __second25 = __def->FactorSpan == 0 ? null : __first25 + sizeof(global::KindBench.V31);
@@ -3876,6 +4707,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K31.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K31.Combine(ref __total, in __v);
@@ -3883,6 +4748,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K31.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3897,16 +4763,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K32", sizeof(float), "KindBench.C32.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K32"));
+var __kid = __ks.IndexOf("KindBench.K32");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -3915,53 +4785,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row26 = (byte*)__def->FrameRow;
 byte* __first26 = __row26 + sizeof(global::KindBench.T32);
 byte* __second26 = __def->FactorSpan == 0 ? null : __first26 + sizeof(global::KindBench.V32);
@@ -3976,6 +4839,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K32.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K32.Combine(ref __total, in __v);
@@ -3983,6 +4880,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K32.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -3997,16 +4895,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K33", sizeof(float), "KindBench.C33.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K33"));
+var __kid = __ks.IndexOf("KindBench.K33");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4015,53 +4917,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row27 = (byte*)__def->FrameRow;
 byte* __first27 = __row27 + sizeof(global::KindBench.T33);
 byte* __second27 = __def->FactorSpan == 0 ? null : __first27 + sizeof(global::KindBench.V33);
@@ -4076,6 +4971,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K33.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K33.Combine(ref __total, in __v);
@@ -4083,6 +5012,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K33.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4097,16 +5027,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K34", sizeof(float), "KindBench.C34.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K34"));
+var __kid = __ks.IndexOf("KindBench.K34");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4115,53 +5049,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row28 = (byte*)__def->FrameRow;
 byte* __first28 = __row28 + sizeof(global::KindBench.T34);
 byte* __second28 = __def->FactorSpan == 0 ? null : __first28 + sizeof(global::KindBench.V34);
@@ -4176,6 +5103,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K34.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K34.Combine(ref __total, in __v);
@@ -4183,6 +5144,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K34.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4197,16 +5159,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K35", sizeof(float), "KindBench.C35.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K35"));
+var __kid = __ks.IndexOf("KindBench.K35");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4215,53 +5181,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row29 = (byte*)__def->FrameRow;
 byte* __first29 = __row29 + sizeof(global::KindBench.T35);
 byte* __second29 = __def->FactorSpan == 0 ? null : __first29 + sizeof(global::KindBench.V35);
@@ -4276,6 +5235,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K35.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K35.Combine(ref __total, in __v);
@@ -4283,6 +5276,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K35.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4297,16 +5291,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K36", sizeof(float), "KindBench.C36.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K36"));
+var __kid = __ks.IndexOf("KindBench.K36");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4315,53 +5313,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row30 = (byte*)__def->FrameRow;
 byte* __first30 = __row30 + sizeof(global::KindBench.T36);
 byte* __second30 = __def->FactorSpan == 0 ? null : __first30 + sizeof(global::KindBench.V36);
@@ -4376,6 +5367,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K36.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K36.Combine(ref __total, in __v);
@@ -4383,6 +5408,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K36.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4397,16 +5423,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K37", sizeof(float), "KindBench.C37.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K37"));
+var __kid = __ks.IndexOf("KindBench.K37");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4415,53 +5445,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row31 = (byte*)__def->FrameRow;
 byte* __first31 = __row31 + sizeof(global::KindBench.T37);
 byte* __second31 = __def->FactorSpan == 0 ? null : __first31 + sizeof(global::KindBench.V37);
@@ -4476,6 +5499,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K37.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K37.Combine(ref __total, in __v);
@@ -4483,6 +5540,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K37.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4497,16 +5555,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K38", sizeof(float), "KindBench.C38.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K38"));
+var __kid = __ks.IndexOf("KindBench.K38");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4515,53 +5577,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row32 = (byte*)__def->FrameRow;
 byte* __first32 = __row32 + sizeof(global::KindBench.T38);
 byte* __second32 = __def->FactorSpan == 0 ? null : __first32 + sizeof(global::KindBench.V38);
@@ -4576,6 +5631,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K38.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K38.Combine(ref __total, in __v);
@@ -4583,6 +5672,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K38.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4597,16 +5687,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K39", sizeof(float), "KindBench.C39.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K39"));
+var __kid = __ks.IndexOf("KindBench.K39");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4615,53 +5709,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row33 = (byte*)__def->FrameRow;
 byte* __first33 = __row33 + sizeof(global::KindBench.T39);
 byte* __second33 = __def->FactorSpan == 0 ? null : __first33 + sizeof(global::KindBench.V39);
@@ -4676,6 +5763,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K39.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K39.Combine(ref __total, in __v);
@@ -4683,6 +5804,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K39.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4697,16 +5819,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K4", sizeof(float), "KindBench.C4.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K4"));
+var __kid = __ks.IndexOf("KindBench.K4");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4715,53 +5841,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row34 = (byte*)__def->FrameRow;
 byte* __first34 = __row34 + sizeof(global::KindBench.T4);
 byte* __second34 = __def->FactorSpan == 0 ? null : __first34 + sizeof(global::KindBench.V4);
@@ -4776,6 +5895,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K4.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K4.Combine(ref __total, in __v);
@@ -4783,6 +5936,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K4.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4797,16 +5951,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K40", sizeof(float), "KindBench.C40.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K40"));
+var __kid = __ks.IndexOf("KindBench.K40");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4815,53 +5973,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row35 = (byte*)__def->FrameRow;
 byte* __first35 = __row35 + sizeof(global::KindBench.T40);
 byte* __second35 = __def->FactorSpan == 0 ? null : __first35 + sizeof(global::KindBench.V40);
@@ -4876,6 +6027,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K40.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K40.Combine(ref __total, in __v);
@@ -4883,6 +6068,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K40.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4897,16 +6083,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K41", sizeof(float), "KindBench.C41.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K41"));
+var __kid = __ks.IndexOf("KindBench.K41");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -4915,53 +6105,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row36 = (byte*)__def->FrameRow;
 byte* __first36 = __row36 + sizeof(global::KindBench.T41);
 byte* __second36 = __def->FactorSpan == 0 ? null : __first36 + sizeof(global::KindBench.V41);
@@ -4976,6 +6159,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K41.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K41.Combine(ref __total, in __v);
@@ -4983,6 +6200,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K41.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -4997,16 +6215,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K42", sizeof(float), "KindBench.C42.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K42"));
+var __kid = __ks.IndexOf("KindBench.K42");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5015,53 +6237,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row37 = (byte*)__def->FrameRow;
 byte* __first37 = __row37 + sizeof(global::KindBench.T42);
 byte* __second37 = __def->FactorSpan == 0 ? null : __first37 + sizeof(global::KindBench.V42);
@@ -5076,6 +6291,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K42.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K42.Combine(ref __total, in __v);
@@ -5083,6 +6332,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K42.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5097,16 +6347,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K43", sizeof(float), "KindBench.C43.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K43"));
+var __kid = __ks.IndexOf("KindBench.K43");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5115,53 +6369,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row38 = (byte*)__def->FrameRow;
 byte* __first38 = __row38 + sizeof(global::KindBench.T43);
 byte* __second38 = __def->FactorSpan == 0 ? null : __first38 + sizeof(global::KindBench.V43);
@@ -5176,6 +6423,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K43.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K43.Combine(ref __total, in __v);
@@ -5183,6 +6464,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K43.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5197,16 +6479,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K44", sizeof(float), "KindBench.C44.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K44"));
+var __kid = __ks.IndexOf("KindBench.K44");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5215,53 +6501,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row39 = (byte*)__def->FrameRow;
 byte* __first39 = __row39 + sizeof(global::KindBench.T44);
 byte* __second39 = __def->FactorSpan == 0 ? null : __first39 + sizeof(global::KindBench.V44);
@@ -5276,6 +6555,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K44.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K44.Combine(ref __total, in __v);
@@ -5283,6 +6596,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K44.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5297,16 +6611,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K45", sizeof(float), "KindBench.C45.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K45"));
+var __kid = __ks.IndexOf("KindBench.K45");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5315,53 +6633,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row40 = (byte*)__def->FrameRow;
 byte* __first40 = __row40 + sizeof(global::KindBench.T45);
 byte* __second40 = __def->FactorSpan == 0 ? null : __first40 + sizeof(global::KindBench.V45);
@@ -5376,6 +6687,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K45.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K45.Combine(ref __total, in __v);
@@ -5383,6 +6728,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K45.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5397,16 +6743,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K46", sizeof(float), "KindBench.C46.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K46"));
+var __kid = __ks.IndexOf("KindBench.K46");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5415,53 +6765,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row41 = (byte*)__def->FrameRow;
 byte* __first41 = __row41 + sizeof(global::KindBench.T46);
 byte* __second41 = __def->FactorSpan == 0 ? null : __first41 + sizeof(global::KindBench.V46);
@@ -5476,6 +6819,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K46.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K46.Combine(ref __total, in __v);
@@ -5483,6 +6860,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K46.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5497,16 +6875,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K47", sizeof(float), "KindBench.C47.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K47"));
+var __kid = __ks.IndexOf("KindBench.K47");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5515,53 +6897,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row42 = (byte*)__def->FrameRow;
 byte* __first42 = __row42 + sizeof(global::KindBench.T47);
 byte* __second42 = __def->FactorSpan == 0 ? null : __first42 + sizeof(global::KindBench.V47);
@@ -5576,6 +6951,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K47.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K47.Combine(ref __total, in __v);
@@ -5583,6 +6992,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K47.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5597,16 +7007,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K48", sizeof(float), "KindBench.C48.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K48"));
+var __kid = __ks.IndexOf("KindBench.K48");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5615,53 +7029,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row43 = (byte*)__def->FrameRow;
 byte* __first43 = __row43 + sizeof(global::KindBench.T48);
 byte* __second43 = __def->FactorSpan == 0 ? null : __first43 + sizeof(global::KindBench.V48);
@@ -5676,6 +7083,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K48.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K48.Combine(ref __total, in __v);
@@ -5683,6 +7124,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K48.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5697,16 +7139,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K49", sizeof(float), "KindBench.C49.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K49"));
+var __kid = __ks.IndexOf("KindBench.K49");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5715,53 +7161,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row44 = (byte*)__def->FrameRow;
 byte* __first44 = __row44 + sizeof(global::KindBench.T49);
 byte* __second44 = __def->FactorSpan == 0 ? null : __first44 + sizeof(global::KindBench.V49);
@@ -5776,6 +7215,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K49.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K49.Combine(ref __total, in __v);
@@ -5783,6 +7256,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K49.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5797,16 +7271,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K5", sizeof(float), "KindBench.C5.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K5"));
+var __kid = __ks.IndexOf("KindBench.K5");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5815,53 +7293,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row45 = (byte*)__def->FrameRow;
 byte* __first45 = __row45 + sizeof(global::KindBench.T5);
 byte* __second45 = __def->FactorSpan == 0 ? null : __first45 + sizeof(global::KindBench.V5);
@@ -5876,6 +7347,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K5.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K5.Combine(ref __total, in __v);
@@ -5883,6 +7388,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K5.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5897,16 +7403,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K50", sizeof(float), "KindBench.C50.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K50"));
+var __kid = __ks.IndexOf("KindBench.K50");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -5915,53 +7425,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row46 = (byte*)__def->FrameRow;
 byte* __first46 = __row46 + sizeof(global::KindBench.T50);
 byte* __second46 = __def->FactorSpan == 0 ? null : __first46 + sizeof(global::KindBench.V50);
@@ -5976,6 +7479,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K50.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K50.Combine(ref __total, in __v);
@@ -5983,6 +7520,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K50.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -5997,16 +7535,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K51", sizeof(float), "KindBench.C51.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K51"));
+var __kid = __ks.IndexOf("KindBench.K51");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6015,53 +7557,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row47 = (byte*)__def->FrameRow;
 byte* __first47 = __row47 + sizeof(global::KindBench.T51);
 byte* __second47 = __def->FactorSpan == 0 ? null : __first47 + sizeof(global::KindBench.V51);
@@ -6076,6 +7611,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K51.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K51.Combine(ref __total, in __v);
@@ -6083,6 +7652,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K51.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6097,16 +7667,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K52", sizeof(float), "KindBench.C52.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K52"));
+var __kid = __ks.IndexOf("KindBench.K52");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6115,53 +7689,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row48 = (byte*)__def->FrameRow;
 byte* __first48 = __row48 + sizeof(global::KindBench.T52);
 byte* __second48 = __def->FactorSpan == 0 ? null : __first48 + sizeof(global::KindBench.V52);
@@ -6176,6 +7743,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K52.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K52.Combine(ref __total, in __v);
@@ -6183,6 +7784,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K52.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6197,16 +7799,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K53", sizeof(float), "KindBench.C53.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K53"));
+var __kid = __ks.IndexOf("KindBench.K53");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6215,53 +7821,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row49 = (byte*)__def->FrameRow;
 byte* __first49 = __row49 + sizeof(global::KindBench.T53);
 byte* __second49 = __def->FactorSpan == 0 ? null : __first49 + sizeof(global::KindBench.V53);
@@ -6276,6 +7875,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K53.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K53.Combine(ref __total, in __v);
@@ -6283,6 +7916,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K53.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6297,16 +7931,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K54", sizeof(float), "KindBench.C54.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K54"));
+var __kid = __ks.IndexOf("KindBench.K54");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6315,53 +7953,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row50 = (byte*)__def->FrameRow;
 byte* __first50 = __row50 + sizeof(global::KindBench.T54);
 byte* __second50 = __def->FactorSpan == 0 ? null : __first50 + sizeof(global::KindBench.V54);
@@ -6376,6 +8007,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K54.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K54.Combine(ref __total, in __v);
@@ -6383,6 +8048,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K54.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6397,16 +8063,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K55", sizeof(float), "KindBench.C55.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K55"));
+var __kid = __ks.IndexOf("KindBench.K55");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6415,53 +8085,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row51 = (byte*)__def->FrameRow;
 byte* __first51 = __row51 + sizeof(global::KindBench.T55);
 byte* __second51 = __def->FactorSpan == 0 ? null : __first51 + sizeof(global::KindBench.V55);
@@ -6476,6 +8139,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K55.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K55.Combine(ref __total, in __v);
@@ -6483,6 +8180,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K55.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6497,16 +8195,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K56", sizeof(float), "KindBench.C56.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K56"));
+var __kid = __ks.IndexOf("KindBench.K56");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6515,53 +8217,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row52 = (byte*)__def->FrameRow;
 byte* __first52 = __row52 + sizeof(global::KindBench.T56);
 byte* __second52 = __def->FactorSpan == 0 ? null : __first52 + sizeof(global::KindBench.V56);
@@ -6576,6 +8271,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K56.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K56.Combine(ref __total, in __v);
@@ -6583,6 +8312,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K56.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6597,16 +8327,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K57", sizeof(float), "KindBench.C57.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K57"));
+var __kid = __ks.IndexOf("KindBench.K57");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6615,53 +8349,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row53 = (byte*)__def->FrameRow;
 byte* __first53 = __row53 + sizeof(global::KindBench.T57);
 byte* __second53 = __def->FactorSpan == 0 ? null : __first53 + sizeof(global::KindBench.V57);
@@ -6676,6 +8403,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K57.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K57.Combine(ref __total, in __v);
@@ -6683,6 +8444,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K57.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6697,16 +8459,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K58", sizeof(float), "KindBench.C58.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K58"));
+var __kid = __ks.IndexOf("KindBench.K58");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6715,53 +8481,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row54 = (byte*)__def->FrameRow;
 byte* __first54 = __row54 + sizeof(global::KindBench.T58);
 byte* __second54 = __def->FactorSpan == 0 ? null : __first54 + sizeof(global::KindBench.V58);
@@ -6776,6 +8535,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K58.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K58.Combine(ref __total, in __v);
@@ -6783,6 +8576,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K58.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6797,16 +8591,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K59", sizeof(float), "KindBench.C59.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K59"));
+var __kid = __ks.IndexOf("KindBench.K59");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6815,53 +8613,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row55 = (byte*)__def->FrameRow;
 byte* __first55 = __row55 + sizeof(global::KindBench.T59);
 byte* __second55 = __def->FactorSpan == 0 ? null : __first55 + sizeof(global::KindBench.V59);
@@ -6876,6 +8667,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K59.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K59.Combine(ref __total, in __v);
@@ -6883,6 +8708,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K59.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6897,16 +8723,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K6", sizeof(float), "KindBench.C6.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K6"));
+var __kid = __ks.IndexOf("KindBench.K6");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -6915,53 +8745,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row56 = (byte*)__def->FrameRow;
 byte* __first56 = __row56 + sizeof(global::KindBench.T6);
 byte* __second56 = __def->FactorSpan == 0 ? null : __first56 + sizeof(global::KindBench.V6);
@@ -6976,6 +8799,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K6.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K6.Combine(ref __total, in __v);
@@ -6983,6 +8840,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K6.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -6997,16 +8855,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K60", sizeof(float), "KindBench.C60.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K60"));
+var __kid = __ks.IndexOf("KindBench.K60");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -7015,53 +8877,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row57 = (byte*)__def->FrameRow;
 byte* __first57 = __row57 + sizeof(global::KindBench.T60);
 byte* __second57 = __def->FactorSpan == 0 ? null : __first57 + sizeof(global::KindBench.V60);
@@ -7076,6 +8931,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K60.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K60.Combine(ref __total, in __v);
@@ -7083,6 +8972,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K60.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -7097,16 +8987,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K61", sizeof(float), "KindBench.C61.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K61"));
+var __kid = __ks.IndexOf("KindBench.K61");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -7115,53 +9009,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row58 = (byte*)__def->FrameRow;
 byte* __first58 = __row58 + sizeof(global::KindBench.T61);
 byte* __second58 = __def->FactorSpan == 0 ? null : __first58 + sizeof(global::KindBench.V61);
@@ -7176,6 +9063,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K61.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K61.Combine(ref __total, in __v);
@@ -7183,6 +9104,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K61.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -7197,16 +9119,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K7", sizeof(float), "KindBench.C7.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K7"));
+var __kid = __ks.IndexOf("KindBench.K7");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -7215,53 +9141,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row59 = (byte*)__def->FrameRow;
 byte* __first59 = __row59 + sizeof(global::KindBench.T7);
 byte* __second59 = __def->FactorSpan == 0 ? null : __first59 + sizeof(global::KindBench.V7);
@@ -7276,6 +9195,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K7.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K7.Combine(ref __total, in __v);
@@ -7283,6 +9236,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K7.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -7297,16 +9251,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K8", sizeof(float), "KindBench.C8.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K8"));
+var __kid = __ks.IndexOf("KindBench.K8");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -7315,53 +9273,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row60 = (byte*)__def->FrameRow;
 byte* __first60 = __row60 + sizeof(global::KindBench.T8);
 byte* __second60 = __def->FactorSpan == 0 ? null : __first60 + sizeof(global::KindBench.V8);
@@ -7376,6 +9327,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K8.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K8.Combine(ref __total, in __v);
@@ -7383,6 +9368,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K8.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);
@@ -7397,16 +9383,20 @@ var __view = world.View;
 var __pview = players.View;
 {
 var __routes = __ks.Join("KindBench.K9", sizeof(float), "KindBench.C9.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("KindBench.K9"));
+var __kid = __ks.IndexOf("KindBench.K9");
+var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
 if (__firstWord < 0) __firstWord = 0;
 if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);
 while (__kb != 0)
 {
 var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
@@ -7415,53 +9405,46 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
 var __pulses = 0;
-var __sampled = Tl.KindRules.IsSampled(__data, __len);
-var __sk = __sampled ? Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
 for (var __sj = 0; __sj < __sk; __sj++)
 {
 float __total = default;
 var __has = false;
-for (var __j = 0; __j < __len; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
-if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
-float __v = default;
-if (__en->Timeline == 0)
-{
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__pulses++;
-}
-else
-{
-var __isPulse = (__en->Flags & Tl.KindEntryFlags.Pulse) != 0;
-if (__isPulse) __pulses++;
-var __r = __routes[__en->Feeder];
-if ((__r >> 8) != __me)
-{
-if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
-__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
-__en->Flags &= ~Tl.KindEntryFlags.Ready;
-}
-else
-{
-var __pb = __pview.SlotOf(__e, __en->Slot);
-if (!__isPulse && (__pb->Flags & __PF.Paused) != 0) continue;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
+{
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+float __v = default;
 var __ok = false;
 switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
-if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row61 = (byte*)__def->FrameRow;
 byte* __first61 = __row61 + sizeof(global::KindBench.T9);
 byte* __second61 = __def->FactorSpan == 0 ? null : __first61 + sizeof(global::KindBench.V9);
@@ -7476,6 +9459,40 @@ break;
 }
 }
 if (!__ok) continue;
+if (__has) global::KindBench.K9.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+}
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = (__backward ? __FF.Reverse : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
+| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
 if (__has) global::KindBench.K9.Combine(ref __total, in __v);
@@ -7483,6 +9500,7 @@ else { __total = __v; __has = true; }
 }
 if (__has) global::KindBench.K9.Apply(in __total, ref __c0[__e]);
 }
+if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled) __kt->RemovePulses(__row);
 else if (__pulses == __len) __kt->Clear(__row);
 else if (__pulses != 0) __kt->RemovePulses(__row);

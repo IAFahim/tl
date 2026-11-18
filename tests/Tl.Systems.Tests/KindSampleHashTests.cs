@@ -68,11 +68,7 @@ public sealed unsafe class KindSampleHashTests
 
         public bool Playing(int row, ushort timeline) => _players.IsPlaying(row, timeline);
 
-        public int LocomotionEntries(int row)
-        {
-            var kind = _store.IndexOf("KindGame.Locomotion");
-            return _store.Table(kind)->Length[_store.RowOf(row, kind)];
-        }
+        public int LocomotionEntries(int row) => KindSpans.Listed(_world, _players, _store, row, "KindGame.Locomotion");
 
         public void Dispose()
         {

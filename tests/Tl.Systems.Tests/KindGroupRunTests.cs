@@ -80,13 +80,14 @@ public sealed unsafe class KindGroupRunTests : IDisposable
         Step();
         var table = _store.Table(_store.IndexOf("KindGame.Burn"));
         var row = _store.RowOf(0, _store.IndexOf("KindGame.Burn"));
-        Assert.Equal(2, table->Length[row]);
+        Assert.Equal(2, KindSpans.Listed(_world, _players, _store, 0, "KindGame.Burn"));
         _players.Stop(0, Ember);
         Step();
-        Assert.Equal(1, table->Length[row]);
+        Assert.Equal(1, KindSpans.Listed(_world, _players, _store, 0, "KindGame.Burn"));
         Assert.Equal(8f, _heat[0].Value);
         _players.StopAll(0);
         Step();
+        Assert.Equal(0, KindSpans.Listed(_world, _players, _store, 0, "KindGame.Burn"));
         Assert.False(table->IsActive(row));
         Assert.Equal(8f, _heat[0].Value);
     }

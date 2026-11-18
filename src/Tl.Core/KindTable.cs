@@ -40,6 +40,7 @@ public unsafe struct KindTable
     byte** _heap;
     public ulong* Active;
     public ulong* Enabled;
+    public ulong* Listed;
     public int MaxLength;
     public int Overflows;
 
@@ -61,6 +62,7 @@ public unsafe struct KindTable
         if (inlineCapacity == 0) t->_heap = (byte**)Zeroed((nuint)t->Rows * (nuint)sizeof(nint));
         t->Active = (ulong*)Zeroed((nuint)t->Words * 8);
         t->Enabled = (ulong*)Zeroed((nuint)t->Words * 8);
+        t->Listed = (ulong*)Zeroed((nuint)t->Words * 8);
         for (var w = 0; w < t->Words; w++) t->Enabled[w] = ~0ul;
         if ((t->Rows & 63) != 0) t->Enabled[t->Words - 1] = (1ul << (t->Rows & 63)) - 1;
         return t;
@@ -84,6 +86,7 @@ public unsafe struct KindTable
         NativeMemory.AlignedFree(t->Spilled);
         NativeMemory.AlignedFree(t->Active);
         NativeMemory.AlignedFree(t->Enabled);
+        NativeMemory.AlignedFree(t->Listed);
         NativeMemory.AlignedFree(t);
     }
 
@@ -148,23 +151,6 @@ public unsafe struct KindTable
     internal int ColdOverflows() { var s = 0; for (var r = 0; r < Rows; r++) if (IsSpilled(r)) s++; return s; }
 
     public ushort KindOf(KindEntry* entry) => Grouped ? *(ushort*)((byte*)entry + 8) : (ushort)Kind;
-
-    public bool RemoveSpan(int row, byte slot, ushort timeline, ushort step, int kind = -1)
-    {
-        var length = Length[row];
-        var data = Data(row);
-        for (var i = 0; i < length; i++)
-        {
-            var e = (KindEntry*)(data + (nuint)i * (nuint)Stride);
-            if ((e->Flags & KindEntryFlags.Span) == 0 || e->Slot != slot || e->Timeline != timeline || e->Step != step || (Grouped && kind >= 0 && KindOf(e) != kind)) continue;
-            var tail = (length - i - 1) * Stride;
-            Buffer.MemoryCopy(data + (nuint)(i + 1) * (nuint)Stride, data + (nuint)i * (nuint)Stride, tail, tail);
-            Length[row] = (ushort)(length - 1);
-            if (length == 1) Active[row >> 6] &= ~(1ul << (row & 63));
-            return true;
-        }
-        return false;
-    }
 
     public void Purge(int row, byte slot, ushort timeline)
     {

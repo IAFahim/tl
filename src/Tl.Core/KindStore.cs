@@ -85,6 +85,8 @@ public sealed unsafe class KindStore : IDisposable
     int _windowTotal;
     KindTables _t;
     Rows _kindRows;
+    KindScore _score;
+    byte* _samples;
     readonly Dictionary<(string, int), (nint Routes, int Part)> _joined = new();
     readonly HashSet<string> _feeding = new(StringComparer.Ordinal);
     readonly object _joinGate = new();
@@ -221,9 +223,26 @@ public sealed unsafe class KindStore : IDisposable
 
     public KindTable* Table(int kind) => (uint)kind < (uint)_kindCount ? _tables[kind] : null;
 
+    public KindScore Score => _score;
+
+    public ulong* Playing => _players.PlayingBits;
+
+    public int SamplesOf(int entity) => _samples[entity];
+
+    public bool RowsAreEntities(int kind) => _tables[kind] != null && _tables[kind]->Rows == _players.EntityCapacity;
+
     public static int TrailingZeros(ulong value) => Tz(value);
 
-    public LibraryStep* StepOf(ushort timeline, int window, ushort tick)
+    public LibraryStep* StepOf(ushort timeline, int window, ushort tick) => new Steps { Store = this }.StepOf(timeline, window, tick);
+
+    struct Steps : IKindSteps
+    {
+        public KindStore Store;
+
+        public LibraryStep* StepOf(ushort timeline, int window, ushort tick) => Store.Step(timeline, window, tick);
+    }
+
+    LibraryStep* Step(ushort timeline, int window, ushort tick)
     {
         var t = timeline - 1;
         if ((uint)t >= (uint)_timelineCount) return null;
@@ -386,8 +405,9 @@ public sealed unsafe class KindStore : IDisposable
             return entry;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void RemoveSpan(int entity, int kind, byte slot, ushort timeline, ushort step) => Tables[kind]->RemoveSpan(RowOf(entity, kind), slot, timeline, step, kind);
+        public byte* Samples;
+
+        public void Sampled(int entity, int samples) => Samples[entity] = (byte)samples;
 
         public void Purge(int entity, byte slot, ushort timeline)
         {
@@ -662,7 +682,10 @@ public sealed unsafe class KindStore : IDisposable
         _pairs = (uint*)Zeroed((nuint)Math.Max(1, pairs.Count) * 4);
         for (var n = 0; n < pairs.Count; n++) _pairs[n] = pairs[n];
         _t = new KindTables { Timelines = _tls, TimelineCount = _timelineCount, Sec = _sec, KindCount = _kindCount, Closure = _closure, Pairs = _pairs, PairStart = _pairStart };
-        _kindRows = new Rows { Tables = _tables, Mask = _mask, Offset = _offset, Row = _rows, Players = _players };
+        var steps = new Steps { Store = this };
+        _score = KindScore.Build(in _t, ref steps);
+        _samples = (byte*)Zeroed((nuint)entities);
+        _kindRows = new Rows { Tables = _tables, Mask = _mask, Offset = _offset, Row = _rows, Players = _players, Samples = _samples };
     }
 
     void BuildSteps()
@@ -734,8 +757,10 @@ public sealed unsafe class KindStore : IDisposable
         for (var r = 0; r < _routes.Length; r++) if (_routes[r] != null) NativeMemory.AlignedFree(_routes[r]);
         _routes = new ushort*[0];
         _parts = Array.Empty<List<int>?>();
-        foreach (var block in new void*[] { _tables, _queues, _mask, _offset, _rows, _closure, _pairs, _pairStart, _windowBase, _windows })
+        _score.Free();
+        foreach (var block in new void*[] { _tables, _queues, _mask, _offset, _rows, _closure, _pairs, _pairStart, _windowBase, _windows, _samples })
             if (block != null) NativeMemory.AlignedFree(block);
+        _samples = null;
         _tables = null;
         _queues = null;
         _mask = null;

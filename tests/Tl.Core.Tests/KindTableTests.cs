@@ -61,23 +61,6 @@ public sealed unsafe class KindTableTests
         Assert.Equal([(ushort)7], Steps(table, 1));
         Assert.True((table->Spilled[0] & 1ul) != 0);
         Assert.True((table->Spilled[0] & 2ul) != 0);
-        Assert.True(table->RemoveSpan(0, 0, 1, 2));
-        Assert.Equal([(ushort)0, (ushort)1, (ushort)3, (ushort)4], Steps(table, 0));
-    });
-
-    [Fact]
-    public void RemoveSpanKeepsOrderAndClearsActiveWhenEmpty() => With([0], 1, 8, p =>
-    {
-        var table = (KindTable*)p;
-        for (ushort i = 0; i < 4; i++) Add(table, 0, 2, i, KindEntryFlags.Span, (byte)(i % 2));
-        Assert.True(table->RemoveSpan(0, 1, 2, 1));
-        Assert.False(table->RemoveSpan(0, 1, 2, 1));
-        Assert.Equal([(ushort)0, 2, 3], Steps(table, 0));
-        table->RemoveSpan(0, 0, 2, 0);
-        table->RemoveSpan(0, 0, 2, 2);
-        table->RemoveSpan(0, 1, 2, 3);
-        Assert.Equal(0, table->Length[0]);
-        Assert.False(table->IsActive(0));
     });
 
     [Fact]

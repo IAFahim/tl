@@ -76,6 +76,8 @@ public sealed unsafe class KindGlideTests
 
         public void Unsample(int row) => Log.Add("unsample " + row);
 
+        public void Sampled(int row, int samples) { }
+
         public void Seal()
         {
             for (var i = 0; i < Appended; i++) Log.Add("entry " + *(ulong*)(Entries + i));

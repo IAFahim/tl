@@ -454,21 +454,20 @@ internal static class SystemEmitter
         var feed = kind.Foreign;
         W(writer, "{");
         W(writer, $"var __routes = __ks.Join(\"{kind.Id}\", sizeof({value}), \"{signature}\", {(feed ? feedKey : 0)}, out var __me);");
-        if (kind.Group.Length > 0)
-        {
-            W(writer, $"var __kid = __ks.IndexOf(\"{kind.Id}\");");
-            W(writer, "var __kt = __ks.Table(__kid);");
-        }
-        else W(writer, $"var __kt = __ks.Table(__ks.IndexOf(\"{kind.Id}\"));");
+        W(writer, $"var __kid = __ks.IndexOf(\"{kind.Id}\");");
+        W(writer, "var __kt = __ks.Table(__kid);");
         W(writer, "if (__kt != null && __routes != null)");
         W(writer, "{");
         W(writer, "if (__firstWord < 0) __firstWord = 0;");
         W(writer, "if (__endWord > __kt->Words) __endWord = __kt->Words;");
         W(writer, "if (__firstWord > __endWord) __firstWord = __endWord;");
         W(writer, "var __stride = __kt->Stride;");
+        W(writer, "var __score = __ks.Score;");
+        W(writer, "var __pl = __ks.Playing;");
+        W(writer, "var __whole = __ks.RowsAreEntities(__kid);");
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
-        W(writer, "var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];");
+        W(writer, "var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __pl[__kw] : ~0ul);");
         W(writer, "while (__kb != 0)");
         W(writer, "{");
         W(writer, "var __row = (__kw << 6) + global::Tl.KindStore.TrailingZeros(__kb);");
@@ -477,139 +476,31 @@ internal static class SystemEmitter
         W(writer, "if (__e >= __n) continue;");
         W(writer, "var __len = (int)__kt->Length[__row];");
         W(writer, "byte* __data = __kt->Data(__row);");
+        W(writer, "var __run = __pview.RunOf(__e);");
+        W(writer, "var __cnt = __pview.CountOf(__e);");
+        W(writer, "var __smp = __ks.SamplesOf(__e);");
         if (!feed)
         {
             W(writer, "var __pulses = 0;");
-            if (kind.Group.Length == 0)
-            {
-                W(writer, "var __sampled = global::Tl.KindRules.IsSampled(__data, __len);");
-                W(writer, "var __sk = __sampled ? global::Tl.KindRules.SampleDepth(__data, __len, __stride, __pview.SlotOf(__e, 0)) : 1;");
-            }
-            else
-            {
-                W(writer, "var __sampled = false;");
-                W(writer, "var __sk = 1;");
-                W(writer, "for (var __j = 0; __j < __len; __j++)");
-                W(writer, "{");
-                W(writer, "var __se = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
-                W(writer, "if ((__se->Flags & global::Tl.KindEntryFlags.Sample) == 0) break;");
-                W(writer, "if (*(ushort*)((byte*)__se + 8) != __kid) continue;");
-                W(writer, "__sampled = true;");
-                W(writer, "var __ph = __pview.SlotOf(__e, __se->Slot)->Phase;");
-                W(writer, "if (__ph != global::Tl.KindRules.Marker && __ph + 1 > __sk) __sk = __ph + 1;");
-                W(writer, "}");
-            }
+            W(writer, "var __listed = false;");
+            W(writer, "var __sampled = __smp != 0;");
+            W(writer, "var __sk = __sampled ? global::Tl.KindRules.Depth(__run + __cnt, __smp) : 1;");
             W(writer, "for (var __sj = 0; __sj < __sk; __sj++)");
             W(writer, "{");
-        }
-        if (!kind.Each && !feed)
-        {
-            W(writer, $"{value} __total = default;");
-            W(writer, "var __has = false;");
-        }
-        W(writer, "for (var __j = 0; __j < __len; __j++)");
-        W(writer, "{");
-        W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
-        if (kind.Group.Length > 0) W(writer, "if (*(ushort*)((byte*)__en + 8) != __kid) continue;");
-        if (!feed) W(writer, "if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;");
-        W(writer, $"{value} __v = default;");
-        if (feed)
-        {
-            W(writer, "if (__en->Timeline == 0) continue;");
-            W(writer, "var __r = __routes[__en->Feeder];");
-            W(writer, "if ((__r >> 8) != __me) continue;");
-            W(writer, "var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;");
-        }
-        else
-        {
-            W(writer, "if (__en->Timeline == 0)");
-            W(writer, "{");
-            W(writer, $"__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<{value}>((byte*)__en + {valueAt});");
-            W(writer, "__pulses++;");
-            W(writer, "}");
-            W(writer, "else");
-            W(writer, "{");
-            W(writer, "var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;");
-            W(writer, "if (__isPulse) __pulses++;");
-            W(writer, "var __r = __routes[__en->Feeder];");
-            W(writer, "if ((__r >> 8) != __me)");
-            W(writer, "{");
-            W(writer, "if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;");
-            W(writer, $"__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<{value}>((byte*)__en + {valueAt});");
-            W(writer, "__en->Flags &= ~global::Tl.KindEntryFlags.Ready;");
-            W(writer, "}");
-            W(writer, "else");
-            W(writer, "{");
-        }
-        W(writer, "var __pb = __pview.SlotOf(__e, __en->Slot);");
-        W(writer, "if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;");
-        W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));");
-        W(writer, "ushort __tick = __pb->Tick;");
-        W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
-        W(writer, "var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None)");
-        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Synthetic) != 0 ? global::Tl.FrameFlags.Synthetic : global::Tl.FrameFlags.None)");
-        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Interrupted) != 0 ? global::Tl.FrameFlags.Interrupted : global::Tl.FrameFlags.None);");
-        W(writer, "if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;");
-        W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;");
-        W(writer, "var __ok = false;");
-        if (feeders.Count > 0)
-        {
-            W(writer, "switch (__r & 0xff)");
-            W(writer, "{");
-        }
-        for (var i = 0; i < feeders.Count; i++)
-        {
-            var (c, feeder) = feeders[i];
-            var consumer = assignment.Consumers[c];
-            W(writer, $"case {i}:");
-            W(writer, "{");
-            if (feeder.Trigger == FeederTrigger.Marker)
+            if (!kind.Each)
             {
-                W(writer, $"byte* __mptr{c};");
-                W(writer, $"if (!global::Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __ks.MarkerOf(__en->Timeline, __en->Step), sizeof({consumer.MarkerTypeName}), out __mptr{c})) throw new global::System.InvalidOperationException(\"Tl: marker values are not published for this library.\");");
-                W(writer, $"{consumer.MarkerTypeName} __m{c} = *({consumer.MarkerTypeName}*)__mptr{c};");
-                W(writer, $"var __mf{c} = new global::Tl.MarkerFrame<{consumer.MarkerTypeName}>(in __m{c}, __tick, 0, __kflags);");
-                W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, $"__mf{c}", "__e", "")});");
+                W(writer, $"{value} __total = default;");
+                W(writer, "var __has = false;");
             }
-            else
-            {
-                W(writer, "var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);");
-                W(writer, "if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;");
-                EmitMaterialize(writer, consumer, c, "__tl", "__tick", "__backward", "__kflags");
-                if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, c);
-                var frameVar = $"__f{c}";
-                if (IsTlFrame(feeder.Method))
-                {
-                    frameVar = $"__tf{c}";
-                    W(writer, $"var {frameVar} = new global::Tl.TlFrame<{consumer.ClipTypeName}>(in __f{c});");
-                }
-                W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, frameVar, "__e", $"__fd{c}_")});");
-            }
-            W(writer, "__ok = true;");
-            W(writer, "break;");
-            W(writer, "}");
         }
-        if (feeders.Count > 0) W(writer, "}");
-        W(writer, "if (!__ok) continue;");
-        if (feed)
+        EmitSpanWalk(writer, assignment, shape, kind, feeders, feed, value, valueAt, tail);
+        if (!feed) EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
+        else EmitFeedEntries(writer, assignment, shape, kind, feeders, value, valueAt);
+        if (!feed)
         {
-            W(writer, $"global::System.Runtime.CompilerServices.Unsafe.WriteUnaligned((byte*)__en + {valueAt}, __v);");
-            W(writer, "__en->Flags |= global::Tl.KindEntryFlags.Ready;");
-            W(writer, "}");
-        }
-        else
-        {
-            W(writer, "}");
-            W(writer, "}");
-            if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __v{tail});");
-            else
-            {
-                W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __v);");
-                W(writer, "else { __total = __v; __has = true; }");
-            }
-            W(writer, "}");
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
             W(writer, "}");
+            W(writer, "if (__listed) __kt->Listed[__row >> 6] |= 1ul << (__row & 63); else __kt->Listed[__row >> 6] &= ~(1ul << (__row & 63));");
             if (kind.Group.Length > 0)
             {
                 W(writer, "if (__sampled || __pulses != 0)");
@@ -639,12 +530,198 @@ internal static class SystemEmitter
         W(writer, "}");
     }
 
+    static void EmitSpanWalk(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, bool feed, string value, int valueAt, string tail)
+    {
+        W(writer, "for (var __q = 0; __q < __cnt + __smp; __q++)");
+        W(writer, "{");
+        W(writer, "var __i = __q < __smp ? __cnt + __q : __q - __smp;");
+        W(writer, "var __pb = __run + __i;");
+        W(writer, "if (__pb->Timeline == 0 || !global::Tl.KindScore.Listed(__pb->Flags)) continue;");
+        W(writer, "var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);");
+        W(writer, "if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;");
+        if (feed) W(writer, "if (__i < __cnt ? __pb->Rate != 0 : __pb->Phase == global::Tl.KindRules.Marker) continue;");
+        else
+        {
+            W(writer, "if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }");
+            W(writer, "else if (__pb->Phase != __sj) continue;");
+        }
+        W(writer, "if ((__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;");
+        W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));");
+        W(writer, "ushort __tick = __pb->Tick;");
+        W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
+        W(writer, "for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)");
+        W(writer, "{");
+        W(writer, "var __sp = __score.Spans + __f;");
+        W(writer, "var __r = __routes[__sp->Ordinal];");
+        W(writer, "if ((__r >> 8) != __me) continue;");
+        W(writer, "var __def = __sp->Step;");
+        W(writer, "if (__def == null) continue;");
+        W(writer, "var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None) | (global::Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? global::Tl.FrameFlags.Synthetic : global::Tl.FrameFlags.None);");
+        W(writer, "if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;");
+        W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;");
+        W(writer, $"{value} __v = default;");
+        W(writer, "var __ok = false;");
+        var any = false;
+        for (var i = 0; i < feeders.Count; i++)
+        {
+            var (c, feeder) = feeders[i];
+            if (feeder.Trigger != FeederTrigger.Span) continue;
+            if (!any) { W(writer, "switch (__r & 0xff)"); W(writer, "{"); any = true; }
+            EmitFeederCase(writer, assignment, shape, i, c, feeder);
+        }
+        if (any) W(writer, "}");
+        W(writer, "if (!__ok) continue;");
+        if (feed)
+        {
+            W(writer, "var __add = __kt->Append(__row);");
+            W(writer, "*__add = new global::Tl.KindEntry { Timeline = __pb->Timeline, Step = __sp->Window, Slot = (byte)__i, Feeder = __sp->Ordinal, Flags = global::Tl.KindEntryFlags.Span | global::Tl.KindEntryFlags.Pulse | global::Tl.KindEntryFlags.Ready | (__i < __cnt ? 0 : global::Tl.KindEntryFlags.Sample) };");
+            if (kind.Group.Length > 0) W(writer, "*(ushort*)((byte*)__add + 8) = (ushort)__kid;");
+            W(writer, $"global::System.Runtime.CompilerServices.Unsafe.WriteUnaligned((byte*)__add + {valueAt}, __v);");
+        }
+        else if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __v{tail});");
+        else
+        {
+            W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __v);");
+            W(writer, "else { __total = __v; __has = true; }");
+        }
+        W(writer, "}");
+        W(writer, "}");
+    }
+
+    static void EmitFeederCase(StringBuilder writer, SystemAssignment assignment, KernelShape shape, int i, int c, FeederDecl feeder)
+    {
+        var consumer = assignment.Consumers[c];
+        W(writer, $"case {i}:");
+        W(writer, "{");
+        if (feeder.Trigger == FeederTrigger.Marker)
+        {
+            W(writer, $"byte* __mptr{c};");
+            W(writer, $"if (!global::Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __ks.MarkerOf(__en->Timeline, __en->Step), sizeof({consumer.MarkerTypeName}), out __mptr{c})) throw new global::System.InvalidOperationException(\"Tl: marker values are not published for this library.\");");
+            W(writer, $"{consumer.MarkerTypeName} __m{c} = *({consumer.MarkerTypeName}*)__mptr{c};");
+            W(writer, $"var __mf{c} = new global::Tl.MarkerFrame<{consumer.MarkerTypeName}>(in __m{c}, __tick, 0, __kflags);");
+            W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, $"__mf{c}", "__e", "")});");
+        }
+        else
+        {
+            EmitFeederBody(writer, assignment, shape, c, feeder);
+            return;
+        }
+        W(writer, "__ok = true;");
+        W(writer, "break;");
+        W(writer, "}");
+    }
+
+    static void EmitEntryHead(StringBuilder writer, List<(int consumer, FeederDecl feeder)> feeders)
+    {
+        W(writer, "var __pb = __pview.SlotOf(__e, __en->Slot);");
+        W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));");
+        W(writer, "ushort __tick = __pb->Tick;");
+        W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
+        W(writer, "var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None)");
+        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Synthetic) != 0 ? global::Tl.FrameFlags.Synthetic : global::Tl.FrameFlags.None)");
+        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Interrupted) != 0 ? global::Tl.FrameFlags.Interrupted : global::Tl.FrameFlags.None);");
+        W(writer, "if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;");
+        W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;");
+        W(writer, "var __ok = false;");
+    }
+
+    static void EmitEntryCases(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<(int consumer, FeederDecl feeder)> feeders)
+    {
+        var any = false;
+        for (var i = 0; i < feeders.Count; i++)
+        {
+            var (c, feeder) = feeders[i];
+            if (feeder.Trigger == FeederTrigger.Span) continue;
+            if (!any) { W(writer, "switch (__r & 0xff)"); W(writer, "{"); any = true; }
+            if (feeder.Trigger != FeederTrigger.Marker)
+            {
+                W(writer, $"case {i}:");
+                W(writer, "{");
+                W(writer, "var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);");
+                W(writer, "if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;");
+                EmitFeederBody(writer, assignment, shape, c, feeder);
+            }
+            else EmitFeederCase(writer, assignment, shape, i, c, feeder);
+        }
+        if (any) W(writer, "}");
+        W(writer, "if (!__ok) continue;");
+    }
+
+    static void EmitFeederBody(StringBuilder writer, SystemAssignment assignment, KernelShape shape, int c, FeederDecl feeder)
+    {
+        var consumer = assignment.Consumers[c];
+        EmitMaterialize(writer, consumer, c, "__tl", "__tick", "__backward", "__kflags");
+        if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, c);
+        var frameVar = $"__f{c}";
+        if (IsTlFrame(feeder.Method))
+        {
+            frameVar = $"__tf{c}";
+            W(writer, $"var {frameVar} = new global::Tl.TlFrame<{consumer.ClipTypeName}>(in __f{c});");
+        }
+        W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, frameVar, "__e", $"__fd{c}_")});");
+        W(writer, "__ok = true;");
+        W(writer, "break;");
+        W(writer, "}");
+    }
+
+    static void EmitEntryWalk(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, string value, int valueAt, string tail)
+    {
+        W(writer, "for (var __j = 0; __j < __len; __j++)");
+        W(writer, "{");
+        W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
+        if (kind.Group.Length > 0) W(writer, "if (*(ushort*)((byte*)__en + 8) != __kid) continue;");
+        W(writer, "if (__sampled && !global::Tl.KindRules.Due(__en, __sj, __pview.SlotOf(__e, __en->Slot))) continue;");
+        W(writer, $"{value} __v = default;");
+        W(writer, "__pulses++;");
+        W(writer, "if (__en->Timeline == 0)");
+        W(writer, $"__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<{value}>((byte*)__en + {valueAt});");
+        W(writer, "else");
+        W(writer, "{");
+        W(writer, "var __r = __routes[__en->Feeder];");
+        W(writer, "if ((__r >> 8) != __me)");
+        W(writer, "{");
+        W(writer, "if ((__en->Flags & global::Tl.KindEntryFlags.Ready) == 0) continue;");
+        W(writer, $"__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<{value}>((byte*)__en + {valueAt});");
+        W(writer, "__en->Flags &= ~global::Tl.KindEntryFlags.Ready;");
+        W(writer, "}");
+        W(writer, "else");
+        W(writer, "{");
+        EmitEntryHead(writer, feeders);
+        EmitEntryCases(writer, assignment, shape, feeders);
+        W(writer, "}");
+        W(writer, "}");
+        if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __v{tail});");
+        else
+        {
+            W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __v);");
+            W(writer, "else { __total = __v; __has = true; }");
+        }
+        W(writer, "}");
+    }
+
+    static void EmitFeedEntries(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, string value, int valueAt)
+    {
+        W(writer, "for (var __j = 0; __j < __len; __j++)");
+        W(writer, "{");
+        W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
+        if (kind.Group.Length > 0) W(writer, "if (*(ushort*)((byte*)__en + 8) != __kid) continue;");
+        W(writer, "if (__en->Timeline == 0 || (__en->Flags & global::Tl.KindEntryFlags.Span) != 0) continue;");
+        W(writer, "var __r = __routes[__en->Feeder];");
+        W(writer, "if ((__r >> 8) != __me) continue;");
+        W(writer, $"{value} __v = default;");
+        EmitEntryHead(writer, feeders);
+        EmitEntryCases(writer, assignment, shape, feeders);
+        W(writer, $"global::System.Runtime.CompilerServices.Unsafe.WriteUnaligned((byte*)__en + {valueAt}, __v);");
+        W(writer, "__en->Flags |= global::Tl.KindEntryFlags.Ready;");
+        W(writer, "}");
+    }
+
     static void EmitIdle(StringBuilder writer, KernelShape shape, KindDecl kind)
     {
         var idleArgs = CallArgs(shape, new ConsumerMethod(ConsumerMethodKind.ExecuteActive, kind.IdleParams!, [], []), 0, "", "__e", "");
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
-        W(writer, "var __kb = ~__kt->Active[__kw] & __kt->Enabled[__kw];");
+        W(writer, "var __kb = ~(__kt->Active[__kw] | __kt->Listed[__kw]) & __kt->Enabled[__kw];");
         W(writer, "while (__kb != 0)");
         W(writer, "{");
         W(writer, "var __e = __kt->Entity[(__kw << 6) + global::Tl.KindStore.TrailingZeros(__kb)];");

@@ -69,7 +69,7 @@ public sealed unsafe class KindRunTests : IDisposable
         Assert.Equal(102f, _motion[0].X);
         Step();
         Assert.Equal(104f, _motion[0].X);
-        Assert.Equal(1, _store.GetStats(_store.IndexOf("KindGame.Locomotion")).MaxLength);
+        Assert.Equal(0, _store.GetStats(_store.IndexOf("KindGame.Locomotion")).MaxLength);
     }
 
     [Fact]
@@ -173,8 +173,8 @@ public sealed unsafe class KindRunTests : IDisposable
         var lift = _store.IndexOf("KindGame.Lift");
         var table = _store.Table(lift);
         var row = _store.RowOf(0, lift);
-        Assert.Equal(1, table->Length[row]);
-        Assert.Equal(KindEntryFlags.Span | KindEntryFlags.Synthetic, table->At(row, 0)->Flags);
+        Assert.Equal(0, table->Length[row]);
+        Assert.Equal(PlaybackFlags.Began | PlaybackFlags.ReenterPending, _players.View.SlotOf(0, 0)->Flags & (PlaybackFlags.Began | PlaybackFlags.ReenterPending));
         Step();
         Assert.Equal(1, _players.View.SlotOf(0, 0)->Tick);
         Assert.Equal(-1, _stamina[0].Value);

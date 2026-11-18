@@ -105,7 +105,7 @@ public sealed class KindEmissionTests
         var emitted = SystemGeneration.Emit(Compile(Prelude + kind + feeder + "\n}\n"), "Idle");
         var all = string.Join("\n", emitted.Artifacts.Select(static a => a.Content));
         Assert.Contains("global::T.K.Idle(ref __c0[__e]);", all);
-        Assert.Contains("~__kt->Active[__kw] & __kt->Enabled[__kw]", all);
+        Assert.Contains("~(__kt->Active[__kw] | __kt->Listed[__kw]) & __kt->Enabled[__kw]", all);
         var plain = SystemGeneration.Emit(Compile(Prelude + kind.Replace(" public static void Idle(ref M m) => m.X = 0;", "") + feeder + "\n}\n"), "Idle");
         Assert.DoesNotContain(".Idle(", string.Join("\n", plain.Artifacts.Select(static a => a.Content)));
     }
