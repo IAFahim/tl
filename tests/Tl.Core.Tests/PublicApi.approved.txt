@@ -256,6 +256,7 @@ type Tl.KindSectionView
   Field Tl.LibraryKindTimeline* Timelines
   Method Tl.LibraryWindow* Windows(Tl.LibraryKindTimeline*)
 type Tl.KindSpan
+  Field UInt16 Feeder
   Field Byte Ordinal
   Field Tl.LibraryStep* Step
   Field UInt16 Window

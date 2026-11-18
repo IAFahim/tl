@@ -13,6 +13,7 @@ public unsafe struct KindSpan
 {
     public LibraryStep* Step;
     public ushort Window;
+    public ushort Feeder;
     public byte Ordinal;
 }
 
@@ -61,7 +62,7 @@ public unsafe struct KindScore
                 for (int tick = windows[w].Start; tick < windows[w].End; tick++)
                 {
                     cells.Add(s.CellOf(t.Sec, id, tick, t.Sec.Feeders[f].Kind));
-                    spans.Add(new KindSpan { Step = steps.StepOf(id, w, (ushort)tick), Window = (ushort)w, Ordinal = t.Sec.Feeders[f].Ordinal });
+                    spans.Add(new KindSpan { Step = steps.StepOf(id, w, (ushort)tick), Window = (ushort)w, Feeder = f, Ordinal = t.Sec.Feeders[f].Ordinal });
                 }
             }
         }
