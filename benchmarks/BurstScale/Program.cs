@@ -28,7 +28,9 @@ unsafe
     var n = int.Parse(args[1]);
     var active = int.Parse(args[2]);
     var workersCount = args.Length > 3 ? int.Parse(args[3]) : 1;
-    const int Warmup = 32, Rounds = 6, Steps = 32;
+    var Warmup = args.Length > 4 ? int.Parse(args[4]) : 32;
+    const int Rounds = 6;
+    var Steps = args.Length > 5 ? int.Parse(args[5]) : 32;
     var process = Process.GetCurrentProcess();
     var privateBefore = process.PrivateMemorySize64;
     var setup = Stopwatch.StartNew();
@@ -47,19 +49,22 @@ unsafe
         first.Stop();
         for (var t = 1; t < Warmup; t++) Step(world, players, total, n, workers);
         var samples = new double[Rounds];
+        var roundAlloc = new long[Rounds];
         long allocated = 0;
         var before = GC.GetTotalAllocatedBytes(true);
         for (var r = 0; r < Rounds; r++)
         {
+            var roundBefore = GC.GetTotalAllocatedBytes(true);
             var start = Stopwatch.GetTimestamp();
             for (var t = 0; t < Steps; t++) Step(world, players, total, n, workers);
             samples[r] = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency / Steps;
+            roundAlloc[r] = GC.GetTotalAllocatedBytes(true)-roundBefore;
         }
         allocated = GC.GetTotalAllocatedBytes(true) - before;
         process.Refresh();
         var privateDelta = process.PrivateMemorySize64-privateBefore;
         var hash = Hash(players.View, total, n, active, Warmup + Rounds * Steps);
-        Console.WriteLine($"host=dotnet shape={n}x{active} workers={workersCount} setupMs={setup.Elapsed.TotalMilliseconds:F3} firstMs={first.Elapsed.TotalMilliseconds:F3} readySetupMs={setup.Elapsed.TotalMilliseconds+first.Elapsed.TotalMilliseconds:F3} privateDelta={privateDelta} allocTotal={allocated} ticks={Rounds*Steps} hash={hash:X16} samplesMs={string.Join(',',samples.Select(v=>v.ToString("F6")))}");
+        Console.WriteLine($"host=dotnet shape={n}x{active} workers={workersCount} setupMs={setup.Elapsed.TotalMilliseconds:F3} firstMs={first.Elapsed.TotalMilliseconds:F3} readySetupMs={setup.Elapsed.TotalMilliseconds+first.Elapsed.TotalMilliseconds:F3} privateDelta={privateDelta} allocTotal={allocated} roundAlloc={string.Join(',',roundAlloc)} warmup={Warmup} ticks={Rounds*Steps} hash={hash:X16} samplesMs={string.Join(',',samples.Select(v=>v.ToString("F6")))}");
         long tickClock = 0, kindClock = 0;
         for (var t = 0; t < 32; t++)
         {
