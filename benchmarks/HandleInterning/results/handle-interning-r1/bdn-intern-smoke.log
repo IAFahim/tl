@@ -1,0 +1,262 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 3 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1/" /p:OutDir="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0/" /p:OutputPath="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0/" /p:PublishDir="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\publish/" in D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1
+// command took 1.88 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1/" /p:OutDir="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0/" /p:OutputPath="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0/" /p:PublishDir="D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\publish/" --output "D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0/" in D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1
+// command took 3.69 sec and exited with 0
+// ***** Done, took 00:00:05 (5.62 sec)   *****
+// Found 3 benchmarks:
+//   InternBench.FreshLoad: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+//   InternBench.InternedHit: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+//   InternBench.InternedProbeOnly: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: InternBench.FreshLoad: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet HandleInterning-steady-1.dll --anonymousPipes 1584 1516 --benchmarkName HandleInterning.InternBench.FreshLoad --job steady --benchmarkId 0 in D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+
+OverheadJitting  1: 2048 op, 180100.00 ns, 87.9395 ns/op
+WorkloadJitting  1: 2048 op, 818100.00 ns, 399.4629 ns/op
+
+OverheadJitting  2: 32768 op, 253500.00 ns, 7.7362 ns/op
+WorkloadJitting  2: 32768 op, 5159100.00 ns, 157.4432 ns/op
+
+WorkloadPilot    1: 32768 op, 4237900.00 ns, 129.3304 ns/op
+WorkloadPilot    2: 1933312 op, 253928600.00 ns, 131.3438 ns/op
+
+OverheadWarmup   1: 1933312 op, 3700.00 ns, 0.0019 ns/op
+OverheadWarmup   2: 1933312 op, 1400.00 ns, 0.0007 ns/op
+OverheadWarmup   3: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadWarmup   4: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadWarmup   5: 1933312 op, 1400.00 ns, 0.0007 ns/op
+OverheadWarmup   6: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadWarmup   7: 1933312 op, 1300.00 ns, 0.0007 ns/op
+
+OverheadActual   1: 1933312 op, 1400.00 ns, 0.0007 ns/op
+OverheadActual   2: 1933312 op, 1400.00 ns, 0.0007 ns/op
+OverheadActual   3: 1933312 op, 1400.00 ns, 0.0007 ns/op
+OverheadActual   4: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual   5: 1933312 op, 1500.00 ns, 0.0008 ns/op
+OverheadActual   6: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual   7: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual   8: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual   9: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual  10: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual  11: 1933312 op, 1400.00 ns, 0.0007 ns/op
+OverheadActual  12: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual  13: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual  14: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual  15: 1933312 op, 1300.00 ns, 0.0007 ns/op
+OverheadActual  16: 1933312 op, 1300.00 ns, 0.0007 ns/op
+
+WorkloadWarmup   1: 1933312 op, 197696800.00 ns, 102.2581 ns/op
+WorkloadWarmup   2: 1933312 op, 203518800.00 ns, 105.2695 ns/op
+WorkloadWarmup   3: 1933312 op, 186972900.00 ns, 96.7112 ns/op
+WorkloadWarmup   4: 1933312 op, 139387700.00 ns, 72.0979 ns/op
+WorkloadWarmup   5: 1933312 op, 137409300.00 ns, 71.0746 ns/op
+WorkloadWarmup   6: 1933312 op, 136599700.00 ns, 70.6558 ns/op
+WorkloadWarmup   7: 1933312 op, 136643300.00 ns, 70.6783 ns/op
+WorkloadWarmup   8: 1933312 op, 152372200.00 ns, 78.8141 ns/op
+
+// BeforeActualRun
+WorkloadActual   1: 1933312 op, 137282600.00 ns, 71.0090 ns/op
+WorkloadActual   2: 1933312 op, 137579100.00 ns, 71.1624 ns/op
+WorkloadActual   3: 1933312 op, 140394400.00 ns, 72.6186 ns/op
+WorkloadActual   4: 1933312 op, 201634200.00 ns, 104.2947 ns/op
+WorkloadActual   5: 1933312 op, 199856800.00 ns, 103.3753 ns/op
+WorkloadActual   6: 1933312 op, 200458000.00 ns, 103.6863 ns/op
+WorkloadActual   7: 1933312 op, 196271600.00 ns, 101.5209 ns/op
+WorkloadActual   8: 1933312 op, 198058000.00 ns, 102.4449 ns/op
+WorkloadActual   9: 1933312 op, 135942100.00 ns, 70.3157 ns/op
+WorkloadActual  10: 1933312 op, 136278000.00 ns, 70.4894 ns/op
+
+// AfterActualRun
+WorkloadResult   1: 1933312 op, 137281300.00 ns, 71.0084 ns/op
+WorkloadResult   2: 1933312 op, 137577800.00 ns, 71.1617 ns/op
+WorkloadResult   3: 1933312 op, 140393100.00 ns, 72.6179 ns/op
+WorkloadResult   4: 1933312 op, 201632900.00 ns, 104.2940 ns/op
+WorkloadResult   5: 1933312 op, 199855500.00 ns, 103.3747 ns/op
+WorkloadResult   6: 1933312 op, 200456700.00 ns, 103.6856 ns/op
+WorkloadResult   7: 1933312 op, 196270300.00 ns, 101.5202 ns/op
+WorkloadResult   8: 1933312 op, 198056700.00 ns, 102.4443 ns/op
+WorkloadResult   9: 1933312 op, 135940800.00 ns, 70.3150 ns/op
+WorkloadResult  10: 1933312 op, 136276700.00 ns, 70.4887 ns/op
+// GC:  11 0 0 92798976 1933312
+// Threading:  0 0 1933312
+
+// AfterAll
+// Benchmark Process 25468 has exited with code 0.
+
+Mean = 87.091 ns, StdErr = 5.333 ns (6.12%), N = 10, StdDev = 16.863 ns
+Min = 70.315 ns, Q1 = 71.047 ns, Median = 87.069 ns, Q3 = 103.142 ns, Max = 104.294 ns
+IQR = 32.095 ns, LowerFence = 22.904 ns, UpperFence = 151.285 ns
+ConfidenceInterval = [61.596 ns; 112.586 ns] (CI 99.9%), Margin = 25.495 ns (29.27% of Mean)
+Skewness = 0, Kurtosis = 0.82, MValue = 4
+
+// ** Remained 2 (66.7 %) benchmark(s) to run. Estimated finish 2026-09-17 20:13 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: InternBench.InternedHit: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet HandleInterning-steady-1.dll --anonymousPipes 1560 1616 --benchmarkName HandleInterning.InternBench.InternedHit --job steady --benchmarkId 1 in D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+
+OverheadJitting  1: 2048 op, 147300.00 ns, 71.9238 ns/op
+WorkloadJitting  1: 2048 op, 4422600.00 ns, 2.1595 us/op
+
+OverheadJitting  2: 32768 op, 258100.00 ns, 7.8766 ns/op
+WorkloadJitting  2: 32768 op, 64334000.00 ns, 1.9633 us/op
+
+WorkloadPilot    1: 32768 op, 60672700.00 ns, 1.8516 us/op
+WorkloadPilot    2: 163840 op, 304603700.00 ns, 1.8592 us/op
+
+OverheadWarmup   1: 163840 op, 2000.00 ns, 0.0122 ns/op
+OverheadWarmup   2: 163840 op, 500.00 ns, 0.0031 ns/op
+OverheadWarmup   3: 163840 op, 500.00 ns, 0.0031 ns/op
+OverheadWarmup   4: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadWarmup   5: 163840 op, 700.00 ns, 0.0043 ns/op
+OverheadWarmup   6: 163840 op, 500.00 ns, 0.0031 ns/op
+
+OverheadActual   1: 163840 op, 900.00 ns, 0.0055 ns/op
+OverheadActual   2: 163840 op, 600.00 ns, 0.0037 ns/op
+OverheadActual   3: 163840 op, 600.00 ns, 0.0037 ns/op
+OverheadActual   4: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual   5: 163840 op, 500.00 ns, 0.0031 ns/op
+OverheadActual   6: 163840 op, 500.00 ns, 0.0031 ns/op
+OverheadActual   7: 163840 op, 500.00 ns, 0.0031 ns/op
+OverheadActual   8: 163840 op, 400.00 ns, 0.0024 ns/op
+OverheadActual   9: 163840 op, 500.00 ns, 0.0031 ns/op
+OverheadActual  10: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  11: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  12: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  13: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  14: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  15: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  16: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  17: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  18: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  19: 163840 op, 300.00 ns, 0.0018 ns/op
+OverheadActual  20: 163840 op, 400.00 ns, 0.0024 ns/op
+
+WorkloadWarmup   1: 163840 op, 296716500.00 ns, 1.8110 us/op
+WorkloadWarmup   2: 163840 op, 289796400.00 ns, 1.7688 us/op
+WorkloadWarmup   3: 163840 op, 296685100.00 ns, 1.8108 us/op
+WorkloadWarmup   4: 163840 op, 290139600.00 ns, 1.7709 us/op
+WorkloadWarmup   5: 163840 op, 289752400.00 ns, 1.7685 us/op
+WorkloadWarmup   6: 163840 op, 289742900.00 ns, 1.7685 us/op
+WorkloadWarmup   7: 163840 op, 289735600.00 ns, 1.7684 us/op
+WorkloadWarmup   8: 163840 op, 289830200.00 ns, 1.7690 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 163840 op, 290693200.00 ns, 1.7743 us/op
+WorkloadActual   2: 163840 op, 289763900.00 ns, 1.7686 us/op
+WorkloadActual   3: 163840 op, 297154000.00 ns, 1.8137 us/op
+WorkloadActual   4: 163840 op, 290216400.00 ns, 1.7713 us/op
+WorkloadActual   5: 163840 op, 303902300.00 ns, 1.8549 us/op
+WorkloadActual   6: 163840 op, 307043400.00 ns, 1.8740 us/op
+WorkloadActual   7: 163840 op, 313028300.00 ns, 1.9106 us/op
+WorkloadActual   8: 163840 op, 290235600.00 ns, 1.7715 us/op
+WorkloadActual   9: 163840 op, 289709300.00 ns, 1.7682 us/op
+WorkloadActual  10: 163840 op, 289994700.00 ns, 1.7700 us/op
+
+// AfterActualRun
+WorkloadResult   1: 163840 op, 290692900.00 ns, 1.7742 us/op
+WorkloadResult   2: 163840 op, 289763600.00 ns, 1.7686 us/op
+WorkloadResult   3: 163840 op, 297153700.00 ns, 1.8137 us/op
+WorkloadResult   4: 163840 op, 290216100.00 ns, 1.7713 us/op
+WorkloadResult   5: 163840 op, 303902000.00 ns, 1.8549 us/op
+WorkloadResult   6: 163840 op, 307043100.00 ns, 1.8740 us/op
+WorkloadResult   7: 163840 op, 313028000.00 ns, 1.9106 us/op
+WorkloadResult   8: 163840 op, 290235300.00 ns, 1.7715 us/op
+WorkloadResult   9: 163840 op, 289709000.00 ns, 1.7682 us/op
+WorkloadResult  10: 163840 op, 289994400.00 ns, 1.7700 us/op
+// GC:  0 0 0 0 163840
+// Threading:  0 0 163840
+
+// AfterAll
+// Benchmark Process 4188 has exited with code 0.
+
+Mean = 1.808 us, StdErr = 0.017 us (0.93%), N = 10, StdDev = 0.053 us
+Min = 1.768 us, Q1 = 1.770 us, Median = 1.773 us, Q3 = 1.845 us, Max = 1.911 us
+IQR = 0.074 us, LowerFence = 1.659 us, UpperFence = 1.956 us
+ConfidenceInterval = [1.727 us; 1.888 us] (CI 99.9%), Margin = 0.080 us (4.45% of Mean)
+Skewness = 0.78, Kurtosis = 1.84, MValue = 2
+
+// ** Remained 1 (33.3 %) benchmark(s) to run. Estimated finish 2026-09-17 20:13 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: InternBench.InternedProbeOnly: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet HandleInterning-steady-1.dll --anonymousPipes 1644 1620 --benchmarkName HandleInterning.InternBench.InternedProbeOnly --job steady --benchmarkId 2 in D:\GitHub\tl-handle\benchmarks\HandleInterning\bin\Release\net10.0\HandleInterning-steady-1\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: steady(IterationCount=10, IterationTime=250ms, WarmupCount=8)
+
+OverheadJitting  1: 2048 op, 139700.00 ns, 68.2129 ns/op
+WorkloadJitting  1: 2048 op, 539500.00 ns, 263.4277 ns/op
+
+OverheadJitting  2: 32768 op, 249100.00 ns, 7.6019 ns/op
+WorkloadJitting  2: 32768 op, 2405400.00 ns, 73.4070 ns/op
+
+WorkloadPilot    1: 32768 op, 1226700.00 ns, 37.4359 ns/op
+WorkloadPilot    2: 6684672 op, 169816200.00 ns, 25.4038 ns/op
+WorkloadPilot    3: 9863168 op, 95346300.00 ns, 9.6669 ns/op
+WorkloadPilot    4: 25886720 op, 251307600.00 ns, 9.7080 ns/op
+WorkloadPilot    5: 25755648 op, 250216200.00 ns, 9.7150 ns/op
+
+OverheadWarmup   1: 25755648 op, 22700.00 ns, 0.0009 ns/op
+OverheadWarmup   2: 25755648 op, 21400.00 ns, 0.0008 ns/op
+OverheadWarmup   3: 25755648 op, 16000.00 ns, 0.0006 ns/op
+OverheadWarmup   4: 25755648 op, 15900.00 ns, 0.0006 ns/op
+OverheadWarmup   5: 25755648 op, 15900.00 ns, 0.0006 ns/op
+OverheadWarmup   6: 25755648 op, 20200.00 ns, 0.0008 ns/op
+OverheadWarmup   7: 25755648 op, 17600.00 ns, 0.0007 ns/op
+OverheadWarmup   8: 25755648 op, 17600.00 ns, 0.0007 ns/op
+
+OverheadActual   1: 25755648 op, 17600.00 ns, 0.0007 ns/op
+OverheadActual   2: 25755648 op, 24100.00 ns, 0.0009 ns/op
+OverheadActual   3: 25755648 op, 18400.00 ns, 0.0007 ns/op
+OverheadActual   4: 25755648 op, 21900.00 ns, 0.0009 ns/op
+OverheadActual   5: 25755648 op, 16100.00 ns, 0.0006 ns/op
+OverheadActual   6: 25755648 op, 15800.00 ns, 0.0006 ns/op
+OverheadActual   7: 25755648 op, 15800.00 ns, 0.0006 ns/op
+OverheadActual   8: 25755648 op, 17400.00 ns, 0.0007 ns/op
+OverheadActual   9: 25755648 op, 15900.00 ns, 0.0006 ns/op
+OverheadActual  10: 25755648 op, 15900.00 ns, 0.0006 ns/op
+OverheadActual  11: 25755648 op, 15800.00 ns, 0.0006 ns/op
+OverheadActual  12: 25755648 op, 20300.00 ns, 0.0008 ns/op
+OverheadActual  13: 25755648 op, 16700.00 ns, 0.0006 ns/op
+OverheadActual  14: 25755648 op, 15800.00 ns, 0.0006 ns/op
+OverheadActual  15: 25755648 op, 16000.00 ns, 0.0006 ns/op
+OverheadActual  16: 25755648 op, 15900.00 ns, 0.0006 ns/op
+OverheadActual  17: 25755648 op, 16000.00 ns, 0.0006 ns/op
+OverheadActual  18: 25755648 op, 16000.00 ns, 0.0006 ns/op
+OverheadActual  19: 25755648 op, 24400.00 ns, 0.0009 ns/op
+OverheadActual  20: 25755648 op, 15900.00 ns, 0.0006 ns/op
+

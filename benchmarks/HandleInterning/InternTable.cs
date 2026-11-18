@@ -64,6 +64,7 @@ public sealed unsafe class InternTable : IDisposable
     readonly int _maxEntries;
     int _gate;
     int _liveEntries;
+    readonly GCHandle[] _wrappers;
 
     static long _allocBytes;
     static long _freeBytes;
@@ -115,6 +116,7 @@ public sealed unsafe class InternTable : IDisposable
         _maxEntries = capacity - capacity / 16;
         _slots = (Entry*)NativeMemory.AlignedAlloc((nuint)capacity * (nuint)sizeof(Entry), 64);
         new Span<Entry>(_slots, capacity).Clear();
+        _wrappers = new GCHandle[capacity];
     }
 
     public Asset Load(ReadOnlySpan<byte> bytes)
@@ -288,6 +290,8 @@ public sealed unsafe class InternTable : IDisposable
             Volatile.Write(ref e->KeyHigh, 0);
             e->Block = null;
             Volatile.Write(ref e->BlockBytes, 0);
+            var cached = _wrappers[SlotIndex(e)];
+            if (cached.IsAllocated) cached.Free();
             if (block != null)
             {
                 Interlocked.Increment(ref _deaths);
@@ -306,8 +310,16 @@ public sealed unsafe class InternTable : IDisposable
         if (block == null)
             throw new InvalidOperationException(
                 $"Intern table handed out a null block: state={Volatile.Read(ref e->State)} count={Volatile.Read(ref e->Count)} key=({e->KeyLow:X16},{e->KeyHigh:X16}).");
-        return new(this, e, block, length, PaddedSize(length));
+        var index = SlotIndex(e);
+        var handle = _wrappers[index];
+        var cached = handle.IsAllocated ? handle.Target as Asset : null;
+        if (cached != null) return cached;
+        var asset = new Asset(this, e, block, length, PaddedSize(length));
+        _wrappers[index] = GCHandle.Alloc(asset);
+        return asset;
     }
+
+    int SlotIndex(Entry* e) => (int)((nint)(e - _slots) / sizeof(Entry));
 
     internal static int PaddedSize(int length) => (length + 63) & ~63;
 
@@ -416,6 +428,10 @@ public sealed unsafe class InternTable : IDisposable
 
     public void Dispose()
     {
+        for (var i = 0; i < _wrappers.Length; i++)
+        {
+            if (_wrappers[i].IsAllocated) _wrappers[i].Free();
+        }
         NativeMemory.AlignedFree(_slots);
     }
 }
