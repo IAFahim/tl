@@ -63,3 +63,17 @@ This is an unreleased source change after `v4.0.0-preview.1`; the package versio
 - A foreign feeder must run before its owner in every step. The first step rejects the opposite order (`KindStore.Join`); a host that reorders its systems later gets values one step late.
 - A host that does not use `KindStore` builds its own table with `KindScore.Build(in tables, ref steps)`, where `steps` implements `IKindSteps.StepOf(timeline, window, tick)`, and calls `Free` when the library is replaced. `tables` must come from a validated kind section (`Build` throws when a feeder's kind is outside its timeline's kind mask), and the score borrows that section's timeline rows, so the library bytes must outlive it.
 - Behaviour: last-wins kinds combine rated copies first (by source slot, then crossing), then the other slots in slot order, each in authored pair order, and a span feeder sees `Synthetic` only on the step its playback began mid-clip or re-entered (see above).
+
+## Precombined spans (#655)
+
+A kind opts in with `Associative = true` on `[TimelineKind]` or `[TlKind]`. That declares its `Combine` associative; tl never infers it from code. The generator then precombines the kind in its system when all of these hold:
+
+- every `[Feeds]` method of the kind in that system takes only the frame (`Frame<,>` or `TlFrame<>`) and its own fold results;
+- none of them, nor the `Fold` whose results they take, reads `Synthetic` or `Interrupted`. Reading `frame.Flags`, calling `frame.Has` with anything but a constant without those bits, or passing the frame on counts as a read;
+- the kind is not `Mode = KindMode.Each`, and the system does not feed it from another assembly.
+
+A precombined kind reads one value per playback slot and step: `Combine` over the cell's spans for that (timeline, tick, direction), in pair order, plus a presence bit. `Apply`, pulses, game pulses, rated copies and a foreign feeder's values work as before. Per-entity inputs belong in `Apply`, which runs once per entity: `Lift.Apply(in float lift, in JumpPower power, ref Motion motion)`.
+
+- The values are built on the first run after a library loads, by generated code through `KindStore.SpanValues`, and are freed with the library. `KindStore.SpanValueBytes(kind)` reports the shared bytes; it is 0 while the kind is not precombined. A host without `KindStore` calls `KindValues.Build<T, TSpans>(in score, timelines, kind, routes, part, ref spans)` and `Free`.
+- With one playback per entity the result is bit for bit the per-span walk, floats included. With several playbacks, `Combine` regroups by slot, so float sums can differ in the last bits; integer and pick kinds stay exact (`PrecombineTests`).
+- `TLGEN115` is an info diagnostic for an opted-in kind that keeps the per-span walk, naming the first reason. Derived `Sum<T>`, `Set<T>` and `While<T>` kinds keep the per-span walk for now.

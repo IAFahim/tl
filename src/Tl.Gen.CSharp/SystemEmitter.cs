@@ -427,12 +427,13 @@ internal static class SystemEmitter
             W(writer, "{");
             W(writer, "var __view = world.View;");
             W(writer, "var __pview = players.View;");
-            EmitKind(writer, assignment, shape, assignment.Kinds[i], feedKey);
+            EmitKind(writer, assignment, shape, assignment.Kinds[i], feedKey, i);
             W(writer, "}");
+            if (assignment.Kinds[i].Precombined) EmitSpanValues(writer, assignment, shape, assignment.Kinds[i], i);
         }
     }
 
-    static void EmitKind(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, int feedKey)
+    static List<(int consumer, FeederDecl feeder)> FeedersOf(SystemAssignment assignment, KindDecl kind)
     {
         var feeders = new List<(int consumer, FeederDecl feeder)>();
         for (var c = 0; c < assignment.Consumers.Count; c++)
@@ -443,6 +444,48 @@ internal static class SystemEmitter
             var by = string.CompareOrdinal(a.feeder.ConsumerMetadata, b.feeder.ConsumerMetadata);
             return by != 0 ? by : string.CompareOrdinal(a.feeder.MethodName, b.feeder.MethodName);
         });
+        return feeders;
+    }
+
+    static void EmitSpanValues(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, int index)
+    {
+        var value = kind.ValueTypeName;
+        W(writer, $"internal struct KindSpans_{index} : global::Tl.IKindSpanValues<{value}>");
+        W(writer, "{");
+        W(writer, $"public bool Evaluate(int __r, global::Tl.LibraryStep* __def, global::Tl.LibraryTimeline* __tl, ushort __tick, bool __backward, out {value} __v)");
+        W(writer, "{");
+        W(writer, "__v = default;");
+        EmitFrameFlags(writer, null, null);
+        EmitCases(writer, assignment, shape, FeedersOf(assignment, kind), true, "return false");
+        W(writer, "return true;");
+        W(writer, "}");
+        W(writer, $"public void Combine(ref {value} total, in {value} next) => {kind.TypeName}.Combine(ref total, in next);");
+        W(writer, "}");
+    }
+
+    static void EmitValueWalk(StringBuilder writer, KindDecl kind)
+    {
+        W(writer, "for (var __q = 0; __q < __cnt + __smp; __q++)");
+        W(writer, "{");
+        W(writer, "var __i = __q < __smp ? __cnt + __q : __q - __smp;");
+        W(writer, "var __pb = __run + __i;");
+        W(writer, "if (__pb->Timeline == 0 || !global::Tl.KindScore.Listed(__pb->Flags)) continue;");
+        W(writer, "var __vr = __kv->RowOf(__pb->Timeline, __pb->Tick);");
+        W(writer, "if (__vr == null) continue;");
+        W(writer, "if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }");
+        W(writer, "else if (__pb->Phase != __sj) continue;");
+        W(writer, "if ((__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;");
+        W(writer, "var __bk = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
+        W(writer, "if ((*__vr & (__bk ? 4 : 2)) == 0) continue;");
+        W(writer, $"ref readonly var __sv = ref *({kind.ValueTypeName}*)(__vr + (__bk ? __kv->Back : __kv->Front));");
+        W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __sv);");
+        W(writer, "else { __total = __sv; __has = true; }");
+        W(writer, "}");
+    }
+
+    static void EmitKind(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, int feedKey, int index)
+    {
+        var feeders = FeedersOf(assignment, kind);
         var parts = feeders.ConvertAll(static f => $"{f.feeder.ConsumerMetadata}.{f.feeder.MethodName}:{(int)f.feeder.Trigger}");
         if (kind.Group.Length > 0) parts.Insert(0, "@" + kind.Group);
         var signature = string.Join("\\n", parts);
@@ -466,6 +509,7 @@ internal static class SystemEmitter
         W(writer, "var __pl = __ks.Playing;");
         W(writer, "var __whole = __ks.RowsAreEntities(__kid);");
         W(writer, "var __lst = __ks.ListedOf(__kid);");
+        if (kind.Precombined) W(writer, $"var __kspans = default(KindSpans_{index}); var __kv = __ks.SpanValues<{value}, KindSpans_{index}>(__kid, __me, __routes, ref __kspans);");
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
         W(writer, "var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);");
@@ -499,7 +543,17 @@ internal static class SystemEmitter
             EmitDrop(writer, "(__q->Flags & global::Tl.KindEntryFlags.Span) != 0" + (kind.Group.Length > 0 ? " && *(ushort*)((byte*)__q + 8) == __kid" : "") + " && (__routes[__q->Feeder] >> 8) == __me");
             EmitFeedEntries(writer, assignment, shape, kind, feeders, value, valueAt);
         }
+        if (kind.Precombined)
+        {
+            W(writer, "if (__kv != null)");
+            W(writer, "{");
+            EmitValueWalk(writer, kind);
+            W(writer, "}");
+            W(writer, "else");
+            W(writer, "{");
+        }
         EmitSpanWalk(writer, assignment, shape, kind, feeders, feed, value, valueAt, tail);
+        if (kind.Precombined) W(writer, "}");
         if (!feed) EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
         if (!feed)
         {
@@ -594,7 +648,7 @@ internal static class SystemEmitter
         W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
     }
 
-    static void EmitFrameFlags(StringBuilder writer, string synthetic, string? interrupted)
+    static void EmitFrameFlags(StringBuilder writer, string? synthetic, string? interrupted)
     {
         W(writer, "var __kflags = global::Tl.FrameFlags.None;");
         foreach (var (test, flag) in new[] { ("__backward", "Reverse"), (synthetic, "Synthetic"), (interrupted, "Interrupted"), ("__tick == 0", "TimelineStart"), ("__tick == (ushort)(__tl->Duration - 1)", "TimelineEnd") })
@@ -602,7 +656,7 @@ internal static class SystemEmitter
         W(writer, "var __ok = false;");
     }
 
-    static void EmitCases(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<(int consumer, FeederDecl feeder)> feeders, bool spans)
+    static void EmitCases(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<(int consumer, FeederDecl feeder)> feeders, bool spans, string skip = "continue")
     {
         var any = false;
         for (var i = 0; i < feeders.Count; i++)
@@ -643,7 +697,7 @@ internal static class SystemEmitter
             W(writer, "}");
         }
         if (any) W(writer, "}");
-        W(writer, "if (!__ok) continue;");
+        W(writer, $"if (!__ok) {skip};");
     }
 
     static void EmitEntryWalk(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, string value, int valueAt, string tail)
