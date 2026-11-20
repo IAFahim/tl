@@ -15,8 +15,8 @@ unsafe
     var rowsList = Arg("--rows", "10000,50000");
     var activeList = Arg("--active", "40,100");
     var liveList = Arg("--live", "8");
-    var warmup = int.Parse(Arg("--warmup", "16"), CultureInfo.InvariantCulture);
-    var measure = int.Parse(Arg("--measure", "32"), CultureInfo.InvariantCulture);
+    var warmup = int.Parse(Arg("--warmup", "40"), CultureInfo.InvariantCulture);
+    var measure = int.Parse(Arg("--measure", "16"), CultureInfo.InvariantCulture);
     var runs = int.Parse(Arg("--runs", "5"), CultureInfo.InvariantCulture);
 
     Console.WriteLine($"env dotnet={Environment.Version} cpus={Environment.ProcessorCount} timelines={timelineCount} tracks={tracksPerTimeline} durations={shortest}-{shortest + spread - 1} warmup={warmup} measure={measure} runs={runs}");
@@ -115,10 +115,11 @@ unsafe
     {
         var medians = new List<double>();
         ulong hash = 0;
-        long kindBytes = 0, playerBytes = 0, scoreBytes = 0, allocated = 0;
+        long kindBytes = 0, playerBytes = 0, scoreBytes = 0, allocated = 0, residentBytes = -1;
         double setupMs = 0;
         for (var run = 0; run < runs; run++)
         {
+            var residentBefore = run == 0 ? ResidentAnon() : -1;
             var setup = Stopwatch.StartNew();
             using var world = new TimelineWorld(library);
             using var players = new PlaybackTable(rows, active);
@@ -147,6 +148,7 @@ unsafe
             Step();
             setupMs = setup.Elapsed.TotalMilliseconds;
             for (var i = 0; i < warmup; i++) Step();
+            if (residentBefore >= 0) residentBytes = ResidentAnon() - residentBefore;
             var samples = new double[measure];
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var i = 0; i < measure; i++)
@@ -177,8 +179,20 @@ unsafe
         medians.Sort();
         var ms = medians[medians.Count / 2];
         Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-            "cell rows={0} active={1} live={2} stepMs={3:F3} minMs={4:F3} maxMs={5:F3} nsPerActive={6:F2} kindBytesPerRow={7} playbackBytesPerRow={8} sharedTableBytes={9} setupMs={10:F0} alloc={11} hash={12:X16}",
-            rows, active, live, ms, medians[0], medians[^1], ms * 1e6 / ((double)rows * active), kindBytes, playerBytes, scoreBytes, setupMs, allocated, hash));
+            "cell rows={0} active={1} live={2} stepMs={3:F3} minMs={4:F3} maxMs={5:F3} nsPerActive={6:F2} kindBytesPerRow={7} playbackBytesPerRow={8} sharedTableBytes={9} residentBytesPerRow={10} setupMs={11:F0} alloc={12} hash={13:X16}",
+            rows, active, live, ms, medians[0], medians[^1], ms * 1e6 / ((double)rows * active), kindBytes, playerBytes, scoreBytes, residentBytes < 0 ? -1 : residentBytes / rows, setupMs, allocated, hash));
+    }
+
+    static long ResidentAnon()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        if (!File.Exists("/proc/self/status")) return -1;
+        foreach (var line in File.ReadLines("/proc/self/status"))
+            if (line.StartsWith("RssAnon:", StringComparison.Ordinal))
+                return long.Parse(line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1], CultureInfo.InvariantCulture) * 1024;
+        return -1;
     }
 
     static long ScoreBytes(KindStore store)

@@ -6,4 +6,6 @@ Owner-shape kinds on the .NET host through the generated path (issue #652): 500 
 dotnet run --project benchmarks/KindShape -c Release -- --rows 10000,50000 --active 40,100 --live 8 --runs 5
 ```
 
-Each `cell` line prints the median over `--runs` runs of the per-run median step, the run range, ns per active playback, kind table bytes per entity (`kindBytesPerRow`), inline playback bytes per entity, the shared span table, setup and warm allocation, and the state hash.
+Defaults: 40 warmup steps (the JIT has tiered up by then, so warm allocation reads 0 B) and 16 measured steps per run.
+
+Each `cell` line prints the median over `--runs` runs of the per-run median step, the run range, ns per active playback, kind table bytes per entity (`kindBytesPerRow`), inline playback bytes per entity, the shared span table, resident anonymous memory per entity (`residentBytesPerRow`: Linux `RssAnon` after warmup minus before setup, first run only; it counts every native and managed allocation, including kind rows that spilled out of their inline capacity, so run one cell per process when you compare it), setup and warm allocation, and the state hash.

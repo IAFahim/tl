@@ -190,4 +190,38 @@ public sealed unsafe class KindSpeedTests
         Assert.Equal(0, fast.Store.SamplesOf(1));
         Assert.Equal(0, fast.Players.View.SlotOf(0, 0)->Timeline);
     }
+
+    [Theory]
+    [InlineData(176)]
+    [InlineData(192)]
+    [InlineData(255)]
+    public void APlaybackThatBeginsAndEndsInsideOneStepStillAppliesEveryTick(int speed)
+    {
+        using var fast = new Game(1);
+        using var slow = new Game(1);
+        fast.Players.Start(0, Jump);
+        fast.Players.SetSpeed(0, Jump, (byte)speed);
+        slow.Players.Start(0, Jump);
+        var slowSteps = 0;
+        for (var s = 1; s <= 3; s++)
+        {
+            fast.Step();
+            for (; slowSteps < s * speed / 16; slowSteps++) slow.Step();
+            if (speed % 16 != 0) continue;
+            Assert.Equal(slow.Motion[0].X, fast.Motion[0].X);
+            Assert.Equal(slow.Motion[0].Y, fast.Motion[0].Y);
+            Assert.Equal(slow.Stamina[0].Value, fast.Stamina[0].Value);
+        }
+        for (var s = 0; s < 4; s++)
+        {
+            fast.Step();
+            slow.Step();
+        }
+        Assert.Equal(12f, fast.Motion[0].X);
+        Assert.Equal(72f, fast.Motion[0].Y);
+        Assert.Equal(slow.Motion[0].X, fast.Motion[0].X);
+        Assert.Equal(slow.Motion[0].Y, fast.Motion[0].Y);
+        Assert.Equal(slow.Stamina[0].Value, fast.Stamina[0].Value);
+        Assert.Equal(0, fast.Store.SamplesOf(0));
+    }
 }
