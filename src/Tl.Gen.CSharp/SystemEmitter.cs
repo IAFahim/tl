@@ -495,6 +495,7 @@ internal static class SystemEmitter
         var applyArgs = CallArgs(shape, apply, 0, "", "__e", "");
         var tail = applyArgs.Length == 0 ? "" : ", " + applyArgs;
         var feed = kind.Foreign;
+        var spanless = !feed && kind.Accepts == 1;
         W(writer, "{");
         W(writer, $"var __routes = __ks.Join(\"{kind.Id}\", sizeof({value}), \"{signature}\", {(feed ? feedKey : 0)}, out var __me);");
         W(writer, $"var __kid = __ks.IndexOf(\"{kind.Id}\");");
@@ -505,14 +506,17 @@ internal static class SystemEmitter
         W(writer, "if (__endWord > __kt->Words) __endWord = __kt->Words;");
         W(writer, "if (__firstWord > __endWord) __firstWord = __endWord;");
         W(writer, "var __stride = __kt->Stride;");
-        W(writer, "var __score = __ks.Score;");
-        W(writer, "var __pl = __ks.Playing;");
-        W(writer, "var __whole = __ks.RowsAreEntities(__kid);");
+        if (!spanless)
+        {
+            W(writer, "var __score = __ks.Score;");
+            W(writer, "var __pl = __ks.Playing;");
+            W(writer, "var __whole = __ks.RowsAreEntities(__kid);");
+        }
         W(writer, "var __lst = __ks.ListedOf(__kid);");
         if (kind.Precombined) W(writer, $"var __kspans = default(KindSpans_{index}); var __kv = __ks.SpanValues<{value}, KindSpans_{index}>(__kid, __me, __routes, ref __kspans);");
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
         W(writer, "{");
-        W(writer, "var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);");
+        W(writer, spanless ? "var __kb = __kt->Enabled[__kw] & __kt->Active[__kw];" : "var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);");
         W(writer, "while (__kb != 0)");
         W(writer, "{");
         W(writer, "var __row = (__kw << 6) + global::Tl.KindStore.TrailingZeros(__kb);");
@@ -527,7 +531,7 @@ internal static class SystemEmitter
         if (!feed)
         {
             W(writer, "var __pulses = 0;");
-            W(writer, "var __listed = false;");
+            if (!spanless) W(writer, "var __listed = false;");
             W(writer, "var __sampled = __smp != 0;");
             W(writer, "var __sk = __sampled ? global::Tl.KindRules.Depth(__run + __cnt, __smp) : 1;");
             W(writer, "for (var __sj = 0; __sj < __sk; __sj++)");
@@ -552,14 +556,14 @@ internal static class SystemEmitter
             W(writer, "else");
             W(writer, "{");
         }
-        EmitSpanWalk(writer, assignment, shape, kind, feeders, feed, value, valueAt, tail);
+        if (!spanless) EmitSpanWalk(writer, assignment, shape, kind, feeders, feed, value, valueAt, tail);
         if (kind.Precombined) W(writer, "}");
         if (!feed) EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
         if (!feed)
         {
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
             W(writer, "}");
-            W(writer, "if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));");
+            W(writer, spanless ? "__lst[__row >> 6] &= ~(1ul << (__row & 63));" : "if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));");
             if (kind.Group.Length == 0) W(writer, "if (__len != 0) __kt->Clear(__row);");
             else
             {
