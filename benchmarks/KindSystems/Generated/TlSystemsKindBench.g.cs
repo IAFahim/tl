@@ -1251,11 +1251,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-int __v = default;
 var __ok = false;
+int __v = default;
 if (!__ok) continue;
 if (__has) global::KindBench.Dmg.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
@@ -1284,9 +1286,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -1386,11 +1389,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -1436,9 +1441,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -1519,11 +1525,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -1569,9 +1577,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -1652,11 +1661,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -1702,9 +1713,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -1785,11 +1797,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -1835,9 +1849,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -1918,11 +1933,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -1968,9 +1985,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2051,11 +2069,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -2101,9 +2121,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2184,11 +2205,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -2234,9 +2257,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2317,11 +2341,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -2367,9 +2393,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2450,11 +2477,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -2500,9 +2529,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2583,11 +2613,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -2633,9 +2665,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2716,11 +2749,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -2766,9 +2801,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2849,11 +2885,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -2899,9 +2937,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -2982,11 +3021,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3032,9 +3073,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -3115,11 +3157,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3165,9 +3209,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -3248,11 +3293,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3298,9 +3345,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -3381,11 +3429,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3431,9 +3481,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -3514,11 +3565,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3564,9 +3617,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -3647,11 +3701,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3697,9 +3753,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -3780,11 +3837,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3830,9 +3889,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -3913,11 +3973,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -3963,9 +4025,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4046,11 +4109,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -4096,9 +4161,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4179,11 +4245,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -4229,9 +4297,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4312,11 +4381,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -4362,9 +4433,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4445,11 +4517,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -4495,9 +4569,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4578,11 +4653,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -4628,9 +4705,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4711,11 +4789,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -4761,9 +4841,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4844,11 +4925,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -4894,9 +4977,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -4977,11 +5061,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5027,9 +5113,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -5110,11 +5197,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5160,9 +5249,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -5243,11 +5333,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5293,9 +5385,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -5376,11 +5469,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5426,9 +5521,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -5509,11 +5605,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5559,9 +5657,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -5642,11 +5741,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5692,9 +5793,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -5775,11 +5877,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5825,9 +5929,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -5908,11 +6013,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -5958,9 +6065,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6041,11 +6149,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -6091,9 +6201,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6174,11 +6285,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -6224,9 +6337,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6307,11 +6421,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -6357,9 +6473,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6440,11 +6557,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -6490,9 +6609,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6573,11 +6693,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -6623,9 +6745,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6706,11 +6829,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -6756,9 +6881,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6839,11 +6965,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -6889,9 +7017,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -6972,11 +7101,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7022,9 +7153,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -7105,11 +7237,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7155,9 +7289,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -7238,11 +7373,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7288,9 +7425,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -7371,11 +7509,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7421,9 +7561,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -7504,11 +7645,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7554,9 +7697,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -7637,11 +7781,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7687,9 +7833,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -7770,11 +7917,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7820,9 +7969,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -7903,11 +8053,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -7953,9 +8105,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8036,11 +8189,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -8086,9 +8241,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8169,11 +8325,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -8219,9 +8377,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8302,11 +8461,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -8352,9 +8513,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8435,11 +8597,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -8485,9 +8649,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8568,11 +8733,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -8618,9 +8785,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8701,11 +8869,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -8751,9 +8921,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8834,11 +9005,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -8884,9 +9057,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -8967,11 +9141,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -9017,9 +9193,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -9100,11 +9277,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -9150,9 +9329,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -9233,11 +9413,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -9283,9 +9465,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -9366,11 +9549,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -9416,9 +9601,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;
@@ -9499,11 +9685,13 @@ var __r = __routes[__sp->Ordinal];
 if ((__r >> 8) != __me) continue;
 var __def = __sp->Step;
 if (__def == null) continue;
-var __kflags = (__backward ? __FF.Reverse : __FF.None) | (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? __FF.Synthetic : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
-float __v = default;
 var __ok = false;
+float __v = default;
 switch (__r & 0xff)
 {
 case 0:
@@ -9549,9 +9737,10 @@ var __pb = __pview.SlotOf(__e, __en->Slot);
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
 ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __kflags = (__backward ? __FF.Reverse : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0 ? __FF.Synthetic : __FF.None)
-| ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0 ? __FF.Interrupted : __FF.None);
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
 if (__tick == 0) __kflags |= __FF.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
 var __ok = false;

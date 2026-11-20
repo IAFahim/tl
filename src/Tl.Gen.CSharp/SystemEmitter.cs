@@ -494,9 +494,13 @@ internal static class SystemEmitter
                 W(writer, "var __has = false;");
             }
         }
+        if (feed)
+        {
+            EmitDrop(writer, "(((global::Tl.KindEntry*)__q)->Flags & global::Tl.KindEntryFlags.Span) != 0" + (kind.Group.Length > 0 ? " && *(ushort*)(__q + 8) == __kid" : "") + " && (__routes[((global::Tl.KindEntry*)__q)->Feeder] >> 8) == __me");
+            EmitFeedEntries(writer, assignment, shape, kind, feeders, value, valueAt);
+        }
         EmitSpanWalk(writer, assignment, shape, kind, feeders, feed, value, valueAt, tail);
         if (!feed) EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
-        else EmitFeedEntries(writer, assignment, shape, kind, feeders, value, valueAt);
         if (!feed)
         {
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
@@ -506,15 +510,7 @@ internal static class SystemEmitter
             {
                 W(writer, "if (__sampled || __pulses != 0)");
                 W(writer, "{");
-                W(writer, "var __kept = 0;");
-                W(writer, "for (var __j = 0; __j < __len; __j++)");
-                W(writer, "{");
-                W(writer, "var __q = __data + (nuint)__j * (nuint)__stride;");
-                W(writer, "if ((((global::Tl.KindEntry*)__q)->Flags & global::Tl.KindEntryFlags.Pulse) != 0 && *(ushort*)(__q + 8) == __kid) continue;");
-                W(writer, "if (__kept != __j) global::System.Buffer.MemoryCopy(__q, __data + (nuint)__kept * (nuint)__stride, __stride, __stride);");
-                W(writer, "__kept++;");
-                W(writer, "}");
-                W(writer, "if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;");
+                EmitDrop(writer, "(((global::Tl.KindEntry*)__q)->Flags & global::Tl.KindEntryFlags.Pulse) != 0 && *(ushort*)(__q + 8) == __kid");
                 W(writer, "}");
             }
             else
@@ -529,6 +525,20 @@ internal static class SystemEmitter
         if (kind.IdleParams is not null) EmitIdle(writer, shape, kind);
         W(writer, "}");
         W(writer, "}");
+    }
+
+    static void EmitDrop(StringBuilder writer, string drop)
+    {
+        W(writer, "var __kept = 0;");
+        W(writer, "for (var __j = 0; __j < __len; __j++)");
+        W(writer, "{");
+        W(writer, "var __q = __data + (nuint)__j * (nuint)__stride;");
+        W(writer, $"if ({drop}) continue;");
+        W(writer, "if (__kept != __j) global::System.Buffer.MemoryCopy(__q, __data + (nuint)__kept * (nuint)__stride, __stride, __stride);");
+        W(writer, "__kept++;");
+        W(writer, "}");
+        W(writer, "__len = __kept;");
+        W(writer, "if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;");
     }
 
     static void EmitSpanWalk(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, bool feed, string value, int valueAt, string tail)
@@ -547,9 +557,7 @@ internal static class SystemEmitter
             W(writer, "else if (__pb->Phase != __sj) continue;");
         }
         W(writer, "if ((__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;");
-        W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));");
-        W(writer, "ushort __tick = __pb->Tick;");
-        W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
+        EmitSlotHead(writer, "__pb->Timeline");
         W(writer, "for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)");
         W(writer, "{");
         W(writer, "var __sp = __score.Spans + __f;");
@@ -557,11 +565,8 @@ internal static class SystemEmitter
         W(writer, "if ((__r >> 8) != __me) continue;");
         W(writer, "var __def = __sp->Step;");
         W(writer, "if (__def == null) continue;");
-        W(writer, "var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None) | (global::Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward) ? global::Tl.FrameFlags.Synthetic : global::Tl.FrameFlags.None);");
-        W(writer, "if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;");
-        W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;");
+        EmitFrameFlags(writer, "global::Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)", null);
         W(writer, $"{value} __v = default;");
-        W(writer, "var __ok = false;");
         EmitCases(writer, assignment, shape, feeders, true);
         if (feed)
         {
@@ -583,14 +588,22 @@ internal static class SystemEmitter
     static void EmitEntryHead(StringBuilder writer)
     {
         W(writer, "var __pb = __pview.SlotOf(__e, __en->Slot);");
-        W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));");
+        EmitSlotHead(writer, "__en->Timeline");
+        EmitFrameFlags(writer, "(__en->Flags & global::Tl.KindEntryFlags.Synthetic) != 0", "(__en->Flags & global::Tl.KindEntryFlags.Interrupted) != 0");
+    }
+
+    static void EmitSlotHead(StringBuilder writer, string timeline)
+    {
+        W(writer, $"var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId({timeline}));");
         W(writer, "ushort __tick = __pb->Tick;");
         W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
-        W(writer, "var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None)");
-        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Synthetic) != 0 ? global::Tl.FrameFlags.Synthetic : global::Tl.FrameFlags.None)");
-        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Interrupted) != 0 ? global::Tl.FrameFlags.Interrupted : global::Tl.FrameFlags.None);");
-        W(writer, "if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;");
-        W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;");
+    }
+
+    static void EmitFrameFlags(StringBuilder writer, string synthetic, string? interrupted)
+    {
+        W(writer, "var __kflags = global::Tl.FrameFlags.None;");
+        foreach (var (test, flag) in new[] { ("__backward", "Reverse"), (synthetic, "Synthetic"), (interrupted, "Interrupted"), ("__tick == 0", "TimelineStart"), ("__tick == (ushort)(__tl->Duration - 1)", "TimelineEnd") })
+            if (test != null) W(writer, $"if ({test}) __kflags |= global::Tl.FrameFlags.{flag};");
         W(writer, "var __ok = false;");
     }
 
