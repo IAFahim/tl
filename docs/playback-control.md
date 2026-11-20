@@ -132,6 +132,16 @@ Only what still differs, and why:
 | Starts of timelines not baked onto the object | n/a | dropped with a warning (Also Plays) | per-object kind archetypes, #655 |
 | Checked builds | `Debug` or `TlChecked=true` | scripting define `TL_CHECKED` | |
 
+## Migration: one control, event and pulse API (#656)
+
+Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
+
+- A start an entity cannot hold no longer throws in Release builds: it is dropped and counted in the new `PlaybackTable.DroppedStarts`. Checked builds still throw. Code that caught the `ArgumentException` reads the counter instead.
+- `PlaybackRules.Start` checks the entity's kinds before it replaces a channel's playback, so a dropped start leaves that playback running (both hosts).
+- New `EventRecords.Of(drained, entity)`: one entity's events from `Events<T>.Drain()`.
+- The generator writes `<Kind>Kind.Pulses(KindStore)` for every kind that accepts pulses (`TlSystems<id>.Pulses.g.cs`). A type of yours named `<Kind>Kind` in the kind's namespace now collides (CS0101); rename it.
+- com.tl.unity (IAFahim/tl.unity): `TlRequests` takes a `ushort` id for every timeline verb and gains `Reset()`; `TlLibrary.Find(name)`; `TlCheckedStartsSystem` (created only with `TL_CHECKED`); `TimelineJobs.ScheduleAdvance` takes the step direction and `TimelineAdvanceJob` has `Backward`, so kind-free playbacks follow a world rewind.
+
 ## Migration: spans from the load-time table (#652)
 
 This is an unreleased source change after `v4.0.0-preview.1`; the package version stays `4.0.0-preview.1`, and no tag or NuGet release is created. The public API approval lists every change.
@@ -143,13 +153,3 @@ This is an unreleased source change after `v4.0.0-preview.1`; the package versio
 - A foreign feeder must run before its owner in every step. The first step rejects the opposite order (`KindStore.Join`); a host that reorders its systems later gets values one step late.
 - A host that does not use `KindStore` builds its own table with `KindScore.Build(in tables, ref steps)`, where `steps` implements `IKindSteps.StepOf(timeline, window, tick)`, and calls `Free` when the library is replaced. `tables` must come from a validated kind section (`Build` throws when a feeder's kind is outside its timeline's kind mask), and the score borrows that section's timeline rows, so the library bytes must outlive it.
 - Behaviour: last-wins kinds combine rated copies first (by source slot, then crossing), then the other slots in slot order, each in authored pair order, and a span feeder sees `Synthetic` only on the step its playback began mid-clip or re-entered (see above).
-
-## Migration: one control, event and pulse API (#656)
-
-Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
-
-- A start an entity cannot hold no longer throws in Release builds: it is dropped and counted in the new `PlaybackTable.DroppedStarts`. Checked builds still throw. Code that caught the `ArgumentException` reads the counter instead.
-- `PlaybackRules.Start` checks the entity's kinds before it replaces a channel's playback, so a dropped start leaves that playback running (both hosts).
-- New `EventRecords.Of(drained, entity)`: one entity's events from `Events<T>.Drain()`.
-- The generator writes `<Kind>Kind.Pulses(KindStore)` for every kind that accepts pulses (`TlSystems<id>.Pulses.g.cs`). A type of yours named `<Kind>Kind` in the kind's namespace now collides (CS0101); rename it.
-- com.tl.unity (IAFahim/tl.unity): `TlRequests` takes a `ushort` id for every timeline verb and gains `Reset()`; `TlLibrary.Find(name)`; `TlCheckedStartsSystem` (created only with `TL_CHECKED`); `TimelineJobs.ScheduleAdvance` takes the step direction and `TimelineAdvanceJob` has `Backward`, so kind-free playbacks follow a world rewind.
