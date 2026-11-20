@@ -431,6 +431,7 @@ public sealed unsafe class KindTickTests : IDisposable
         run.World.Tick(run.Players);
         Assert.Equal(2, run.Store.DroppedPulses);
         Assert.Equal(1, run.Store.Table(damage)->Length[run.Store.RowOf(0, damage)]);
+#if TL_CHECKED
         var ex = Assert.Throws<ArgumentException>(() =>
         {
             for (ushort id = 1; id <= 8; id++)
@@ -440,6 +441,20 @@ public sealed unsafe class KindTickTests : IDisposable
             }
         });
         Assert.Contains("cannot reach kind", ex.Message);
+#else
+        var unreachable = 0L;
+        for (ushort id = 1; id <= 8; id++)
+        {
+            if (run.Store.Unreachable(3, id) != null) unreachable++;
+            run.Players.Start(3, id);
+            run.World.Tick(run.Players);
+        }
+        Assert.True(unreachable > 0);
+        Assert.Equal(unreachable, run.Players.DroppedStarts);
+        for (ushort id = 1; id <= 8; id++)
+            if (run.Store.Unreachable(3, id) != null)
+                Assert.False(run.Players.IsPlaying(3, id));
+#endif
     }
 }
 }

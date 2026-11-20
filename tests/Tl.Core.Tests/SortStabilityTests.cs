@@ -49,11 +49,11 @@ public unsafe class SortStabilityTests
             var input = new RequestRecord[size];
             for (var i = 0; i < size; i++) input[i] = queue->Item(i);
             var expected = input.OrderBy(r => r.Entity).ThenBy(r => r.Slot).ToArray();
-            var viaPublic = (RequestRecord*)System.Runtime.InteropServices.NativeMemory.AlignedAlloc((nuint)Math.Max(size, 1) * (nuint)sizeof(RequestRecord), 8u);
+            var viaPublic = (RequestRecord*)System.Runtime.InteropServices.NativeMemory.AlignedAlloc((nuint)Math.Max(size, 1) * (nuint)sizeof(RequestRecord) * 2u, 8u);
             try
             {
                 for (var i = 0; i < size; i++) viaPublic[i] = input[i];
-                RequestQueue.Sort(viaPublic, size);
+                RequestQueue.Sort(viaPublic, size, viaPublic + Math.Max(size, 1));
                 for (var i = 0; i < size; i++) Assert.True(Same(expected[i], viaPublic[i]), "Sort at " + i);
                 var host = new RequestRecord[Math.Max(size, 1)];
                 var hostScratch = new RequestRecord[Math.Max(size, 1)];
