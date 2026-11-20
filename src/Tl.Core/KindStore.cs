@@ -237,8 +237,10 @@ public sealed unsafe class KindStore : IDisposable
             {
                 if (v->Data == null)
                 {
-                    var built = KindValues.Build<T, TSpans>(in _score, _tls, kind, routes, part, ref spans);
-                    var data = built.Data;
+                    var built = KindValues.Layout<T>(in _score, _tls, kind, part, (int*)Zeroed((nuint)Math.Max(1, _score.TimelineCount) * 4));
+                    var data = (byte*)Zeroed((nuint)built.Rows * (nuint)built.Stride);
+                    built.Data = data;
+                    built.Fill<T, TSpans>(in _score, _tls, kind, routes, false, ref spans);
                     built.Data = null;
                     *v = built;
                     Volatile.Write(ref *(nint*)&v->Data, (nint)data);

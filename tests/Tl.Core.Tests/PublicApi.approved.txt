@@ -324,14 +324,16 @@ type Tl.KindTables
   Field Tl.LibraryTimeline* Timelines
 type Tl.KindValues
   Field Int32 Back
-  Method Tl.KindValues Build[T,TSpans](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, UInt16*, Int32, TSpans ByRef)
   Field Int64 Bytes
   Field Byte* Data
+  Method Void Fill[T,TSpans](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, UInt16*, Boolean, TSpans ByRef)
   Method Void Free()
   Field Int32 Front
+  Method Tl.KindValues Layout[T](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, Int32, Int32*)
   Field Int32 Part
   Field Int32* Row
   Method Byte* RowOf(UInt16, UInt16)
+  Field Int32 Rows
   Field Int32 Stride
   Field Int32 TimelineCount
 type Tl.LibraryAssembler
