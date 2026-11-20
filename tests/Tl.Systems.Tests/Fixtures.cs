@@ -69,7 +69,7 @@ internal static unsafe class FixtureWorlds
             Lane = LaneOf(new Game.MoveTrack(1f), new Game.MoveClip(1f), 40, 40, static frame =>
             {
                 float lift;
-                Game.MoveBatch.Fold(in frame, out lift);
+                Game.MoveLift.Fold(in frame, out lift);
                 return lift;
             }),
         });
@@ -127,7 +127,7 @@ internal static unsafe class FixtureWorlds
             Lane = LaneOf(new Game.MoveTrack(1f), new Game.MoveClip(1.5f), 24, 24, static frame =>
             {
                 float lift;
-                Game.MoveBatch.Fold(in frame, out lift);
+                Game.MoveLift.Fold(in frame, out lift);
                 return lift;
             }),
         });
@@ -193,7 +193,7 @@ internal static unsafe class FixtureWorlds
             Lane = LaneOf(new Game.MoveTrack(1f), new Game.MoveClip(2f), 8, 8, static frame =>
             {
                 float lift;
-                Game.MoveBatch.Fold(in frame, out lift);
+                Game.MoveLift.Fold(in frame, out lift);
                 return lift;
             }),
         });

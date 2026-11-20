@@ -133,6 +133,13 @@ Only what still differs, and why:
 | Starts of timelines not baked onto the object | n/a | dropped with a warning (Also Plays) | per-object kind archetypes, #655 |
 | Checked builds | `Debug` or `TlChecked=true` | scripting define `TL_CHECKED` | |
 
+## Migration: `ExecuteBatch` removed (#659)
+
+Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
+
+- The `ExecuteBatch(in Frame, ReadOnlySpan<BatchItem<R>>, Span<T>...)` consumer form and `Tl.BatchItem<R>` are removed. Unity never ran it (TLUNITY9105). A consumer that still declares `ExecuteBatch` fails with TLGEN95. Move the loop body into `ExecuteActive(in Frame, in R fold, ref T column)`, which runs once per playback per step with the same fold value and the entity's own column element, or feed a kind. A consumer whose only methods are `Fold` and `ExecuteActive` is read as a timeline job (TLGEN65 rules), not a system consumer; keep its `OnClipStart`/`OnClipEnd` (an empty one is enough) or a `Requests`/`Events` parameter to stay in the system.
+- The source budget pays for #655's precombined spans with this deletion (src stays under 520,000 B).
+
 ## Migration: one control, event and pulse API (#656)
 
 Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.

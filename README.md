@@ -234,7 +234,6 @@ All consumer methods are static, optional, in any combination, found by name and
 |---|---|---|---|
 | `Fold(in Frame, out R...)` | at load, every tick both directions; must be pure | frame only | authored-data numbers |
 | `ExecuteActive(...)` | every step, once per active step of this pair per playback | frame **or** leading fold results, then columns, then context | per-entity effects |
-| `ExecuteBatch(...)` | once per block of playbacks instead of `ExecuteActive` | gathered folds + column spans | hand SIMD |
 | `OnClipStart(in Frame, ...)` | first tick of clip either direction (`Direction` says which); mid-clip start gives `Synthetic` | frame, columns, context | one-shots, stat changes |
 | `OnClipEnd(in Frame, ...)` | last tick either direction; mid-clip stop/replace gives `Interrupted` | frame, columns, context | cleanup |
 | `OnMarker(in MarkerFrame, ...)` on `struct X : IMarker<T>` | at marker tick either direction | marker frame, columns, context | footsteps, spawns |
