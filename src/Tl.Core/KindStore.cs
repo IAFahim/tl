@@ -231,7 +231,7 @@ public sealed unsafe class KindStore : IDisposable
     {
         if ((uint)kind >= (uint)_kindCount) return null;
         var v = _values + kind;
-        if (Volatile.Read(ref *(nint*)&v->Data) == 0)
+        if (Volatile.Read(ref *(nint*)&v->Data) == default)
         {
             lock (_joinGate)
             {
