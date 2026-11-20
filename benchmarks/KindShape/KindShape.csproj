@@ -11,6 +11,7 @@
     <IsPackable>false</IsPackable>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <TieredPGO>true</TieredPGO>
+    <DefineConstants Condition="'$(TlBaseline)' == 'true'">$(DefineConstants);TL_BASELINE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

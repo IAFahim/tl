@@ -267,7 +267,7 @@ internal static partial class SystemReader
                 if (at >= 0) methods[at] = active with { Direct = direct };
             }
         }
-        var feeders = collectFeeders && kindContracts is not null ? ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign, derived) : new List<FeederDecl>();
+        var feeders = collectFeeders && kindContracts is not null ? ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation, foreign, derived) : new List<FeederDecl>();
         foreach (var feeder in feeders) methods.Add(feeder.Method);
         if (methods.Count == 0 && local.Count == 0 && (collectFeeders || !HasFeederMethods(type)))
             Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
@@ -304,9 +304,10 @@ internal static partial class SystemReader
         return 0;
     }
 
-    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, IAssemblySymbol assembly, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, Dictionary<string, (KindDecl Kind, SyntaxNode Site)> derived)
+    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, Compilation compilation, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, Dictionary<string, (KindDecl Kind, SyntaxNode Site)> derived)
     {
         var result = new List<FeederDecl>();
+        var assembly = compilation.Assembly;
         var name = Symbols.Name(type);
         foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
         {
@@ -393,9 +394,33 @@ internal static partial class SystemReader
                 if (!derived.ContainsKey(kindName)) derived[kindName] = (decl, where);
             }
             else if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
-            result.Add(new(kindName, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
+            var flagRead = trigger != FeederTrigger.Span ? "" : FlagRead(method, parameters.Count > 0 && parameters[0].Kind == ConsumerParamKind.Frame, compilation);
+            if (flagRead.Length == 0 && trigger == FeederTrigger.Span && parameters.Exists(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
+                flagRead = "takes a fold whose Fold " + folded;
+            result.Add(new(kindName, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])) { FlagRead = flagRead });
         }
         return result;
+    }
+
+    static string FlagRead(IMethodSymbol method, bool framed, Compilation compilation)
+    {
+        if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not MethodDeclarationSyntax syntax || ((SyntaxNode?)syntax.Body ?? syntax.ExpressionBody) is not { } body) return "has no source body";
+        var model = compilation.GetSemanticModel(syntax.SyntaxTree);
+        var ids = body.DescendantNodes().OfType<IdentifierNameSyntax>().ToList();
+        foreach (var id in ids)
+            if (model.GetSymbolInfo(id).Symbol is IFieldSymbol { Name: "Synthetic" or "Interrupted", ContainingType: { Name: "FrameFlags", ContainingNamespace.Name: "Tl" } } flag) return "reads FrameFlags." + flag.Name;
+        var frame = framed ? method.Parameters[0] : null;
+        foreach (var id in ids)
+        {
+            if (frame is null || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(id).Symbol, frame)) continue;
+            var access = id.Parent is MemberAccessExpressionSyntax a && a.Expression == id ? a : null;
+            var member = access?.Name.Identifier.ValueText ?? "";
+            if (member is "Clip" or "Track" or "Tick" or "TimelineTick" or "ClipLength" or "WithinClip" or "TrackIndex" or "Direction" or "IsBackward" or "Progress") continue;
+            if (member == "Has" && access!.Parent is InvocationExpressionSyntax { ArgumentList.Arguments.Count: 1 } call
+                && model.GetConstantValue(call.ArgumentList.Arguments[0].Expression) is { HasValue: true, Value: { } value } && (Convert.ToInt64(value) & 0x300) == 0) continue;
+            return member.Length == 0 ? $"passes '{frame.Name}' on whole" : $"reads {frame.Name}.{member}";
+        }
+        return "";
     }
 
     static KindDecl? ReadKind(INamedTypeSymbol type, SyntaxNode site, KindContracts kc, ContractSet contracts, List<DeclarationDiagnostic> diagnostics)
@@ -463,7 +488,7 @@ internal static partial class SystemReader
                 idleParams.Add(bound);
             }
         }
-        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams };
+        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams, Associative = NamedInt(attribute, "Associative") == 1 };
     }
 
     static KindDecl? ReadForeignKind(INamedTypeSymbol type, SyntaxNode site, List<DeclarationDiagnostic> diagnostics)
@@ -557,8 +582,27 @@ internal static partial class SystemReader
                 parallel = false;
                 break;
             }
-            return a with { Kinds = perSystem[a.System.TypeName], Parallel = parallel };
+            return a with { Kinds = perSystem[a.System.TypeName].Select(kind => Route(kind, a, kindSites, diagnostics)).ToList(), Parallel = parallel };
         }).ToList();
+    }
+
+    static KindDecl Route(KindDecl kind, SystemAssignment a, IReadOnlyDictionary<string, SyntaxNode> kindSites, List<DeclarationDiagnostic> diagnostics)
+    {
+        if (kind.Foreign || !kind.Associative) return kind;
+        var spans = a.Consumers.SelectMany(static c => c.Feeders).Where(f => f.KindName == kind.Id && f.Trigger == FeederTrigger.Span)
+            .OrderBy(static f => f.ConsumerMetadata, StringComparer.Ordinal).ThenBy(static f => f.MethodName, StringComparer.Ordinal).ToList();
+        if (spans.Count == 0) return kind;
+        var why = kind.Each ? "Mode is Each" : "";
+        foreach (var feeder in spans)
+        {
+            if (why.Length > 0) break;
+            var taken = feeder.Method.Params.FirstOrDefault(static p => p.Kind is not (ConsumerParamKind.Frame or ConsumerParamKind.FoldFeed));
+            if (taken is not null) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' takes '{taken.TypeName}'";
+            else if (feeder.FlagRead.Length > 0) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' {feeder.FlagRead}";
+        }
+        if (why.Length == 0) return kind with { Precombined = true };
+        Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN115", $"Kind '{kind.Name}' declares Associative but keeps the per-span path in system '{a.System.TypeName}': {why}. Precombined spans need span feeders that take only the frame and their folds and do not read Synthetic or Interrupted; move per-entity inputs into Apply.");
+        return kind;
     }
 
     static bool HasMethod(INamedTypeSymbol type, string name)

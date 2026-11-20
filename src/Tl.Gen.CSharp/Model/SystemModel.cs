@@ -59,7 +59,10 @@ internal enum FeederTrigger : byte
     Marker,
 }
 
-internal sealed record FeederDecl(string KindName, FeederTrigger Trigger, string MethodName, string ConsumerMetadata, string ValueTypeName, ConsumerMethod Method);
+internal sealed record FeederDecl(string KindName, FeederTrigger Trigger, string MethodName, string ConsumerMetadata, string ValueTypeName, ConsumerMethod Method)
+{
+    public string FlagRead { get; init; } = "";
+}
 
 internal enum DerivedKind : byte { None, Sum, Set, While }
 
@@ -83,6 +86,8 @@ internal sealed record KindDecl(
     public IReadOnlyList<ConsumerParam>? IdleParams { get; init; }
     public DerivedKind Derived { get; init; }
     public IReadOnlyList<DerivedField> DerivedFields { get; init; } = [];
+    public bool Associative { get; init; }
+    public bool Precombined { get; init; }
 }
 
 internal sealed record SystemConsumer(

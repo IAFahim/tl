@@ -76,7 +76,7 @@ internal static partial class SystemReader
         var diagnostics = new List<DeclarationDiagnostic>();
         var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
         var derived = new Dictionary<string, (KindDecl Kind, SyntaxNode Site)>(StringComparer.Ordinal);
-        var feeders = ReadFeeders(type, node, contracts, kindContracts, track, clip, marker, foldTypes, diagnostics, compilation.Assembly, foreign, derived);
+        var feeders = ReadFeeders(type, node, contracts, kindContracts, track, clip, marker, foldTypes, diagnostics, compilation, foreign, derived);
         var foreignKinds = new List<KindDecl>();
         foreach (var entry in foreign)
             if (ReadForeignKind(entry.Value.Type, entry.Value.Site, diagnostics) is { } known) foreignKinds.Add(known);

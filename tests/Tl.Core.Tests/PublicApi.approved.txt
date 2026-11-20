@@ -77,6 +77,9 @@ type Tl.IKindRows
   Method Void Purge(Int32, Byte, UInt16)
   Method Tl.Playback* Reserve(Int32, Int32, Int32)
   Method Void Sampled(Int32, Int32)
+type Tl.IKindSpanValues`1
+  Method Void Combine(T ByRef, T ByRef)
+  Method Boolean Evaluate(Int32, Tl.LibraryStep*, Tl.LibraryTimeline*, UInt16, Boolean, T ByRef)
 type Tl.IKindSteps
   Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
 type Tl.IMarker`1
@@ -281,6 +284,8 @@ type Tl.KindStore
   Method Boolean RowsAreEntities(Int32)
   Method Int32 SamplesOf(Int32)
   Property Tl.KindScore Score
+  Method Int64 SpanValueBytes(Int32)
+  Method Tl.KindValues* SpanValues[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef)
   Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
   Method Tl.KindTable* Table(Int32)
   Method Int32 TrailingZeros(UInt64)
@@ -317,6 +322,18 @@ type Tl.KindTables
   Field Tl.KindSectionView Sec
   Field Int32 TimelineCount
   Field Tl.LibraryTimeline* Timelines
+type Tl.KindValues
+  Field Int32 Back
+  Method Tl.KindValues Build[T,TSpans](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, UInt16*, Int32, TSpans ByRef)
+  Field Int64 Bytes
+  Field Byte* Data
+  Method Void Free()
+  Field Int32 Front
+  Field Int32 Part
+  Field Int32* Row
+  Method Byte* RowOf(UInt16, UInt16)
+  Field Int32 Stride
+  Field Int32 TimelineCount
 type Tl.LibraryAssembler
   Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings)
   Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings, System.Collections.Generic.IReadOnlyList`1[Tl.KindCapacity] ByRef)
@@ -617,6 +634,7 @@ type Tl.TimelineId
   Field UInt16 Value
 type Tl.TimelineKindAttribute
   Property Tl.KindEntries Accepts
+  Property Boolean Associative
   Property Boolean FoldsPulses
   Property System.String Group
   Property Tl.KindMode Mode
@@ -671,6 +689,7 @@ type Tl.TlGenerated
   Property System.Collections.Generic.IReadOnlyList`1[Tl.ITlModule] Modules
 type Tl.TlKindAttribute
   Property Tl.KindEntries Accepts
+  Property Boolean Associative
   Property Boolean FoldsPulses
   Property Int32 GamePulses
   Property System.String Group
