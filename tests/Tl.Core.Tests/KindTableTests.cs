@@ -64,19 +64,15 @@ public sealed unsafe class KindTableTests
     });
 
     [Fact]
-    public void RemovePulsesKeepsSpansAndClearClearsAll() => With([0, 1], 2, 8, p =>
+    public void ClearEmptiesARowAndDropsItsActiveBit() => With([0, 1], 2, 8, p =>
     {
         var table = (KindTable*)p;
-        Add(table, 0, 1, 1);
+        Add(table, 0, 1, 1, KindEntryFlags.Pulse);
         Add(table, 0, 1, 2, KindEntryFlags.Pulse);
-        Add(table, 0, 1, 3);
-        Add(table, 0, 1, 4, KindEntryFlags.Pulse);
-        table->RemovePulses(0);
-        Assert.Equal([(ushort)1, 3], Steps(table, 0));
-        Add(table, 1, 1, 5, KindEntryFlags.Pulse);
-        table->RemovePulses(1);
-        Assert.False(table->IsActive(1));
+        Add(table, 1, 1, 3, KindEntryFlags.Pulse);
+        Assert.True(table->IsActive(0));
         table->Clear(0);
+        Assert.True(table->IsActive(1));
         Assert.False(table->IsActive(0));
         Assert.Equal(0, table->Length[0]);
     });

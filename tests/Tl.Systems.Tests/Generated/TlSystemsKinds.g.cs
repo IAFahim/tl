@@ -311,8 +311,8 @@ if (__sampled || __pulses != 0)
 var __kept = 0;
 for (var __j = 0; __j < __len; __j++)
 {
-var __q = __data + (nuint)__j * (nuint)__stride;
-if ((((Tl.KindEntry*)__q)->Flags & Tl.KindEntryFlags.Pulse) != 0 && *(ushort*)(__q + 8) == __kid) continue;
+var __q = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (*(ushort*)((byte*)__q + 8) == __kid) continue;
 if (__kept != __j) System.Buffer.MemoryCopy(__q, __data + (nuint)__kept * (nuint)__stride, __stride, __stride);
 __kept++;
 }
@@ -460,8 +460,8 @@ if (__sampled || __pulses != 0)
 var __kept = 0;
 for (var __j = 0; __j < __len; __j++)
 {
-var __q = __data + (nuint)__j * (nuint)__stride;
-if ((((Tl.KindEntry*)__q)->Flags & Tl.KindEntryFlags.Pulse) != 0 && *(ushort*)(__q + 8) == __kid) continue;
+var __q = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (*(ushort*)((byte*)__q + 8) == __kid) continue;
 if (__kept != __j) System.Buffer.MemoryCopy(__q, __data + (nuint)__kept * (nuint)__stride, __stride, __stride);
 __kept++;
 }
@@ -611,9 +611,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindGame.Lift.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -747,9 +745,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindGame.Locomotion.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -890,9 +886,7 @@ global::KindGame.StatChange.Apply(in __v, ref __c4[__e]);
 }
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -1301,9 +1295,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindGame.Damage.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }

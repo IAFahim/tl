@@ -303,7 +303,6 @@ type Tl.KindTable
   Field Int32 MaxLength
   Field Int32 Overflows
   Method Void Purge(Int32, Byte, UInt16)
-  Method Void RemovePulses(Int32)
   Field Int32 Rows
   Method Void SetEnabled(Int32, Boolean)
   Field UInt64* Spilled

@@ -496,7 +496,7 @@ internal static class SystemEmitter
         }
         if (feed)
         {
-            EmitDrop(writer, "(((global::Tl.KindEntry*)__q)->Flags & global::Tl.KindEntryFlags.Span) != 0" + (kind.Group.Length > 0 ? " && *(ushort*)(__q + 8) == __kid" : "") + " && (__routes[((global::Tl.KindEntry*)__q)->Feeder] >> 8) == __me");
+            EmitDrop(writer, "(__q->Flags & global::Tl.KindEntryFlags.Span) != 0" + (kind.Group.Length > 0 ? " && *(ushort*)((byte*)__q + 8) == __kid" : "") + " && (__routes[__q->Feeder] >> 8) == __me");
             EmitFeedEntries(writer, assignment, shape, kind, feeders, value, valueAt);
         }
         EmitSpanWalk(writer, assignment, shape, kind, feeders, feed, value, valueAt, tail);
@@ -506,18 +506,13 @@ internal static class SystemEmitter
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
             W(writer, "}");
             W(writer, "if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));");
-            if (kind.Group.Length > 0)
+            if (kind.Group.Length == 0) W(writer, "if (__len != 0) __kt->Clear(__row);");
+            else
             {
                 W(writer, "if (__sampled || __pulses != 0)");
                 W(writer, "{");
-                EmitDrop(writer, "(((global::Tl.KindEntry*)__q)->Flags & global::Tl.KindEntryFlags.Pulse) != 0 && *(ushort*)(__q + 8) == __kid");
+                EmitDrop(writer, "*(ushort*)((byte*)__q + 8) == __kid");
                 W(writer, "}");
-            }
-            else
-            {
-                W(writer, "if (__sampled) __kt->RemovePulses(__row);");
-                W(writer, "else if (__pulses == __len) __kt->Clear(__row);");
-                W(writer, "else if (__pulses != 0) __kt->RemovePulses(__row);");
             }
         }
         W(writer, "}");
@@ -532,7 +527,7 @@ internal static class SystemEmitter
         W(writer, "var __kept = 0;");
         W(writer, "for (var __j = 0; __j < __len; __j++)");
         W(writer, "{");
-        W(writer, "var __q = __data + (nuint)__j * (nuint)__stride;");
+        W(writer, "var __q = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
         W(writer, $"if ({drop}) continue;");
         W(writer, "if (__kept != __j) global::System.Buffer.MemoryCopy(__q, __data + (nuint)__kept * (nuint)__stride, __stride, __stride);");
         W(writer, "__kept++;");

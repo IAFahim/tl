@@ -221,9 +221,7 @@ else { __total = __v; __has = true; }
 if (__has) global::IdleGame.Caption.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
@@ -368,9 +366,7 @@ else { __total = __v; __has = true; }
 if (__has) global::IdleGame.Footage.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }

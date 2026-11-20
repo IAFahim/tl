@@ -1321,9 +1321,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.Dmg.Apply(in __total, ref __c1[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -1457,9 +1455,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K0.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -1593,9 +1589,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K1.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -1729,9 +1723,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K10.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -1865,9 +1857,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K11.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2001,9 +1991,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K12.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2137,9 +2125,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K13.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2273,9 +2259,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K14.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2409,9 +2393,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K15.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2545,9 +2527,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K16.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2681,9 +2661,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K17.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2817,9 +2795,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K18.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -2953,9 +2929,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K19.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -3089,9 +3063,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K2.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -3225,9 +3197,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K20.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -3361,9 +3331,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K21.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -3497,9 +3465,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K22.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -3633,9 +3599,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K23.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -3769,9 +3733,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K24.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -3905,9 +3867,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K25.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4041,9 +4001,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K26.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4177,9 +4135,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K27.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4313,9 +4269,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K28.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4449,9 +4403,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K29.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4585,9 +4537,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K3.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4721,9 +4671,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K30.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4857,9 +4805,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K31.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -4993,9 +4939,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K32.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -5129,9 +5073,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K33.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -5265,9 +5207,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K34.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -5401,9 +5341,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K35.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -5537,9 +5475,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K36.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -5673,9 +5609,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K37.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -5809,9 +5743,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K38.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -5945,9 +5877,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K39.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -6081,9 +6011,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K4.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -6217,9 +6145,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K40.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -6353,9 +6279,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K41.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -6489,9 +6413,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K42.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -6625,9 +6547,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K43.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -6761,9 +6681,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K44.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -6897,9 +6815,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K45.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7033,9 +6949,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K46.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7169,9 +7083,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K47.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7305,9 +7217,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K48.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7441,9 +7351,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K49.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7577,9 +7485,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K5.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7713,9 +7619,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K50.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7849,9 +7753,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K51.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -7985,9 +7887,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K52.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -8121,9 +8021,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K53.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -8257,9 +8155,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K54.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -8393,9 +8289,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K55.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -8529,9 +8423,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K56.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -8665,9 +8557,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K57.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -8801,9 +8691,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K58.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -8937,9 +8825,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K59.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -9073,9 +8959,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K6.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -9209,9 +9093,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K60.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -9345,9 +9227,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K61.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -9481,9 +9361,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K7.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -9617,9 +9495,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K8.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -9753,9 +9629,7 @@ else { __total = __v; __has = true; }
 if (__has) global::KindBench.K9.Apply(in __total, ref __c0[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
-if (__sampled) __kt->RemovePulses(__row);
-else if (__pulses == __len) __kt->Clear(__row);
-else if (__pulses != 0) __kt->RemovePulses(__row);
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }

@@ -278,7 +278,7 @@ public sealed unsafe class KindTickTests : IDisposable
             {
                 var consumed = run.Store.Table(k);
                 if (consumed == null) continue;
-                for (var r = 0; r < consumed->Rows; r++) consumed->RemovePulses(r);
+                for (var r = 0; r < consumed->Rows; r++) consumed->Clear(r);
             }
         }
         _ = damage;
