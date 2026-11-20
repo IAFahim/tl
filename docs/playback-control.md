@@ -111,7 +111,7 @@ On .NET take the sender once per `KindStore` and keep it: `Pulses` allocates a s
 
 ## A start the entity cannot hold
 
-When an entity's kind set misses a kind the timeline (or its `next` chain) feeds, both hosts drop the start, count it (`PlaybackTable.DroppedStarts`, `TimelineKindTick.DroppedStarts`) and leave the entity as it was: a playback on the same channel keeps playing. Checked builds throw instead: on .NET (`Debug`, or `-p:TlChecked=true`) `Tick` and `ApplyRequests` throw an `ArgumentException` before any request of that batch applies; in Unity, with the scripting define `TL_CHECKED`, `TlCheckedStartsSystem` throws an `InvalidOperationException` at the end of the step that dropped it.
+When an entity's kind set misses a kind the timeline (or its `next` chain) feeds, both hosts drop the start, count it (`PlaybackTable.DroppedStarts`, `TimelineKindTick.DroppedStarts`) and leave the entity as it was: a playback on the same channel keeps playing. Checked builds throw instead: on .NET (`Debug`, or `-p:TlChecked=true`) `Tick` and `ApplyRequests` throw an `ArgumentException` before any request of that batch applies; in Unity, with the scripting define `TL_CHECKED`, `TlCheckedStartsSystem` (in `TlSimulationGroup`, last) throws an `InvalidOperationException` at the end of the step that dropped it, which Unity logs as an exception.
 
 ## Host differences
 
