@@ -277,7 +277,7 @@ Kinds (`[TlKind]`, `[Feeds]`, `[Pulse]`, `[TlState]`) and event-only methods (`O
 | Reset (row reused by a new entity) | `players.Reset(entity)` | `requests.Reset()` |
 | Another entity | `players.Start(target, timeline)` | `lookup[target].Start(timeline)` (`BufferLookup<TimelineRequest>`) |
 | One entity's events this step | `drained.Of(entity)` after `var drained = events.Drain()` | `DynamicBuffer<TimelineEvent<T>>` on the entity |
-| Game pulse | `DamageKind.Pulses(kinds).To(entity, 5)` | `DamageKind.Pulses(writer).To(entity, 5)` |
+| Game pulse | `damage.To(entity, 5)` after `var damage = DamageKind.Pulses(kinds)`, taken once | `DamageKind.Pulses(writer).To(entity, 5)` per job |
 | A start the entity cannot hold | dropped, `players.DroppedStarts` | dropped, `TimelineKindTick.DroppedStarts` |
 
 Any code can send any verb to any entity: a healer's cast event starts "healing_hand" on its target, and the target's kinds apply it. Requests apply at the next tick's request phase in the order sent per entity, so a request written after a step's tick (by code that read that step's events) lands on the following step. Events of one entity come in playback-slot order, then raise order. Checked builds (`Debug`, `-p:TlChecked=true`; Unity scripting define `TL_CHECKED`) throw on a start the entity cannot hold. What still differs between the hosts, and why, is in [playback-control: Host differences](docs/playback-control.md#host-differences).

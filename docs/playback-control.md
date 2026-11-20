@@ -124,6 +124,7 @@ Only what still differs, and why:
 | Timeline ids | name order of the baked library | stream order (`FromBytes` keeps the library's) | Unity assembles the library as SubScenes load |
 | Request storage | one queue per `PlaybackTable` | one buffer per entity | ECS storage; writes to another entity's buffer need a single-threaded job or an ECB |
 | Pulse sender | taken once per `KindStore` | taken per job | the .NET sender holds a managed handle |
+| Generated sender for a derived kind (`Sum<T>`, `Set<T>`) | none; `kinds.Pulses<T>("Tl.Derived.<Name>")` | `Tl.Derived.<Name>Kind.Pulses(writer)` | src budget |
 | A pulse to a row outside the table | throws | n/a (an `Entity` without the kind is counted) | |
 | Event record fields | `Entity` = row, `Sequence` across the drain | `Entity` unused, `Sequence` per entity | per-entity buffers |
 | Event methods above 1x speed | see Speed | once per step, at the last tick | Unity limit; use `[Pulse]` |
