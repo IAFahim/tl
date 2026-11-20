@@ -92,12 +92,12 @@ public sealed class PrecombineTests
                 return Tail(kinds, hashes, steps, seen);
             }
 
-            public static ulong[] Many(byte[] first, byte[] second, int steps)
+            public static ulong[] Many(byte[] first, byte[] second, int steps, int rows, int workerCount)
             {
-                const int rows = 16;
                 using var world = new TimelineWorld(first);
                 using var players = new PlaybackTable(rows, 8);
                 using var kinds = new KindStore(world, players);
+                using var workers = workerCount > 0 ? new TlWorkers(workerCount) : null;
                 var pre = new Pre[rows];
                 var hashes = new ulong[steps + Kinds.Length + 1];
                 var rng = 0x2545F491u;
@@ -138,7 +138,8 @@ public sealed class PrecombineTests
                     if (step == 150) world.Reload(second);
                     var forward = !(step >= 100 && step < 120);
                     world.Tick(players, forward);
-                    new PreSystem { Pre = pre }.Run(world, players, forward);
+                    if (workers != null) new PreSystem { Pre = pre }.Run(world, players, forward, workers);
+                    else new PreSystem { Pre = pre }.Run(world, players, forward);
                     var h = TlStateHash.Begin();
                     for (var e = 0; e < rows; e++)
                     {
@@ -409,11 +410,21 @@ public sealed class PrecombineTests
     public void ManyPlaybacksPerEntityMatchExactlyForIntegerAndPickKinds()
     {
         var pair = Pre.Value;
-        var fast = Play(pair.Fast, "Many", pair.First, pair.Second, ManySteps);
-        var plain = Play(pair.Plain, "Many", pair.First, pair.Second, ManySteps);
+        var fast = Play(pair.Fast, "Many", pair.First, pair.Second, ManySteps, 16, 0);
+        var plain = Play(pair.Plain, "Many", pair.First, pair.Second, ManySteps, 16, 0);
         Same(plain, fast, ManySteps);
         Assert.True(fast[ManySteps] > 0 && fast[ManySteps + 2] > 0, "the precombined path was not taken.");
         Assert.True(fast[ManySteps + 5] >= 3, $"the script kept at most {fast[ManySteps + 5]} listed playbacks per entity.");
+    }
+
+    [Fact]
+    public void WorkersBuildTheValuesOnceAndMatchTheSequentialSpanWalk()
+    {
+        var pair = Pre.Value;
+        var fast = Play(pair.Fast, "Many", pair.First, pair.Second, ManySteps, 640, 4);
+        var plain = Play(pair.Plain, "Many", pair.First, pair.Second, ManySteps, 640, 0);
+        Same(plain, fast, ManySteps);
+        Assert.True(fast[ManySteps] > 0 && fast[ManySteps + 2] > 0, "the precombined path was not taken.");
     }
 
     [Fact]
