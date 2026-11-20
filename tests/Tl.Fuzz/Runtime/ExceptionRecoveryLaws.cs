@@ -306,7 +306,13 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
                     if (badMode == 0)
                         pKA.Start(-1 - rng.NextInt(4), 1);
                     else if (badMode == 2 && tlWithEach != 0)
+                    {
+#if TL_CHECKED
                         pKA.Start(0, tlWithEach);
+#else
+                        pKA.Start(entities + rng.NextInt(5), 1);
+#endif
+                    }
                     else
                         wKA.Requests(pKA).For(1 + rng.NextInt(entities - 1), 0).Start((ushort)(badMode == 4 ? 0 : timelines + 2));
 
@@ -330,6 +336,19 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
 
                     Assert.True(FuzzRunner.ComparePlaybacks(pPA, pPC) is null);
                     Assert.True(FuzzRunner.ComparePlaybacks(pKA, pKC) is null);
+#if !TL_CHECKED
+                    if (badMode == 2 && tlWithEach != 0)
+                    {
+                        var dropped = pKA.DroppedStarts;
+                        pKA.Start(0, tlWithEach);
+                        pKC.Start(0, tlWithEach);
+                        wKA.ApplyRequests(pKA);
+                        wKC.ApplyRequests(pKC);
+                        Assert.Equal(dropped + 1, pKA.DroppedStarts);
+                        Assert.Equal(pKA.DroppedStarts, pKC.DroppedStarts);
+                        Assert.True(FuzzRunner.ComparePlaybacks(pKA, pKC) is null);
+                    }
+#endif
                 }
 
                 for (var e = 0; e < entities; e++)

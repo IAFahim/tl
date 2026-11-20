@@ -147,6 +147,7 @@ public sealed unsafe class PlaybackTable : IDisposable
 
     public int EntityCapacity => _entities;
     public KindStore? Kinds => _kinds;
+    public long DroppedStarts { get; private set; }
     public ulong* Playing { get { Escape(); return _playing; } }
     internal ulong* PlayingBits => _playing;
     public int PlayingWords => _playingWords;
@@ -433,8 +434,16 @@ public sealed unsafe class PlaybackTable : IDisposable
 
         public bool Admit(ushort timeline)
         {
-            _table._kinds?.ValidateStart(_entity, timeline);
+            var kinds = _table._kinds;
+            if (kinds == null) return true;
+#if TL_CHECKED
+            kinds.ValidateStart(_entity, timeline);
             return true;
+#else
+            if (kinds.Unreachable(_entity, timeline) == null) return true;
+            _table.DroppedStarts++;
+            return false;
+#endif
         }
 
         public void Close(int index)

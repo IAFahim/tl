@@ -243,7 +243,7 @@ Rewind is exact (tied to ticks): `ChangeStat` applies `+delta` forward and `-del
 
 A **playback** is one timeline playing on an entity: `{Timeline, Tick}` plus channel and flags. `Tick` is the next tick to play forward. Storage is a native table behind a managed owner with inline slots per entity (slot order = start order, O(1) start/stop, removal keeps order). Operations: `Start(entity, id, at = 0)` (channel replace: active clips of replaced playbacks get `OnClipEnd`+`Interrupted`; `at > 0` gives `OnClipStart`+`Synthetic` next step), `Stop`/`StopChannel`/`StopAll` (actives get `Interrupted` ends), `IsPlaying`/`Find(channel)`. Games with per-skill loadouts declare `[TimelineSlotKeys] enum Skill { Jump, Slide, Hurt }` and swap each entity's slot table (key → `TimelineId`, see `slots` in `samples/Runner/Program.cs`) so a potion swaps the jump without touching entities.
 
-One whole step, both hosts:
+One whole step of this consumer model, which runs on .NET only (Unity runs kinds and event-only methods and warns TLUNITY9105 for the rest; the kind model in [Control, events and pulses](#control-events-and-pulses-on-both-hosts) runs on both hosts):
 
 ```cs
 using var world = new TimelineWorld(File.ReadAllBytes("game.tlib"));
@@ -260,6 +260,27 @@ void Step() {
 Step order: 1. Requests (last step's, then host's). 2. Systems in game order. 3. `Advance` per playback (++/--, wrap if loop, `next` handover same slot+channel at tick 0 + `StartPending`, else `hold` → `Ended` else removal; `Paused`/`Ended` don't move). 4. Events drained in (entity, slot, raise) order. Determinism: no hash-ordered containers; every tick played exactly once per step, no skipping; float order fixed by consumer order (entities row order; per entity slots in slot order; per playback steps in authored track order, reversed backward; per step consumers in ordinal consumer-name order, reversed backward; event methods after `ExecuteActive` of the same playback+tick).
 
 Game owns column arrays plus result systems (integrate motion, apply damage, present cues). Tl requires none of that.
+
+## Control, events and pulses on both hosts
+
+Kinds (`[TlKind]`, `[Feeds]`, `[Pulse]`, `[TlState]`) and event-only methods (`OnClipStart`/`OnClipEnd` taking only the frame and `ref Events<T>`) run the same on .NET and in Unity ([com.tl.unity](https://github.com/IAFahim/tl.unity)). The kind step on .NET is `world.Tick(players)`, then the generated `Tl.Generated.TlAuto_<Assembly>` system's `Run`; Unity runs the same order in `TlSimulationGroup`. Every control verb takes the entity, then the timeline or channel, then the rest:
+
+| Verb | .NET (`PlaybackTable`) | Unity (`DynamicBuffer<TimelineRequest>`, `TlRequests`) |
+|---|---|---|
+| Start by id, at a tick | `players.Start(entity, timeline, at)` | `requests.Start(timeline, at)` |
+| Start by name | `players.Start(entity, world.Find("healing_hand"))` | `requests.Start(library.Find("healing_hand"))` |
+| Stop, StopChannel, StopAll | `players.Stop(entity, timeline)`, `StopChannel(entity, channel)`, `StopAll(entity)` | `requests.Stop(timeline)`, `StopChannel(channel)`, `StopAll()` |
+| Pause, Resume | `players.Pause(entity, timeline)`, `Resume(entity, timeline)` | `requests.Pause(timeline)`, `Resume(timeline)` |
+| Seek, Reverse | `players.Seek(entity, timeline, tick)`, `Reverse(entity, timeline, on)` | `requests.Seek(timeline, tick)`, `Reverse(timeline, on)` |
+| Channel verbs | `players.PauseChannel(entity, channel)`, `ResumeChannel`, `SeekChannel`, `ReverseChannel` | `requests.PauseChannel(channel)`, `ResumeChannel`, `SeekChannel`, `ReverseChannel` |
+| SetSpeed, SetChannelSpeed | `players.SetSpeed(entity, timeline, sixteenths)`, `SetChannelSpeed(entity, channel, sixteenths)` | `requests.SetSpeed(timeline, sixteenths)`, `SetChannelSpeed(channel, sixteenths)` |
+| Reset (row reused by a new entity) | `players.Reset(entity)` | `requests.Reset()` |
+| Another entity | `players.Start(target, timeline)` | `lookup[target].Start(timeline)` (`BufferLookup<TimelineRequest>`) |
+| One entity's events this step | `drained.Of(entity)` after `var drained = events.Drain()` | `DynamicBuffer<TimelineEvent<T>>` on the entity |
+| Game pulse | `DamageKind.Pulses(kinds).To(entity, 5)` | `DamageKind.Pulses(writer).To(entity, 5)` |
+| A start the entity cannot hold | dropped, `players.DroppedStarts` | dropped, `TimelineKindTick.DroppedStarts` |
+
+Any code can send any verb to any entity: a healer's cast event starts "healing_hand" on its target, and the target's kinds apply it. Requests apply at the next tick's request phase in the order sent per entity, so a request written after a step's tick (by code that read that step's events) lands on the following step. Events of one entity come in playback-slot order, then raise order. Checked builds (`Debug`, `-p:TlChecked=true`; Unity scripting define `TL_CHECKED`) throw on a start the entity cannot hold. What still differs between the hosts, and why, is in [playback-control: Host differences](docs/playback-control.md#host-differences).
 
 ## Generated reports
 

@@ -52,6 +52,86 @@ The generator writes an internal `[TimelineKind]` struct `Tl.Derived.<Template>_
 
 `world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
 
+## One verb list on both hosts
+
+Every verb takes the entity first, then the timeline (or channel), then the rest. On .NET the entity is a row of the `PlaybackTable`; in Unity it is the entity whose `DynamicBuffer<TimelineRequest>` you write (`TlRequests` in com.tl.unity). Both write the same `RequestOp` and run the same `PlaybackRules`.
+
+| Verb | .NET | Unity |
+|---|---|---|
+| Start by id, at a tick | `players.Start(entity, timeline, at)` | `requests.Start(timeline, at)` |
+| Start by name | `players.Start(entity, world.Find("healing_hand"))` | `requests.Start(library.Find("healing_hand"))` |
+| Stop | `players.Stop(entity, timeline)` | `requests.Stop(timeline)` |
+| StopChannel | `players.StopChannel(entity, channel)` | `requests.StopChannel(channel)` |
+| StopAll | `players.StopAll(entity)` | `requests.StopAll()` |
+| Pause, Resume | `players.Pause(entity, timeline)`, `Resume` | `requests.Pause(timeline)`, `Resume` |
+| Seek | `players.Seek(entity, timeline, tick)` | `requests.Seek(timeline, tick)` |
+| Reverse | `players.Reverse(entity, timeline, on)` | `requests.Reverse(timeline, on)` |
+| PauseChannel, ResumeChannel, SeekChannel, ReverseChannel | `players.PauseChannel(entity, channel)`, ... | `requests.PauseChannel(channel)`, ... |
+| SetSpeed | `players.SetSpeed(entity, timeline, sixteenths)` | `requests.SetSpeed(timeline, sixteenths)` |
+| SetChannelSpeed | `players.SetChannelSpeed(entity, channel, sixteenths)` | `requests.SetChannelSpeed(channel, sixteenths)` |
+| Reset | `players.Reset(entity)` | `requests.Reset()` |
+
+- `timeline` is the library id: a `Timelines.<Name>` constant, `world.Find(name)` on .NET, `TlLibrary.Find(name)` in Unity (main thread, the timeline's own name, also for timelines streamed in later). Unity also takes a `TlTimeline` asset a designer dragged into a clip or component. Unity numbers timelines in the order they stream in, so `Timelines.g.cs` constants match only a library loaded with `TlLibrary.FromBytes`; `Find` or a `TlTimeline` works in both cases.
+- A `Requests` system field (`ref Requests` in a legacy consumer) is the .NET-only form; it is bound to the consumer's own entity, and `For(entity, slot)` retargets it.
+
+## Starting a timeline on another entity
+
+Any code may send any verb to any entity in the same step: the healer's cast event starts "healing_hand" on its target, and the target's kinds apply it. A request applies at the next request phase, which is the start of the next tick, in the order sent per entity. A request written after a step's tick (for example by code that reads that step's events) applies on the following step; a request written before the tick applies in that tick.
+
+```csharp
+world.Tick(players);
+new Tl.Generated.TlAuto_Game { C0_Health = health, E0_Cast = casts.Writer }.Run(world, players);
+var drained = casts.Drain();
+for (var caster = 0; caster < players.EntityCapacity; caster++)
+    foreach (var cast in drained.Of(caster))
+        players.Start(aim[caster], (ushort)cast.Value.Spell);
+```
+
+In Unity the same reader is a job in `TlSimulationGroup` with `OrderLast = true` that reads `DynamicBuffer<TimelineEvent<Cast>>` and writes the target's buffer through a `BufferLookup<TimelineRequest>`. Schedule it single-threaded (`Schedule`, not `ScheduleParallel`), or record into an `EntityCommandBuffer` that plays back before the next tick: two casters may aim at one target. Tests: `CrossEntityControlTests` (.NET), `KindHashTests.AWhistleOnOneRowStartsAStompOnTheRowItAimsAtWhichHitsTwoTicksLater` and the `CrossPinned` hash that the ECS host and the plain .NET host in com.tl.unity share.
+
+## Events: one order on both hosts
+
+Each step, every entity's events of one type form one run: ordered by playback slot, then by the order the methods raised them in that step.
+
+- .NET: `events.Drain()` returns all runs sorted by entity; `drained.Of(entity)` (`EventRecords.Of`) returns one entity's run without allocating.
+- Unity: the entity's `DynamicBuffer<TimelineEvent<T>>` holds that run, cleared and refilled every tick. Read it in `TlSimulationGroup` (`OrderLast = true`); a reader at frame rate misses ticks when a frame runs more than one.
+- `Slot`, `Value` and the position in the run are the same on both hosts. `EventRecord.Entity` is the row on .NET and unused in Unity, and `Sequence` counts across the whole drain on .NET but restarts per entity in Unity, so compare runs by entity, slot, value and position.
+
+## Game pulses
+
+Each kind that accepts pulses gets a generated `<Kind>Kind` class on both hosts, in the kind's namespace (`TlUnityGenerated` for the global namespace):
+
+| | .NET | Unity |
+|---|---|---|
+| Sender | `var damage = DamageKind.Pulses(kinds);` | `DamageKind.Pulses(writer)` from `TimelineKindTick.BeginPulses(n)` |
+| Send | `damage.To(entity, 5)` before `world.Tick` | `.To(entity, 5)` before the tick |
+| To an entity without the kind | counted in `KindStore.DroppedPulses` | counted in `TimelineKindTick.DroppedPulses` |
+
+On .NET take the sender once per `KindStore` and keep it: `Pulses` allocates a small handle. The string form `kinds.Pulses<T>("Ns.Kind")` stays for tools. A kind nested in a type gets no class, and Unity writes none for a grouped kind (groups do not run there).
+
+## A start the entity cannot hold
+
+When an entity's kind set misses a kind the timeline (or its `next` chain) feeds, both hosts drop the start, count it (`PlaybackTable.DroppedStarts`, `TimelineKindTick.DroppedStarts`) and leave the entity as it was: a playback on the same channel keeps playing. Checked builds throw instead: on .NET (`Debug`, or `-p:TlChecked=true`) `Tick` and `ApplyRequests` throw an `ArgumentException` before any request of that batch applies; in Unity, with the scripting define `TL_CHECKED`, `TlCheckedStartsSystem` throws an `InvalidOperationException` at the end of the step that dropped it.
+
+## Host differences
+
+Only what still differs, and why:
+
+| | .NET | Unity | Why |
+|---|---|---|---|
+| Entity | row index | `Entity` and its buffers | ECS storage |
+| Timeline handle | id | id, or a `TlTimeline` asset | designers drag assets |
+| Timeline ids | name order of the baked library | stream order (`FromBytes` keeps the library's) | Unity assembles the library as SubScenes load |
+| Request storage | one queue per `PlaybackTable` | one buffer per entity | ECS storage; writes to another entity's buffer need a single-threaded job or an ECB |
+| Pulse sender | taken once per `KindStore` | taken per job | the .NET sender holds a managed handle |
+| A pulse to a row outside the table | throws | n/a (an `Entity` without the kind is counted) | |
+| Event record fields | `Entity` = row, `Sequence` across the drain | `Entity` unused, `Sequence` per entity | per-entity buffers |
+| Event methods above 1x speed | see Speed | once per step, at the last tick | Unity limit; use `[Pulse]` |
+| Legacy consumers (`Fold`, `ExecuteActive` with columns, `ref Requests`) | run | not run (TLUNITY9105) | out of scope for #656 |
+| Kind groups | run | skipped (TLUNITY9104) | |
+| Starts of timelines not baked onto the object | n/a | dropped with a warning (Also Plays) | per-object kind archetypes, #655 |
+| Checked builds | `Debug` or `TlChecked=true` | scripting define `TL_CHECKED` | |
+
 ## Migration: spans from the load-time table (#652)
 
 This is an unreleased source change after `v4.0.0-preview.1`; the package version stays `4.0.0-preview.1`, and no tag or NuGet release is created. The public API approval lists every change.
@@ -63,3 +143,13 @@ This is an unreleased source change after `v4.0.0-preview.1`; the package versio
 - A foreign feeder must run before its owner in every step. The first step rejects the opposite order (`KindStore.Join`); a host that reorders its systems later gets values one step late.
 - A host that does not use `KindStore` builds its own table with `KindScore.Build(in tables, ref steps)`, where `steps` implements `IKindSteps.StepOf(timeline, window, tick)`, and calls `Free` when the library is replaced. `tables` must come from a validated kind section (`Build` throws when a feeder's kind is outside its timeline's kind mask), and the score borrows that section's timeline rows, so the library bytes must outlive it.
 - Behaviour: last-wins kinds combine rated copies first (by source slot, then crossing), then the other slots in slot order, each in authored pair order, and a span feeder sees `Synthetic` only on the step its playback began mid-clip or re-entered (see above).
+
+## Migration: one control, event and pulse API (#656)
+
+Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
+
+- A start an entity cannot hold no longer throws in Release builds: it is dropped and counted in the new `PlaybackTable.DroppedStarts`. Checked builds still throw. Code that caught the `ArgumentException` reads the counter instead.
+- `PlaybackRules.Start` checks the entity's kinds before it replaces a channel's playback, so a dropped start leaves that playback running (both hosts).
+- New `EventRecords.Of(drained, entity)`: one entity's events from `Events<T>.Drain()`.
+- The generator writes `<Kind>Kind.Pulses(KindStore)` for every kind that accepts pulses (`TlSystems<id>.Pulses.g.cs`). A type of yours named `<Kind>Kind` in the kind's namespace now collides (CS0101); rename it.
+- com.tl.unity (IAFahim/tl.unity): `TlRequests` takes a `ushort` id for every timeline verb and gains `Reset()`; `TlLibrary.Find(name)`; `TlCheckedStartsSystem` (created only with `TL_CHECKED`); `TimelineJobs.ScheduleAdvance` takes the step direction and `TimelineAdvanceJob` has `Backward`, so kind-free playbacks follow a world rewind.
