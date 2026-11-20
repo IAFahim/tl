@@ -243,7 +243,7 @@ apply when `tl.project.json` does not set them.
 
 Per kind `K`, over the library's timelines:
 
-- `m(T, K)`: most span entries of `K` active on one tick of one playback of `T`.
+- `m(T, K)`: most spans of `K` live on one tick of one playback of `T`. Spans reach a row only as a foreign feeder's ready values, so this bound is conservative for kinds fed by their own system.
 - `p(T, K)`: most pulses of `K` raised on one tick of `T`.
 - `C(K)`: sum over the library's channels of the largest `m(T, K)` on that channel.
 - `S(K)`: largest `m(T, K)` among timelines without a channel, times `stackDepth`.
@@ -344,15 +344,16 @@ entry is the pair `(Window, Feeder)`.
 Events at tick `t` in direction `dir` (0 forward, arriving from `t - 1`; 1
 backward, arriving from `t + 1`), in this order, each group by entry order:
 
-1. Remove span entries: forward `End == t`; backward `Start == t + 1`.
-2. Insert span entries: forward `Start == t`; backward `End - 1 == t`.
+1. Span ends (`Remove`): forward `End == t`; backward `Start == t + 1`.
+2. Span starts (`Insert`): forward `Start == t`; backward `End - 1 == t`.
 3. Pulses: Start feeders at `Start == t`, End feeders at `End - 1 == t`,
    Marker feeders at the marker tick, the same in both directions.
 
 `EventBits[t]` has bit `dir` set exactly when that list is non-empty. Looping
-timelines also carry wrap lists: forward removes span entries with
-`End == Duration`, backward removes those with `Start == 0`; the runtime then
-processes tick `0` (forward) or `Duration - 1` (backward).
+timelines also carry wrap lists: forward ends spans with `End == Duration`,
+backward ends those with `Start == 0`; the runtime then processes tick `0`
+(forward) or `Duration - 1` (backward). The runtime applies only the pulse ops
+to entity rows; live spans come from the load-time `KindScore`.
 
 ### One assembler, per-timeline kind payloads
 

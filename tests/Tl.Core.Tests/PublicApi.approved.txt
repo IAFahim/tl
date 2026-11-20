@@ -226,13 +226,15 @@ type Tl.KindRules
 type Tl.KindScore
   Method Tl.KindScore Build[TSteps](Tl.KindTables ByRef, TSteps ByRef)
   Field Int32* CellBase
-  Method Int32 CellOf(Tl.KindSectionView ByRef, UInt16, Int32, Int32)
+  Method Int32 CellOf(UInt16, Int32, Int32)
   Field Int32 Cells
   Method Void Free()
   Method Boolean Listed(Tl.PlaybackFlags)
+  Field Tl.LibraryKindTimeline* Masks
   Field Tl.KindSpan* Spans
   Field Int32* Start
   Method Boolean Synthetic(Tl.PlaybackFlags, Int32, Tl.LibraryStep*, Boolean)
+  Field Int32 TimelineCount
 type Tl.KindSectionView
   Field Byte* Base
   Field UInt32 Bytes

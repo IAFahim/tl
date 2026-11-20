@@ -538,7 +538,7 @@ internal static class SystemEmitter
         W(writer, "var __i = __q < __smp ? __cnt + __q : __q - __smp;");
         W(writer, "var __pb = __run + __i;");
         W(writer, "if (__pb->Timeline == 0 || !global::Tl.KindScore.Listed(__pb->Flags)) continue;");
-        W(writer, "var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);");
+        W(writer, "var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);");
         W(writer, "if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;");
         if (feed) W(writer, "if (__i < __cnt && __pb->Rate != 0) continue;");
         else

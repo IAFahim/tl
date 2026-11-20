@@ -93,6 +93,9 @@ public sealed unsafe class KindSectionTests
         Rejects(Patched((b, k) => BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(index), 1)), "not ascending");
         Rejects(Patched((b, k) => BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(index + 4 * 16), 100)), "does not cover");
         Rejects(Patched((b, k) => BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(row + 28), 7)), "wrap lists");
+        var window = section + (int)U32(kinds, row + 8);
+        Rejects(Patched((b, k) => BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(window + 4), 9999)), "window 0 lies outside");
+        Rejects(Patched((b, k) => BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(window + 6), 9999)), "window 0 lies outside");
         var digest = Kinds();
         digest[section + 70] ^= 1;
         Rejects(digest, "digest mismatch");

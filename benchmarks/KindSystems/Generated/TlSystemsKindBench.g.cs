@@ -1236,7 +1236,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -1371,7 +1371,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -1504,7 +1504,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -1637,7 +1637,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -1770,7 +1770,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -1903,7 +1903,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2036,7 +2036,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2169,7 +2169,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2302,7 +2302,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2435,7 +2435,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2568,7 +2568,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2701,7 +2701,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2834,7 +2834,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -2967,7 +2967,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -3100,7 +3100,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -3233,7 +3233,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -3366,7 +3366,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -3499,7 +3499,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -3632,7 +3632,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -3765,7 +3765,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -3898,7 +3898,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4031,7 +4031,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4164,7 +4164,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4297,7 +4297,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4430,7 +4430,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4563,7 +4563,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4696,7 +4696,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4829,7 +4829,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -4962,7 +4962,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -5095,7 +5095,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -5228,7 +5228,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -5361,7 +5361,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -5494,7 +5494,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -5627,7 +5627,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -5760,7 +5760,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -5893,7 +5893,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6026,7 +6026,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6159,7 +6159,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6292,7 +6292,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6425,7 +6425,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6558,7 +6558,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6691,7 +6691,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6824,7 +6824,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -6957,7 +6957,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -7090,7 +7090,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -7223,7 +7223,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -7356,7 +7356,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -7489,7 +7489,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -7622,7 +7622,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -7755,7 +7755,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -7888,7 +7888,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8021,7 +8021,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8154,7 +8154,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8287,7 +8287,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8420,7 +8420,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8553,7 +8553,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8686,7 +8686,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8819,7 +8819,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -8952,7 +8952,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -9085,7 +9085,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -9218,7 +9218,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -9351,7 +9351,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;
@@ -9484,7 +9484,7 @@ for (var __q = 0; __q < __cnt + __smp; __q++)
 var __i = __q < __smp ? __cnt + __q : __q - __smp;
 var __pb = __run + __i;
 if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
-var __cell = __score.CellOf(in __view.Kinds, __pb->Timeline, __pb->Tick, __kid);
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
 if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
 if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
 else if (__pb->Phase != __sj) continue;

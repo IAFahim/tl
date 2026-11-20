@@ -188,7 +188,7 @@ public sealed unsafe class KindTickTests : IDisposable
                 {
                     var s = p.SlotsOf(e) + i;
                     if (s->Timeline == 0 || !KindScore.Listed(s->Flags)) continue;
-                    var cell = score.CellOf(in sec, s->Timeline, s->Tick, k);
+                    var cell = score.CellOf(s->Timeline, s->Tick, k);
                     if (cell < 0) continue;
                     for (var f = score.Start[cell]; f < score.Start[cell + 1]; f++)
                         have.Add(new Key((byte)KindEntryFlags.Span, (byte)i, s->Timeline, score.Spans[f].Window, score.Spans[f].Ordinal, 0));
