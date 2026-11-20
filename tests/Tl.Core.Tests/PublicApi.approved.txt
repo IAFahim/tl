@@ -27,6 +27,8 @@ type Tl.EventRecord`1
   Field Int32 Sequence
   Field Int32 Slot
   Field T Value
+type Tl.EventRecords
+  Method System.ReadOnlySpan`1[Tl.EventRecord`1[T]] Of[T](System.Span`1[Tl.EventRecord`1[T]], Int32)
 type Tl.Events`1
   Method Void Bind(Int32, Int32)
   Method Void ConcatSegments(Tl.Events`1[T]*, Int32)
@@ -501,6 +503,7 @@ type Tl.PlaybackTable
   Property Tl.RequestQueue* Consumer
   Method Int32 CountOf(Int32)
   Method Void Dispose()
+  Property Int64 DroppedStarts
   Property Int32 EntityCapacity
   Method Boolean Find(Int32, Byte, Tl.Playback ByRef)
   Property Int32 HorizonLimit
@@ -564,7 +567,6 @@ type Tl.RequestQueue
   Method Tl.RequestQueue* Create()
   Method Void Free(Tl.RequestQueue*)
   Method Tl.RequestRecord& Item(Int32)
-  Method Void Sort(Tl.RequestRecord*, Int32)
   Method Void Sort(Tl.RequestRecord*, Int32, Tl.RequestRecord*)
   Method Void SortStable(Tl.RequestQueue*)
 type Tl.RequestRecord

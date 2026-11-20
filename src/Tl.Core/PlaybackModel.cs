@@ -434,16 +434,12 @@ public sealed unsafe class PlaybackTable : IDisposable
 
         public bool Admit(ushort timeline)
         {
-            var kinds = _table._kinds;
-            if (kinds == null) return true;
 #if TL_CHECKED
-            kinds.ValidateStart(_entity, timeline);
-            return true;
+            _table._kinds?.ValidateStart(_entity, timeline);
 #else
-            if (kinds.Unreachable(_entity, timeline) == null) return true;
-            _table.DroppedStarts++;
-            return false;
+            if (_table._kinds?.Unreachable(_entity, timeline) != null) { _table.DroppedStarts++; return false; }
 #endif
+            return true;
         }
 
         public void Close(int index)
@@ -455,21 +451,22 @@ public sealed unsafe class PlaybackTable : IDisposable
         public void Purge(int index) => _table._kinds?.Purge(_entity, index, in _items[index]);
     }
 
-    public void Start(int entity, ushort timeline, ushort at = 0) => RequestQueue.Add(_pending, entity, -1, timeline, at, RequestOp.Start);
-    public void Stop(int entity, ushort timeline) => RequestQueue.Add(_pending, entity, -1, timeline, 0, RequestOp.Stop);
-    public void StopChannel(int entity, byte channel) => RequestQueue.Add(_pending, entity, -1, channel, 0, RequestOp.StopChannel);
-    public void StopAll(int entity) => RequestQueue.Add(_pending, entity, -1, 0, 0, RequestOp.StopAll);
-    public void Pause(int entity, ushort timeline) => RequestQueue.Add(_pending, entity, -1, timeline, 0, RequestOp.Pause);
-    public void Resume(int entity, ushort timeline) => RequestQueue.Add(_pending, entity, -1, timeline, 0, RequestOp.Resume);
-    public void Seek(int entity, ushort timeline, ushort tick) => RequestQueue.Add(_pending, entity, -1, timeline, tick, RequestOp.Seek);
-    public void Reverse(int entity, ushort timeline, bool reverse) => RequestQueue.Add(_pending, entity, -1, timeline, reverse ? (ushort)1 : (ushort)0, RequestOp.Reverse);
-    public void PauseChannel(int entity, byte channel) => RequestQueue.Add(_pending, entity, -1, channel, 0, RequestOp.PauseChannel);
-    public void ResumeChannel(int entity, byte channel) => RequestQueue.Add(_pending, entity, -1, channel, 0, RequestOp.ResumeChannel);
-    public void SeekChannel(int entity, byte channel, ushort tick) => RequestQueue.Add(_pending, entity, -1, channel, tick, RequestOp.SeekChannel);
-    public void ReverseChannel(int entity, byte channel, bool reverse) => RequestQueue.Add(_pending, entity, -1, channel, reverse ? (ushort)1 : (ushort)0, RequestOp.ReverseChannel);
-    public void SetSpeed(int entity, ushort timeline, ushort sixteenths) => RequestQueue.Add(_pending, entity, -1, timeline, sixteenths, RequestOp.Speed);
-    public void SetChannelSpeed(int entity, byte channel, ushort sixteenths) => RequestQueue.Add(_pending, entity, -1, channel, sixteenths, RequestOp.SpeedChannel);
-    public void Reset(int entity) => RequestQueue.Add(_pending, entity, -1, 0, 0, RequestOp.Reset);
+    void Add(int entity, ushort timeline, ushort at, RequestOp op) => RequestQueue.Add(_pending, entity, -1, timeline, at, op);
+    public void Start(int entity, ushort timeline, ushort at = 0) => Add(entity, timeline, at, RequestOp.Start);
+    public void Stop(int entity, ushort timeline) => Add(entity, timeline, 0, RequestOp.Stop);
+    public void StopChannel(int entity, byte channel) => Add(entity, channel, 0, RequestOp.StopChannel);
+    public void StopAll(int entity) => Add(entity, 0, 0, RequestOp.StopAll);
+    public void Pause(int entity, ushort timeline) => Add(entity, timeline, 0, RequestOp.Pause);
+    public void Resume(int entity, ushort timeline) => Add(entity, timeline, 0, RequestOp.Resume);
+    public void Seek(int entity, ushort timeline, ushort tick) => Add(entity, timeline, tick, RequestOp.Seek);
+    public void Reverse(int entity, ushort timeline, bool reverse) => Add(entity, timeline, reverse ? (ushort)1 : (ushort)0, RequestOp.Reverse);
+    public void PauseChannel(int entity, byte channel) => Add(entity, channel, 0, RequestOp.PauseChannel);
+    public void ResumeChannel(int entity, byte channel) => Add(entity, channel, 0, RequestOp.ResumeChannel);
+    public void SeekChannel(int entity, byte channel, ushort tick) => Add(entity, channel, tick, RequestOp.SeekChannel);
+    public void ReverseChannel(int entity, byte channel, bool reverse) => Add(entity, channel, reverse ? (ushort)1 : (ushort)0, RequestOp.ReverseChannel);
+    public void SetSpeed(int entity, ushort timeline, ushort sixteenths) => Add(entity, timeline, sixteenths, RequestOp.Speed);
+    public void SetChannelSpeed(int entity, byte channel, ushort sixteenths) => Add(entity, channel, sixteenths, RequestOp.SpeedChannel);
+    public void Reset(int entity) => Add(entity, 0, 0, RequestOp.Reset);
 
     public void Dispose()
     {

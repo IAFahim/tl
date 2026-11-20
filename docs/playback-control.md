@@ -107,7 +107,7 @@ Each kind that accepts pulses gets a generated `<Kind>Kind` class on both hosts,
 | Send | `damage.To(entity, 5)` before `world.Tick` | `.To(entity, 5)` before the tick |
 | To an entity without the kind | counted in `KindStore.DroppedPulses` | counted in `TimelineKindTick.DroppedPulses` |
 
-On .NET take the sender once per `KindStore` and keep it: `Pulses` allocates a small handle. The string form `kinds.Pulses<T>("Ns.Kind")` stays for tools. A kind nested in a type gets no class, and Unity writes none for a grouped kind (groups do not run there).
+On .NET take the sender once per `KindStore` and keep it: `Pulses` allocates a small handle. The string form `kinds.Pulses<T>("Ns.Kind")` stays for tools. On .NET a kind nested in a type and a derived kind (`Sum<T>`, `Set<T>`) get no class (send with `kinds.Pulses<T>("Tl.Derived.Sum_Ns_T")`), and Unity writes none for a grouped kind (groups do not run there).
 
 ## A start the entity cannot hold
 
@@ -139,6 +139,7 @@ Unreleased source change; the package version stays `4.0.0-preview.1`. The publi
 - A start an entity cannot hold no longer throws in Release builds: it is dropped and counted in the new `PlaybackTable.DroppedStarts`. Checked builds still throw. Code that caught the `ArgumentException` reads the counter instead.
 - `PlaybackRules.Start` checks the entity's kinds before it replaces a channel's playback, so a dropped start leaves that playback running (both hosts).
 - New `EventRecords.Of(drained, entity)`: one entity's events from `Events<T>.Drain()`.
+- `RequestQueue.Sort(items, count)`, which allocated its own scratch, is removed; pass the scratch: `RequestQueue.Sort(items, count, scratch)` (the source budget pays for this change).
 - The generator writes `<Kind>Kind.Pulses(KindStore)` for every kind that accepts pulses (`TlSystems<id>.Pulses.g.cs`). A type of yours named `<Kind>Kind` in the kind's namespace now collides (CS0101); rename it.
 - com.tl.unity (IAFahim/tl.unity): `TlRequests` takes a `ushort` id for every timeline verb and gains `Reset()`; `TlLibrary.Find(name)`; `TlCheckedStartsSystem` (created only with `TL_CHECKED`); `TimelineJobs.ScheduleAdvance` takes the step direction and `TimelineAdvanceJob` has `Backward`, so kind-free playbacks follow a world rewind.
 

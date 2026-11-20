@@ -12,7 +12,7 @@ public sealed class KindBenchGenTests
         var source = EmissionTests.ReadResource("Tl.Systems.Tests.KindBenchDomain.Domain.cs");
         var emitted = SystemGeneration.Emit(KindEmissionTests.Compile(source, "KindSystems"), "KindBench");
         Assert.True(emitted.Diagnostics.Count == 0, string.Join("\n", emitted.Diagnostics.Select(static diagnostic => diagnostic.ToString())));
-        var actual = Assert.Single(emitted.Artifacts).Content.Replace("\r\n", "\n");
+        var actual = Assert.Single(emitted.Artifacts, static a => a.RelativePath == "TlSystemsKindBench.g.cs").Content.Replace("\r\n", "\n");
         var root = AppContext.BaseDirectory;
         for (var i = 0; i < 8 && !File.Exists(Path.Combine(root, "tl.slnx")); i++) root = Path.GetDirectoryName(root)!;
         var path = Path.Combine(root, "benchmarks", "KindSystems", "Generated", "TlSystemsKindBench.g.cs");

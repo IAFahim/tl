@@ -21,31 +21,14 @@ public readonly struct EventRecord<T>
 
 public static class EventRecords
 {
-    public static ReadOnlySpan<EventRecord<T>> Of<T>(this Span<EventRecord<T>> drained, int entity)
-        where T : unmanaged
-        => Of((ReadOnlySpan<EventRecord<T>>)drained, entity);
-
-    public static ReadOnlySpan<EventRecord<T>> Of<T>(this ReadOnlySpan<EventRecord<T>> drained, int entity)
-        where T : unmanaged
+    public static ReadOnlySpan<EventRecord<T>> Of<T>(this Span<EventRecord<T>> drained, int entity) where T : unmanaged
     {
-        var first = FirstAtOrAfter(drained, entity);
-        var end = first;
+        int first = 0, end = drained.Length;
+        while (first < end)
+            if (drained[(first + end) >> 1].Entity.Index < entity) first = ((first + end) >> 1) + 1;
+            else end = (first + end) >> 1;
         while (end < drained.Length && drained[end].Entity.Index == entity) end++;
         return drained.Slice(first, end - first);
-    }
-
-    static int FirstAtOrAfter<T>(ReadOnlySpan<EventRecord<T>> drained, int entity)
-        where T : unmanaged
-    {
-        var low = 0;
-        var high = drained.Length;
-        while (low < high)
-        {
-            var middle = (int)(((uint)low + (uint)high) >> 1);
-            if (drained[middle].Entity.Index < entity) low = middle + 1;
-            else high = middle;
-        }
-        return low;
     }
 }
 
