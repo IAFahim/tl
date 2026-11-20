@@ -367,7 +367,8 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");
-        W(writer, "}");    }
+        W(writer, "}");
+    }
 
     static void EmitKindLoops(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
     {
@@ -831,7 +832,8 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");
-        W(writer, "}");        if (!ranged) W(writer, "global::Tl.ClosingList.Clear(players.Closing);");
+        W(writer, "}");
+        if (!ranged) W(writer, "global::Tl.ClosingList.Clear(players.Closing);");
         W(writer, "}");
     }
 

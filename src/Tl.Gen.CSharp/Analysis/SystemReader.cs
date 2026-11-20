@@ -257,7 +257,7 @@ internal static partial class SystemReader
         if (marker is null && HasMethod(type, "OnMarker"))
             Err("TLGEN97", $"Consumer '{name}' declares OnMarker without IMarker<T>; marker consumers implement IMarker<T>.");
         if (HasMethod(type, "ExecuteBatch"))
-            Err("TLGEN95", $"Consumer '{name}' declares ExecuteBatch, which was removed; write the loop in ExecuteActive or feed a kind.");
+            Err("TLGEN95", $"Consumer '{name}' declares ExecuteBatch, which was removed; write the loop in ExecuteActive and keep an OnClipStart/OnClipEnd or a Requests/Events parameter so the consumer stays in its system, or feed a kind.");
         if (active is not null && start is null && end is not null)
         {
             var direct = AnalyzeDirect(type, active, fold, compilation.GetSemanticModel(site.SyntaxTree));
