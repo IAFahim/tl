@@ -18,7 +18,6 @@ internal static partial class SystemReader
         INamedTypeSymbol MarkerFrame,
         INamedTypeSymbol Requests,
         INamedTypeSymbol Events,
-        INamedTypeSymbol BatchItem,
         INamedTypeSymbol System,
         INamedTypeSymbol SystemMember,
         INamedTypeSymbol? TlFrame,
@@ -106,12 +105,11 @@ internal static partial class SystemReader
             compilation.GetTypeByMetadataName("Tl.MarkerFrame`1"),
             compilation.GetTypeByMetadataName("Tl.Requests"),
             compilation.GetTypeByMetadataName("Tl.Events`1"),
-            compilation.GetTypeByMetadataName("Tl.BatchItem`1"),
             compilation.GetTypeByMetadataName("Tl.TimelineSystemAttribute"),
             compilation.GetTypeByMetadataName("Tl.TimelineSystemMemberAttribute"),
         ];
         if (types.Any(static type => type is null)) return null;
-        return new ContractSet(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!, types[9]!,
+        return new ContractSet(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!,
             compilation.GetTypeByMetadataName("Tl.TlFrame`1"), compilation.GetTypeByMetadataName("Tl.TlNoSettings`1"));
     }
 
@@ -250,8 +248,6 @@ internal static partial class SystemReader
         if (fold is not null) methods.Add(fold);
         var active = track is null ? null : ReadActive(type, site, contracts, track, clip!, local, foldTypes);
         if (active is not null) methods.Add(active);
-        var batch = track is null ? null : ReadBatch(type, site, contracts, track, clip!, local, foldTypes);
-        if (batch is not null) methods.Add(batch);
         var start = track is null ? null : ReadEvent(type, "OnClipStart", ConsumerMethodKind.OnClipStart, site, contracts, track, clip!, local, foldTypes);
         if (start is not null) methods.Add(start);
         var end = track is null ? null : ReadEvent(type, "OnClipEnd", ConsumerMethodKind.OnClipEnd, site, contracts, track, clip!, local, foldTypes);
@@ -260,11 +256,9 @@ internal static partial class SystemReader
         if (onMarker is not null) methods.Add(onMarker);
         if (marker is null && HasMethod(type, "OnMarker"))
             Err("TLGEN97", $"Consumer '{name}' declares OnMarker without IMarker<T>; marker consumers implement IMarker<T>.");
-        if (active is not null && batch is not null)
-            Err("TLGEN95", $"Consumer '{name}' declares both ExecuteActive and ExecuteBatch; batch replaces the active call.");
-        if (batch is not null && (fold is null || !foldTypes.Contains(batch.Params[1].BatchElement, StringComparer.Ordinal)))
-            Err("TLGEN96", $"Consumer '{name}' ExecuteBatch element must equal one Fold result type.");
-        if (active is not null && batch is null && start is null && end is not null)
+        if (HasMethod(type, "ExecuteBatch"))
+            Err("TLGEN95", $"Consumer '{name}' declares ExecuteBatch, which was removed; write the loop in ExecuteActive or feed a kind.");
+        if (active is not null && start is null && end is not null)
         {
             var direct = AnalyzeDirect(type, active, fold, compilation.GetSemanticModel(site.SyntaxTree));
             if (direct.Eligible)
@@ -276,7 +270,7 @@ internal static partial class SystemReader
         var feeders = collectFeeders && kindContracts is not null ? ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local, compilation.Assembly, foreign, derived) : new List<FeederDecl>();
         foreach (var feeder in feeders) methods.Add(feeder.Method);
         if (methods.Count == 0 && local.Count == 0 && (collectFeeders || !HasFeederMethods(type)))
-            Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
+            Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
         diagnostics.AddRange(local);
         var key = track is null ? StableKey(marker!) : StablePairKey(track, clip!);
         return new(name, track is null ? "" : Symbols.Name(track), clip is null ? "" : Symbols.Name(clip), marker is null ? "" : Symbols.Name(marker), marker is not null, blendable, key, members, methods, local) { Feeders = feeders, ClipBlendable = ClipBlends(type, contracts) };
@@ -356,7 +350,7 @@ internal static partial class SystemReader
                 var frame = contracts.MarkerFrame.Construct(marker!);
                 if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
                 {
-                    parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.MarkerFrame, -1, ""));
+                    parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.MarkerFrame, -1));
                     index = 1;
                 }
             }
@@ -365,7 +359,7 @@ internal static partial class SystemReader
                 var frame = contracts.Frame.Construct(track!, clip!);
                 if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && IsFrame(method.Parameters[0].Type, contracts, track!, clip!, out var tlFrame))
                 {
-                    parameters.Add(new(method.Parameters[0].Name, tlFrame ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
+                    parameters.Add(new(method.Parameters[0].Name, tlFrame ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1));
                     index = 1;
                 }
                 var feed = 0;
@@ -373,7 +367,7 @@ internal static partial class SystemReader
                     && method.Parameters[index].RefKind == RefKind.In
                     && string.Equals(Symbols.Name(method.Parameters[index].Type), foldTypes[feed], StringComparison.Ordinal))
                 {
-                    parameters.Add(new(method.Parameters[index].Name, foldTypes[feed], "in ", ConsumerParamKind.FoldFeed, feed, ""));
+                    parameters.Add(new(method.Parameters[index].Name, foldTypes[feed], "in ", ConsumerParamKind.FoldFeed, feed));
                     index++;
                     feed++;
                 }
@@ -779,7 +773,7 @@ internal static partial class SystemReader
             }
             foldTypes.Add(Symbols.Name(parameter.Type));
             foldSizes.Add(size);
-            parameters.Add(new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Out ? "out " : "ref ", ConsumerParamKind.FoldResult, foldTypes.Count - 1, ""));
+            parameters.Add(new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Out ? "out " : "ref ", ConsumerParamKind.FoldResult, foldTypes.Count - 1));
         }
         if (parameters.Count == 0)
         {
@@ -799,7 +793,7 @@ internal static partial class SystemReader
         var index = 0;
         if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && IsFrame(method.Parameters[0].Type, contracts, track, clip, out var activeTl))
         {
-            parameters.Add(new(method.Parameters[0].Name, activeTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
+            parameters.Add(new(method.Parameters[0].Name, activeTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1));
             index = 1;
         }
         var feed = 0;
@@ -807,45 +801,13 @@ internal static partial class SystemReader
             && method.Parameters[index].RefKind == RefKind.In
             && string.Equals(Symbols.Name(method.Parameters[index].Type), foldTypes[feed], StringComparison.Ordinal))
         {
-            parameters.Add(new(method.Parameters[index].Name, foldTypes[feed], "in ", ConsumerParamKind.FoldFeed, feed, ""));
+            parameters.Add(new(method.Parameters[index].Name, foldTypes[feed], "in ", ConsumerParamKind.FoldFeed, feed));
             index++;
             feed++;
         }
         for (; index < method.Parameters.Length; index++)
         {
             if (!BindValue(type, method.Name, method.Parameters[index], contracts, diagnostics, site, out var bound)) return null;
-            parameters.Add(bound);
-        }
-        return CheckColumns(type, method.Name, parameters, diagnostics, site);
-    }
-
-    static ConsumerMethod? ReadBatch(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, ITypeSymbol track, ITypeSymbol clip, List<DeclarationDiagnostic> diagnostics, List<string> foldTypes)
-    {
-        var method = Pick(type, "ExecuteBatch", type.ContainingAssembly, diagnostics, site);
-        if (method is null) return null;
-        var name = Symbols.Name(type);
-        var frame = contracts.Frame.Construct(track, clip);
-        var parameters = new List<ConsumerParam>();
-        if (method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !IsFrame(method.Parameters[0].Type, contracts, track, clip, out var batchTl))
-        {
-            Symbols.Error(diagnostics, site, "TLGEN96", $"Consumer '{name}' ExecuteBatch must begin with in {Symbols.Name(frame)}.");
-            return null;
-        }
-        parameters.Add(new(method.Parameters[0].Name, batchTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
-        if (method.Parameters.Length < 2 || !IsBatchItems(method.Parameters[1].Type, contracts, out var element))
-        {
-            Symbols.Error(diagnostics, site, "TLGEN96", $"Consumer '{name}' ExecuteBatch must take ReadOnlySpan<Tl.BatchItem<R>> after the frame.");
-            return null;
-        }
-        parameters.Add(new(method.Parameters[1].Name, Symbols.Name(method.Parameters[1].Type), "", ConsumerParamKind.BatchItems, -1, element));
-        for (var index = 2; index < method.Parameters.Length; index++)
-        {
-            if (!BindValue(type, method.Name, method.Parameters[index], contracts, diagnostics, site, out var bound, batchColumns: true)) return null;
-            if (bound.Kind is ConsumerParamKind.Requests or ConsumerParamKind.Events)
-            {
-                Symbols.Error(diagnostics, site, "TLGEN96", $"Consumer '{name}' ExecuteBatch takes {bound.Kind}; batch consumers take only columns and context, requests and events stay per playback.");
-                return null;
-            }
             parameters.Add(bound);
         }
         return CheckColumns(type, method.Name, parameters, diagnostics, site);
@@ -862,7 +824,7 @@ internal static partial class SystemReader
             Symbols.Error(diagnostics, site, "TLGEN92", $"Consumer '{name}' {methodName} must begin with in {Symbols.Name(frame)}.");
             return null;
         }
-        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, eventTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, "") };
+        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, eventTl ? Symbols.Name(method.Parameters[0].Type) : Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1) };
         for (var index = 1; index < method.Parameters.Length; index++)
         {
             var parameter = method.Parameters[index];
@@ -888,7 +850,7 @@ internal static partial class SystemReader
             Symbols.Error(diagnostics, site, "TLGEN97", $"Consumer '{name}' OnMarker must begin with in {Symbols.Name(frame)}.");
             return null;
         }
-        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.MarkerFrame, -1, "") };
+        var parameters = new List<ConsumerParam> { new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.MarkerFrame, -1) };
         for (var index = 1; index < method.Parameters.Length; index++)
         {
             if (!BindValue(type, method.Name, method.Parameters[index], contracts, diagnostics, site, out var bound, eventMethod: true)) return null;
@@ -897,9 +859,9 @@ internal static partial class SystemReader
         return new(ConsumerMethodKind.OnMarker, parameters, [], []);
     }
 
-    static bool BindValue(INamedTypeSymbol type, string methodName, IParameterSymbol parameter, ContractSet contracts, List<DeclarationDiagnostic> diagnostics, SyntaxNode site, out ConsumerParam bound, bool eventMethod = false, bool batchColumns = false)
+    static bool BindValue(INamedTypeSymbol type, string methodName, IParameterSymbol parameter, ContractSet contracts, List<DeclarationDiagnostic> diagnostics, SyntaxNode site, out ConsumerParam bound, bool eventMethod = false)
     {
-        bound = new("", "", "", ConsumerParamKind.Context, -1, "");
+        bound = new("", "", "", ConsumerParamKind.Context, -1);
         var name = Symbols.Name(type);
         var paramType = parameter.Type as INamedTypeSymbol;
         if (paramType is not null && Symbols.Same(paramType.OriginalDefinition, contracts.Requests))
@@ -909,7 +871,7 @@ internal static partial class SystemReader
                 Symbols.Error(diagnostics, Symbols.Site(parameter, site), "TLGEN94", $"Consumer '{name}' {methodName} takes Requests by in; Requests is bound per entity and must be ref.");
                 return false;
             }
-            bound = new(parameter.Name, Symbols.Name(parameter.Type), "ref ", ConsumerParamKind.Requests, -1, "");
+            bound = new(parameter.Name, Symbols.Name(parameter.Type), "ref ", ConsumerParamKind.Requests, -1);
             return true;
         }
         if (paramType is { IsGenericType: true } && Symbols.Same(paramType.ConstructedFrom, contracts.Events))
@@ -919,19 +881,13 @@ internal static partial class SystemReader
                 Symbols.Error(diagnostics, Symbols.Site(parameter, site), "TLGEN94", $"Consumer '{name}' {methodName} takes Events by in; the writer is bound per entity and must be ref.");
                 return false;
             }
-            bound = new(parameter.Name, Symbols.Name(parameter.Type), "ref ", ConsumerParamKind.Events, -1, "");
+            bound = new(parameter.Name, Symbols.Name(parameter.Type), "ref ", ConsumerParamKind.Events, -1);
             return true;
         }
         if (parameter.Type is INamedTypeSymbol span && (IsSpan(span) || IsReadOnlySpan(span)))
         {
-            if (!batchColumns || span.TypeArguments.Length != 1 || !span.TypeArguments[0].IsUnmanagedType)
-            {
-                Symbols.Error(diagnostics, Symbols.Site(parameter, site), "TLGEN93", $"Consumer '{name}' {methodName} parameter '{parameter.Name}' is a span; systems own spans, consumers take elements.");
-                return false;
-            }
-            var spanKind = IsSpan(span) ? ConsumerParamKind.Column : ConsumerParamKind.ColumnReadOnly;
-            bound = new(parameter.Name, Symbols.Name(span.TypeArguments[0]), "", spanKind, -1, "");
-            return true;
+            Symbols.Error(diagnostics, Symbols.Site(parameter, site), "TLGEN93", $"Consumer '{name}' {methodName} parameter '{parameter.Name}' is a span; systems own spans, consumers take elements.");
+            return false;
         }
         if (!parameter.Type.IsUnmanagedType || parameter.RefKind == RefKind.Out || parameter.IsOptional || parameter.IsParams)
         {
@@ -939,7 +895,7 @@ internal static partial class SystemReader
             return false;
         }
         var kind = parameter.RefKind == RefKind.Ref ? ConsumerParamKind.Column : ConsumerParamKind.ColumnReadOnly;
-        bound = new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Ref ? "ref " : "in ", kind, -1, "");
+        bound = new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Ref ? "ref " : "in ", kind, -1);
         return true;
     }
 
@@ -960,19 +916,7 @@ internal static partial class SystemReader
                     Symbols.Error(diagnostics, site, "TLGEN90", $"Consumer '{Symbols.Name(type)}' {methodName} declares two live '{parameters[i].TypeName}' columns; TypeKey binding cannot distinguish same-type columns.");
                     return null;
                 }
-        var kind = methodName == "ExecuteBatch" ? ConsumerMethodKind.ExecuteBatch : ConsumerMethodKind.ExecuteActive;
-        return new(kind, parameters, [], []);
-    }
-
-    static bool IsBatchItems(ITypeSymbol type, ContractSet contracts, out string element)
-    {
-        element = "";
-        if (type is not INamedTypeSymbol span || !span.IsGenericType || !IsReadOnlySpan(span)) return false;
-        if (span.TypeArguments.Length != 1 || span.TypeArguments[0] is not INamedTypeSymbol inner) return false;
-        if (!inner.IsGenericType || !Symbols.Same(inner.OriginalDefinition, contracts.BatchItem)) return false;
-        if (inner.TypeArguments.Length != 1 || !inner.TypeArguments[0].IsUnmanagedType) return false;
-        element = Symbols.Name(inner.TypeArguments[0]);
-        return true;
+        return new(ConsumerMethodKind.ExecuteActive, parameters, [], []);
     }
 
     static byte ResultSize(ITypeSymbol type)
@@ -1128,7 +1072,6 @@ internal static partial class SystemReader
                         case ConsumerParamKind.MarkerFrame:
                         case ConsumerParamKind.FoldFeed:
                         case ConsumerParamKind.FoldResult:
-                        case ConsumerParamKind.BatchItems:
                             covered = true;
                             break;
                         case ConsumerParamKind.Requests:
@@ -1182,7 +1125,6 @@ internal static partial class SystemReader
                     case ConsumerParamKind.MarkerFrame:
                     case ConsumerParamKind.FoldFeed:
                     case ConsumerParamKind.FoldResult:
-                    case ConsumerParamKind.BatchItems:
                         continue;
                     case ConsumerParamKind.Requests:
                         if (!system.Fields.Any(static field => field.Kind == SystemFieldKind.Requests)) return false;
