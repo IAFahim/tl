@@ -28,7 +28,7 @@ internal static class SystemEmitter
     static bool IsLegacy(SystemConsumer consumer)
     {
         foreach (var method in consumer.Methods)
-            if (method.Kind != ConsumerMethodKind.Feeder) return true;
+            if (method.Kind is not (ConsumerMethodKind.Feeder or ConsumerMethodKind.Fold)) return true;
         return false;
     }
 

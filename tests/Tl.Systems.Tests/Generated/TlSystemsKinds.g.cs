@@ -62,7 +62,7 @@ internal static readonly ulong[] PairKeys = new ulong[]
 0UL,
 0UL,
 0UL,
-14068976065496153043UL,
+0UL,
 2194717391423795397UL,
 0UL,
 0UL,
@@ -843,12 +843,6 @@ for (var __i = 0; __i < __csteps.Length; __i++)
 var __entry = __csteps[__i];
 switch (__entry.Consumer)
 {
-case 3:
-{
-var __def = __cstage->Steps + __entry.Step;
-if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
-break;
-}
 case 4:
 {
 var __def = __cstage->Steps + __entry.Step;
@@ -909,30 +903,6 @@ for (var __i = 0; __i < __steps.Length; __i++)
 var __entry = __steps[__i];
 switch (__entry.Consumer)
 {
-case 3:
-{
-var __def = __stage->Steps + __entry.Step;
-if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
-byte* __row3 = (byte*)__def->FrameRow;
-byte* __first3 = __row3 + sizeof(global::KindGame.ArcTrack);
-byte* __second3 = __def->FactorSpan == 0 ? null : __first3 + sizeof(global::KindGame.ArcClip);
-float __blend3 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len3 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within3 = (ushort)(__tick - __def->WindowStart);
-sbyte __dir3 = __backward ? (sbyte)-1 : (sbyte)1;
-Frame_3(__row3, __first3, __second3, __blend3, __tick, __len3, __within3, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir3, __base, out var __t3, out var __cc3, out var __f3);
-byte* __lane3 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
-float __fd3_0 = default;
-if (__def->FoldLane == null)
-{
-global::KindGame.Jump.Fold(in __f3, out __fd3_0);
-}
-else
-{
-__fd3_0 = *(float*)(__lane3 + 0);
-}
-break;
-}
 case 4:
 {
 var __def = __stage->Steps + __entry.Step;
@@ -1001,30 +971,6 @@ for (var __i = 0; __i < __steps.Length; __i++)
 var __entry = __steps[__i];
 switch (__entry.Consumer)
 {
-case 3:
-{
-var __def = __stage->Steps + __entry.Step;
-if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
-byte* __row3 = (byte*)__def->FrameRow;
-byte* __first3 = __row3 + sizeof(global::KindGame.ArcTrack);
-byte* __second3 = __def->FactorSpan == 0 ? null : __first3 + sizeof(global::KindGame.ArcClip);
-float __blend3 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len3 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within3 = (ushort)(__tick - __def->WindowStart);
-sbyte __dir3 = __backward ? (sbyte)-1 : (sbyte)1;
-Frame_3(__row3, __first3, __second3, __blend3, __tick, __len3, __within3, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir3, __base, out var __t3, out var __cc3, out var __f3);
-byte* __lane3 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
-float __fd3_0 = default;
-if (__def->FoldLane == null)
-{
-global::KindGame.Jump.Fold(in __f3, out __fd3_0);
-}
-else
-{
-__fd3_0 = *(float*)(__lane3 + 0);
-}
-break;
-}
 case 4:
 {
 var __def = __stage->Steps + __entry.Step;

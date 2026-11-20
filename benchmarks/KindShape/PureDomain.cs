@@ -74,6 +74,7 @@ public struct StatChange
     public static void Apply(in int delta, ref Stamina stamina) => stamina.Value += delta;
 }
 
+[TimelineSystemMember(typeof(Movement))]
 public struct Walk : ITrack<WalkTrack, WalkClip>
 {
     [Feeds(typeof(Locomotion))]
@@ -81,6 +82,7 @@ public struct Walk : ITrack<WalkTrack, WalkClip>
         => new Speed { Value = f.Direction * f.Clip.Speed * f.Track.Scale, Priority = f.Clip.Priority };
 }
 
+[TimelineSystemMember(typeof(Movement))]
 public struct Jump : ITrack<ArcTrack, ArcClip>
 {
     public static void Fold(in Frame<ArcTrack, ArcClip> f, out float lift) => lift = f.Direction * f.Clip.Velocity * f.Track.Scale;
