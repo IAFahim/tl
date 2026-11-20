@@ -19,7 +19,7 @@ public sealed class PrecombineTests
 
         public static unsafe class PreHost
         {
-            const ushort Walk = 1, Hop = 2, Stand = 3;
+            const ushort Hop = 1, Stand = 2, Walk = 3;
             static readonly string[] Kinds = { "PreGame.Lift", "PreGame.Count", "PreGame.Choice", "PreGame.Shown", "PreGame.Seen" };
 
             static uint Next(ref uint state)
@@ -356,9 +356,9 @@ public sealed class PrecombineTests
         }
         return Assemble(
         [
-            new() { Name = "walk", Duration = 24, Loops = true, Tracks = { Rise(1f, (0, 10, 1.5f, 3, 2f, 1), (6, 16, 2.25f, 5, 4f, 2)), Rise(0.5f, (4, 20, 0.7f, 1, 3f, 2)), Mark((2, 9, 3), (12, 22, 5)) } },
             new() { Name = "hop", Duration = 12, Next = "walk", Tracks = { Rise(1f, (0, 12, 0.4f, 2, 1f, 0)), Mark((3, 8, 4)) } },
             new() { Name = "stand", Duration = 16, Hold = true, Tracks = { Mark((0, 16, 7)), Rise(1f, (5, 11, 1.1f, 7, 5f, 3)) } },
+            new() { Name = "walk", Duration = 24, Loops = true, Tracks = { Rise(1f, (0, 10, 1.5f, 3, 2f, 1), (6, 16, 2.25f, 5, 4f, 2)), Rise(0.5f, (4, 20, 0.7f, 1, 3f, 2)), Mark((2, 9, 3), (12, 22, 5)) } },
         ], domain);
     }
 
@@ -374,8 +374,8 @@ public sealed class PrecombineTests
         }
         return Assemble(
         [
-            new() { Name = "mix", Duration = 40, Loops = true, Tracks = { Track(peak, (0, 14, 0.5f), (20, 34, 1.25f)), Track(dip, (8, 26, 0.75f)) } },
             new() { Name = "dip", Duration = 24, Hold = true, Tracks = { Track(dip, (2, 22, 2f)) } },
+            new() { Name = "mix", Duration = 40, Loops = true, Tracks = { Track(peak, (0, 14, 0.5f), (20, 34, 1.25f)), Track(dip, (8, 26, 0.75f)) } },
             new() { Name = "peak", Duration = 30, Next = "dip", Tracks = { Track(peak, (5, 25, 3f)) } },
         ], pack, game);
     }
