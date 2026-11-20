@@ -20,7 +20,6 @@ internal enum ConsumerMethodKind : byte
 {
     Fold,
     ExecuteActive,
-    ExecuteBatch,
     OnClipStart,
     OnClipEnd,
     OnMarker,
@@ -33,7 +32,6 @@ internal enum ConsumerParamKind : byte
     MarkerFrame,
     FoldFeed,
     FoldResult,
-    BatchItems,
     Column,
     ColumnReadOnly,
     Context,
@@ -41,7 +39,7 @@ internal enum ConsumerParamKind : byte
     Events,
 }
 
-internal sealed record ConsumerParam(string Name, string TypeName, string Modifier, ConsumerParamKind Kind, int FoldIndex, string BatchElement);
+internal sealed record ConsumerParam(string Name, string TypeName, string Modifier, ConsumerParamKind Kind, int FoldIndex);
 
 internal sealed record DirectLane(bool Eligible, string Op, string WrittenType, string WrittenMember, IReadOnlyList<int> FoldOffsets, IReadOnlyList<string> ReadTypes)
 {

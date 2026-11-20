@@ -3,10 +3,6 @@ type Tl.AdvanceResult
   Field Tl.AdvanceResult Removed
   Field Tl.AdvanceResult Unknown
   Field Byte value__
-type Tl.BatchItem`1
-  Field R Fold
-  Field Int32 Row
-  Field UInt16 Tick
 type Tl.ClipEvent
   Field Tl.ClipEvent End
   Field Tl.ClipEvent Marker

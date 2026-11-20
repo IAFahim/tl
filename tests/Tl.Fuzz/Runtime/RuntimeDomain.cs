@@ -108,10 +108,11 @@ public readonly struct FuzzBatchConsumer : ITrack<FuzzBatchTrack, FuzzBatchClip>
     public static void Fold(in Frame<FuzzBatchTrack, FuzzBatchClip> frame, out int weight)
         => weight = frame.Direction * (frame.Clip.Weight + frame.Track.Bias);
 
-    public static void ExecuteBatch(in Frame<FuzzBatchTrack, FuzzBatchClip> frame, ReadOnlySpan<BatchItem<int>> items, Span<PlainStats> stats)
+    public static void ExecuteActive(in Frame<FuzzBatchTrack, FuzzBatchClip> frame, in int weight, ref PlainStats stats)
+        => stats.BatchHits += weight;
+
+    public static void OnClipStart(in Frame<FuzzBatchTrack, FuzzBatchClip> frame)
     {
-        for (var i = 0; i < items.Length; i++)
-            stats[items[i].Row].BatchHits += items[i].Fold;
     }
 }
 

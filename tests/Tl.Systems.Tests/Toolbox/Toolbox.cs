@@ -202,17 +202,20 @@ public readonly struct Jump : ITrack<ArcTrack, ArcClip>
     }
 }
 
-public readonly struct MoveBatch : ITrack<MoveTrack, MoveClip>
+public readonly struct MoveLift : ITrack<MoveTrack, MoveClip>
 {
     public static void Fold(in Frame<MoveTrack, MoveClip> frame, out float lift)
     {
         lift = frame.Direction * frame.Clip.Delta * frame.Track.Gain;
     }
 
-    public static void ExecuteBatch(in Frame<MoveTrack, MoveClip> frame, global::System.ReadOnlySpan<BatchItem<float>> items, global::System.Span<Motion> motion)
+    public static void ExecuteActive(in Frame<MoveTrack, MoveClip> frame, in float lift, ref Motion motion)
     {
-        for (var i = 0; i < items.Length; i++)
-            motion[items[i].Row].Y += items[i].Fold;
+        motion.Y += lift;
+    }
+
+    public static void OnClipEnd(in Frame<MoveTrack, MoveClip> frame)
+    {
     }
 }
 

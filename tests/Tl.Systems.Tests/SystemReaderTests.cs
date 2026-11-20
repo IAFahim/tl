@@ -108,7 +108,7 @@ public sealed class SystemReaderTests
     }
 
     [Fact]
-    public void ActivePlusBatchIsTlgen95()
+    public void ARemovedExecuteBatchIsTlgen95EvenNextToExecuteActive()
     {
         var read = Read(Prelude + """
         [TimelineSystem]
@@ -117,25 +117,11 @@ public sealed class SystemReaderTests
         {
             public static void Fold(in Frame<T1, C1> frame, out float lift) { lift = 0; }
             public static void ExecuteActive(in Frame<T1, C1> frame, in float lift, ref ColA a) { }
-            public static void ExecuteBatch(in Frame<T1, C1> frame, global::System.ReadOnlySpan<BatchItem<float>> items, global::System.Span<ColA> a) { }
+            public static void ExecuteBatch(in Frame<T1, C1> frame, global::System.ReadOnlySpan<float> items, global::System.Span<ColA> a) { }
         }
         """);
         Code(read.Diagnostics, "TLGEN95");
-    }
-
-    [Fact]
-    public void BatchElementMismatchIsTlgen96()
-    {
-        var read = Read(Prelude + """
-        [TimelineSystem]
-        public ref partial struct S1 { public global::System.Span<ColA> A; }
-        public readonly struct C : ITrack<T1, C1>
-        {
-            public static void Fold(in Frame<T1, C1> frame, out float lift) { lift = 0; }
-            public static void ExecuteBatch(in Frame<T1, C1> frame, global::System.ReadOnlySpan<BatchItem<int>> items, global::System.Span<ColA> a) { }
-        }
-        """);
-        Code(read.Diagnostics, "TLGEN96");
+        Assert.Contains(read.Diagnostics, static d => d.Code == "TLGEN95" && d.Message.Contains("ExecuteBatch, which was removed", StringComparison.Ordinal));
     }
 
     [Fact]

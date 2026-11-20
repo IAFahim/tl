@@ -145,19 +145,6 @@ internal static class SystemEmitter
         return sum;
     }
 
-    static int FoldOutOffset(SystemConsumer consumer, string element)
-    {
-        var fold = FoldOf(consumer);
-        if (fold is null) return 0;
-        var offset = 0;
-        for (var o = 0; o < fold.Params.Count; o++)
-        {
-            if (string.Equals(fold.Params[o].TypeName, element, StringComparison.Ordinal)) return offset;
-            offset += fold.FoldSizes[o];
-        }
-        return offset;
-    }
-
     static void EmitFrameHelper(StringBuilder writer, SystemConsumer consumer, int index)
     {
         W(writer, $"internal static void Frame_{index}(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out {consumer.TrackTypeName} track, out {consumer.ClipTypeName} clip, out global::Tl.Frame<{consumer.TrackTypeName}, {consumer.ClipTypeName}> frame)");
@@ -326,8 +313,6 @@ internal static class SystemEmitter
         if (HasLegacy(assignment)) { W(writer, $"RunClose(world, players, forward{FullArgs(shape, false)}); RunLegacyRange(world, players, forward{FullArgs(shape, true)});"); }
         EmitKindLoops(writer, assignment, shape);
         W(writer, "}");
-        foreach (var batch in BatchConsumers(consumers))
-            EmitFlush(writer, assignment, shape, batch.consumer, batch.index);
         EmitKindMethods(writer, assignment, shape, feedKey);
         if (HasLegacy(assignment)) { EmitCloseMethod(writer, assignment, shape); EmitLegacyRangeMethod(writer, assignment, shape); EmitFusedKernel(writer, assignment, shape, id, true); }
         W(writer, "}");
@@ -352,7 +337,6 @@ internal static class SystemEmitter
     {
         EmitLocalDecls(writer, shape);
         if (!ranged) EmitCloseLoop(writer, assignment, shape);
-        EmitBatchDecls(writer, assignment);
         EmitEntityScanOpen(writer, ranged);
         W(writer, "var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
         W(writer, "if (__count == 0) continue;");
@@ -383,9 +367,7 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");
-        W(writer, "}");
-        EmitBatchTails(writer, assignment, shape);
-    }
+        W(writer, "}");    }
 
     static void EmitKindLoops(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
     {
@@ -802,7 +784,6 @@ internal static class SystemEmitter
         W(writer, "var __view = world.View; var __pview = players.View;");
         EmitLocalDecls(writer, shape);
         if (!ranged) EmitCloseLoop(writer, assignment, shape);
-        EmitBatchDecls(writer, assignment);
         EmitEntityScanOpen(writer, ranged);
         W(writer, "var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
         W(writer, "for (var __s = 0; __s < __cnt; __s++)");
@@ -850,9 +831,7 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");
-        W(writer, "}");
-        EmitBatchTails(writer, assignment, shape);
-        if (!ranged) W(writer, "global::Tl.ClosingList.Clear(players.Closing);");
+        W(writer, "}");        if (!ranged) W(writer, "global::Tl.ClosingList.Clear(players.Closing);");
         W(writer, "}");
     }
 
@@ -912,7 +891,7 @@ internal static class SystemEmitter
             if (closing)
                 EmitCloseCase(writer, assignment, shape, consumer, c, flags, entity, tick, tl);
             else
-                EmitStepCase(writer, assignment, shape, consumer, c, flags, backward, entity, slot, tl, tick);
+                EmitStepCase(writer, assignment, shape, consumer, c, flags, backward, entity, tl, tick);
             W(writer, "break;");
             W(writer, "}");
         }
@@ -979,9 +958,6 @@ internal static class SystemEmitter
                 case ConsumerParamKind.FoldFeed:
                     args.Add($"in {feedPrefix}{parameter.FoldIndex}");
                     break;
-                case ConsumerParamKind.BatchItems:
-                    args.Add($"__items{index}");
-                    break;
                 case ConsumerParamKind.Column:
                 {
                     var at = ColumnOf(shape, parameter.TypeName, true);
@@ -1020,35 +996,22 @@ internal static class SystemEmitter
         W(writer, $"{consumer.ConsumerTypeName}.OnClipEnd({CallArgs(shape, end, index, $"__f{index}", entity, $"__fd{index}_")});");
     }
 
-    static void EmitStepCase(StringBuilder writer, SystemAssignment assignment, KernelShape shape, SystemConsumer consumer, int index, string flags, string backward, string entity, string slot, string tl, string tick)
+    static void EmitStepCase(StringBuilder writer, SystemAssignment assignment, KernelShape shape, SystemConsumer consumer, int index, string flags, string backward, string entity, string tl, string tick)
     {
-        ConsumerMethod? active = null, batch = null, start = null, end = null;
+        ConsumerMethod? active = null, start = null, end = null;
         foreach (var method in consumer.Methods)
         {
             if (method.Kind == ConsumerMethodKind.ExecuteActive) active = method;
-            if (method.Kind == ConsumerMethodKind.ExecuteBatch) batch = method;
             if (method.Kind == ConsumerMethodKind.OnClipStart) start = method;
             if (method.Kind == ConsumerMethodKind.OnClipEnd) end = method;
         }
-        var direct = active is not null && batch is null && start is null && active.Direct.Eligible;
+        var direct = active is not null && start is null && active.Direct.Eligible;
         if (!direct)
         {
             EmitMaterialize(writer, consumer, index, tl, tick, backward, flags);
             if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, index);
         }
-        if (batch is not null)
-        {
-            var element = batch.Params[1].BatchElement;
-            var elementOffset = FoldOutOffset(consumer, element);
-            W(writer, $"if (__def->FoldLane == null) throw new global::System.InvalidOperationException(\"{consumer.ConsumerTypeName}: fold lane is not loaded.\");");
-            W(writer, $"int __syn{index} = (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0 ? 2 : ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && {tick} > 0) ? 1 : 0;");
-            W(writer, $"if (__bn{index} >= 128 || __bstage{index} != __stage || __bstep{index} != __entry.Step || __btick{index} != {tick} || __bdir{index} != (__backward ? 1 : 0) || __bsyn{index} != __syn{index}) {{ Flush_{index}(__bb{index}, __bsl{index}, __bn{index}, __bstage{index}, __bstep{index}, __btick{index}, __bdir{index}, __bsyn{index}, __bdur{index}, {FlushCallArgs(shape)}); __bn{index} = 0; __bstep{index} = -1; }}");
-            W(writer, $"__bstage{index} = __stage; __bstep{index} = __entry.Step; __btick{index} = {tick}; __bdir{index} = __backward ? 1 : 0; __bsyn{index} = __syn{index}; __bdur{index} = (ushort)__tl->Duration;");
-            W(writer, $"__bb{index}[__bn{index}] = new global::Tl.BatchItem<{element}>({entity}, {tick}, *({element}*)((byte*)__def->FoldLane + (((uint){tick} - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint){LaneBytes(consumer)} + {elementOffset}));");
-            W(writer, $"__bsl{index}[__bn{index}] = {slot};");
-            W(writer, $"__bn{index}++;");
-        }
-        else if (active is not null)
+        if (active is not null)
         {
             if (direct)
             {
@@ -1067,7 +1030,7 @@ internal static class SystemEmitter
         }
         if (start is not null)
             W(writer, $"if ({tick} == __def->WindowStart && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) {consumer.ConsumerTypeName}.OnClipStart({CallArgs(shape, start, index, $"__f{index}", entity, $"__fd{index}_")});");
-        if (end is not null && batch is null && !direct)
+        if (end is not null && !direct)
             W(writer, $"if ({tick} == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) {consumer.ConsumerTypeName}.OnClipEnd({CallArgs(shape, end, index, $"__f{index}", entity, $"__fd{index}_")});");
     }
 
@@ -1093,207 +1056,11 @@ internal static class SystemEmitter
         W(writer, $"{writtenRef} {direct.Op} {string.Join(" * ", parts)};");
     }
 
-    static void EmitBatchDecls(StringBuilder writer, SystemAssignment assignment)
-    {
-        foreach (var batch in BatchConsumers(assignment.Consumers))
-        {
-            var element = "";
-            foreach (var method in batch.consumer.Methods)
-                if (method.Kind == ConsumerMethodKind.ExecuteBatch) element = method.Params[1].BatchElement;
-            W(writer, $"global::Tl.BatchItem<{element}>* __bb{batch.index} = stackalloc global::Tl.BatchItem<{element}>[128];");
-            W(writer, $"int* __bsl{batch.index} = stackalloc int[128];");
-            W(writer, $"int __bn{batch.index} = 0;");
-            W(writer, $"global::Tl.LibraryStage* __bstage{batch.index} = null;");
-            W(writer, $"int __bstep{batch.index} = -1; ushort __btick{batch.index} = 0; int __bdir{batch.index} = 0; int __bsyn{batch.index} = 0; ushort __bdur{batch.index} = 0;");
-        }
-    }
-
-    static string FlushCallArgs(KernelShape shape)
-    {
-        var sb = new StringBuilder();
-        var first = true;
-        for (var i = 0; i < shape.Columns.Count; i++)
-            if (shape.UsedColumns[i]) { if (!first) sb.Append(", "); sb.Append($"__c{i}"); first = false; }
-        sb.Append(", __n");
-        for (var i = 0; i < shape.Contexts.Count; i++)
-            if (shape.UsedContexts[i]) sb.Append($", ref __ctx{i}");
-        for (var i = 0; i < shape.Requests.Count; i++) sb.Append($", __req{i}");
-        for (var i = 0; i < shape.Events.Count; i++) sb.Append($", __ev{i}");
-        return sb.ToString();
-    }
     static string EventElement(string typeName)
     {
         var start = typeName.IndexOf('<');
         var end = typeName.LastIndexOf('>');
         return start >= 0 && end > start ? typeName.Substring(start + 1, end - start - 1) : typeName;
-    }
-
-    static void EmitBatchTails(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
-    {
-        foreach (var batch in BatchConsumers(assignment.Consumers))
-            W(writer, $"if (__bn{batch.index} > 0 && __bstage{batch.index} != null) {{ Flush_{batch.index}(__bb{batch.index}, __bsl{batch.index}, __bn{batch.index}, __bstage{batch.index}, __bstep{batch.index}, __btick{batch.index}, __bdir{batch.index}, __bsyn{batch.index}, __bdur{batch.index}, {FlushCallArgs(shape)}); __bn{batch.index} = 0; }}");
-    }
-
-    static void EmitFlush(StringBuilder writer, SystemAssignment assignment, KernelShape shape, SystemConsumer consumer, int index)
-    {
-        var batch = null as ConsumerMethod;
-        foreach (var method in consumer.Methods)
-            if (method.Kind == ConsumerMethodKind.ExecuteBatch) batch = method;
-        if (batch is null) return;
-        var element = batch.Params[1].BatchElement;
-        ConsumerMethod? end = null;
-        foreach (var method in consumer.Methods)
-            if (method.Kind == ConsumerMethodKind.OnClipEnd) end = method;
-        var signature = new StringBuilder();
-        signature.Append($"internal static void Flush_{index}(global::Tl.BatchItem<{element}>* items, int* slots, int count, global::Tl.LibraryStage* stageBase, int stepIndex, ushort tick, int dir, int syn, ushort duration");
-        var colIds = new List<int>();
-        for (var i = 0; i < shape.Columns.Count; i++)
-            if (shape.UsedColumns[i]) colIds.Add(i);
-        foreach (var id in colIds) signature.Append($", {shape.Columns[id].ElementTypeName}* __fc{id}");
-        signature.Append(", int __fn");
-        for (var i = 0; i < shape.Contexts.Count; i++)
-            if (shape.UsedContexts[i]) signature.Append($", ref {shape.Contexts[i].ElementTypeName} __fx{i}");
-        for (var i = 0; i < shape.Requests.Count; i++) signature.Append(", global::Tl.Requests __rx" + i);
-        for (var i = 0; i < shape.Events.Count; i++) signature.Append($", {shape.Events[i].TypeName} __ex{i}");
-        signature.Append(')');
-        W(writer, signature.ToString());
-        W(writer, "{");
-        W(writer, "if (count == 0 || stepIndex < 0 || stageBase == null) return;");
-        W(writer, "var __def = stageBase->Steps + stepIndex;");
-        W(writer, "if (tick < __def->WindowStart || tick >= __def->WindowEnd) return;");
-        W(writer, $"byte* __row = (byte*)__def->FrameRow;");
-        W(writer, $"byte* __first = __row + sizeof({consumer.TrackTypeName});");
-        W(writer, $"byte* __second = __def->FactorSpan == 0 ? null : __first + sizeof({consumer.ClipTypeName});");
-        W(writer, $"float __blend = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));");
-        W(writer, $"ushort __len = (ushort)(__def->WindowEnd - __def->WindowStart);");
-        W(writer, $"ushort __within = (ushort)(tick - __def->WindowStart);");
-        W(writer, "sbyte __dir = dir != 0 ? (sbyte)-1 : (sbyte)1;");
-        W(writer, "var __fbase = (__dir != 0 ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None) | (syn != 0 ? global::Tl.FrameFlags.Synthetic : global::Tl.FrameFlags.None);");
-        W(writer, "if (tick == 0) __fbase |= global::Tl.FrameFlags.TimelineStart;");
-        W(writer, "if (tick == (ushort)(duration - 1)) __fbase |= global::Tl.FrameFlags.TimelineEnd;");
-        W(writer, $"Frame_{index}(__row, __first, __second, __blend, tick, __len, __within, (ushort)__def->TrackIndex, duration, __dir, __fbase, out var __t, out var __c, out var __frame);");
-        W(writer, $"var __items = new global::System.ReadOnlySpan<global::Tl.BatchItem<{element}>>(items, count);");
-        var call = new StringBuilder();
-        call.Append($"{consumer.ConsumerTypeName}.ExecuteBatch(in __frame, __items");
-        foreach (var parameter in batch.Params)
-        {
-            if (parameter.Kind == ConsumerParamKind.Frame || parameter.Kind == ConsumerParamKind.BatchItems) continue;
-            call.Append(", " + FlushArg(shape, parameter));
-        }
-        call.Append(");");
-        W(writer, call.ToString());
-        if (end is not null)
-        {
-            W(writer, "if (tick == __def->WindowEnd - 1 && syn != 2)");
-            W(writer, "{");
-            W(writer, "for (var __k = 0; __k < count; __k++)");
-            W(writer, "{");
-            var ordinal = 0;
-            foreach (var parameter in end.Params)
-            {
-                if (parameter.Kind == ConsumerParamKind.Frame) continue;
-                var bind = EndBind(shape, parameter, ordinal);
-                if (bind.Length > 0) W(writer, bind);
-                ordinal++;
-            }
-            W(writer, $"{consumer.ConsumerTypeName}.OnClipEnd({EndArgs(shape, end)});");
-            W(writer, "}");
-            W(writer, "}");
-        }
-        W(writer, "}");
-    }
-
-    static string FlushArg(KernelShape shape, ConsumerParam parameter)
-    {
-        switch (parameter.Kind)
-        {
-            case ConsumerParamKind.Column:
-            {
-                var at = ColumnOf(shape, parameter.TypeName, true);
-                return at >= 0 ? $"new global::System.Span<{parameter.TypeName}>(__fc{at}, __fn)" : "default";
-            }
-            case ConsumerParamKind.ColumnReadOnly:
-            {
-                var at = ColumnOf(shape, parameter.TypeName, false);
-                return at >= 0 ? $"new global::System.ReadOnlySpan<{parameter.TypeName}>(__fc{at}, __fn)" : "default";
-            }
-            case ConsumerParamKind.Context:
-            {
-                var at = ContextOf(shape, parameter.TypeName);
-                return at >= 0 ? $"{parameter.Modifier}__fx{at}" : "default";
-            }
-            case ConsumerParamKind.Requests:
-                return "ref __rr";
-            case ConsumerParamKind.Events:
-                return "ref __er";
-            default:
-                return "default";
-        }
-    }
-
-    static string EndBind(KernelShape shape, ConsumerParam parameter, int ordinal)
-    {
-        switch (parameter.Kind)
-        {
-            case ConsumerParamKind.Column:
-            {
-                var at = ColumnOf(shape, parameter.TypeName, true);
-                return at >= 0 ? $"ref var __erow{ordinal} = ref __fc{at}[items[__k].Row];" : "";
-            }
-            case ConsumerParamKind.ColumnReadOnly:
-                return "";
-            case ConsumerParamKind.Requests:
-                return $"var __rr{ordinal} = __rx0.For(items[__k].Row, slots[__k]);";
-            case ConsumerParamKind.Events:
-                return $"var __er{ordinal} = __ex{EventOf(shape, EventElement(parameter.TypeName))}; __er{ordinal}.Bind(items[__k].Row, slots[__k]);";
-            default:
-                return "";
-        }
-    }
-
-    static string EndArgs(KernelShape shape, ConsumerMethod end)
-    {
-        var args = new List<string> { "in __frame" };
-        var ordinal = 0;
-        foreach (var parameter in end.Params)
-        {
-            if (parameter.Kind == ConsumerParamKind.Frame) continue;
-            switch (parameter.Kind)
-            {
-                case ConsumerParamKind.Column:
-                    args.Add($"ref __erow{ordinal}");
-                    break;
-                case ConsumerParamKind.ColumnReadOnly:
-                {
-                    var at = ColumnOf(shape, parameter.TypeName, false);
-                    args.Add(at >= 0 ? $"in __fc{at}[items[__k].Row]" : "in __unused");
-                    break;
-                }
-                case ConsumerParamKind.Context:
-                {
-                    var at = ContextOf(shape, parameter.TypeName);
-                    args.Add(at >= 0 ? $"{parameter.Modifier}__fx{at}" : $"{parameter.Modifier}__unused");
-                    break;
-                }
-                case ConsumerParamKind.Requests:
-                    args.Add($"ref __rr{ordinal}");
-                    break;
-                case ConsumerParamKind.Events:
-                    args.Add($"ref __er{ordinal}");
-                    break;
-            }
-            ordinal++;
-        }
-        return string.Join(", ", args);
-    }
-
-    static List<(SystemConsumer consumer, int index)> BatchConsumers(IReadOnlyList<SystemConsumer> consumers)
-    {
-        var list = new List<(SystemConsumer consumer, int index)>();
-        for (var i = 0; i < consumers.Count; i++)
-            foreach (var method in consumers[i].Methods)
-                if (method.Kind == ConsumerMethodKind.ExecuteBatch) { list.Add((consumers[i], i)); break; }
-        return list;
     }
 
     static void EmitMarkers(StringBuilder writer, SystemAssignment assignment, KernelShape shape, string tl, string tick, string flags, string entity, string slot)

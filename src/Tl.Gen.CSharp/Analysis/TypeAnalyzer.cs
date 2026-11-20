@@ -128,7 +128,7 @@ internal static class TypeAnalyzer
                     var origin = parameter.Type.OriginalDefinition;
                     if (origin is INamedTypeSymbol named
                         && named.ContainingNamespace?.ToDisplayString() == "Tl"
-                        && named.Name is "Requests" or "Events" or "BatchItem")
+                        && named.Name is "Requests" or "Events")
                         return true;
                 }
         }

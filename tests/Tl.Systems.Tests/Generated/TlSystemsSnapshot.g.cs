@@ -49,7 +49,7 @@ case 1:
 {
 TlSystem_Test_global__Game_Movement.Frame_6(track, first, second == first ? null : second, blend, tick, windowLength, withinClip, trackIndex, duration, direction, __FF.None, out var __t, out var __c, out var __frame);
 float __out0 = default;
-global::Game.MoveBatch.Fold(in __frame, out __out0);
+global::Game.MoveLift.Fold(in __frame, out __out0);
 *(float*)(lane + 0) = __out0;
 return;
 }
@@ -165,7 +165,7 @@ clip = *(global::Game.MoveClip*)firstPtr;
 if (secondPtr != null)
 {
 global::Game.MoveClip __second = *(global::Game.MoveClip*)secondPtr;
-throw new System.InvalidOperationException("global::Game.MoveBatch: blended window without IBlend.");
+throw new System.InvalidOperationException("global::Game.MoveLift: blended window without IBlend.");
 }
 var __flags = (direction < 0 ? __FF.Reverse : __FF.None) | extra;
 if (withinClip == 0) __flags |= __FF.ClipStart;
@@ -178,25 +178,6 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __c2, __c3, __n, __req0, __ev0); RunLegacyRange(world, players, forward, __c0, __c1, __c2, __c3, __n, 0, 2147483647, __req0, __ev0);
-}
-internal static void Flush_6(Tl.BatchItem<float>* items, int* slots, int count, Tl.LibraryStage* stageBase, int stepIndex, ushort tick, int dir, int syn, ushort duration, global::Game.Motion* __fc0, global::Game.JumpPower* __fc1, global::Game.Stats* __fc2, global::Game.InputState* __fc3, int __fn, Tl.Requests __rx0, Tl.Events<global::Game.Cue> __ex0)
-{
-if (count == 0 || stepIndex < 0 || stageBase == null) return;
-var __def = stageBase->Steps + stepIndex;
-if (tick < __def->WindowStart || tick >= __def->WindowEnd) return;
-byte* __row = (byte*)__def->FrameRow;
-byte* __first = __row + sizeof(global::Game.MoveTrack);
-byte* __second = __def->FactorSpan == 0 ? null : __first + sizeof(global::Game.MoveClip);
-float __blend = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within = (ushort)(tick - __def->WindowStart);
-sbyte __dir = dir != 0 ? (sbyte)-1 : (sbyte)1;
-var __fbase = (__dir != 0 ? __FF.Reverse : __FF.None) | (syn != 0 ? __FF.Synthetic : __FF.None);
-if (tick == 0) __fbase |= __FF.TimelineStart;
-if (tick == (ushort)(duration - 1)) __fbase |= __FF.TimelineEnd;
-Frame_6(__row, __first, __second, __blend, tick, __len, __within, (ushort)__def->TrackIndex, duration, __dir, __fbase, out var __t, out var __c, out var __frame);
-var __items = new System.ReadOnlySpan<Tl.BatchItem<float>>(items, count);
-global::Game.MoveBatch.ExecuteBatch(in __frame, __items, new System.Span<global::Game.Motion>(__fc0, __fn));
 }
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, int __n, Tl.Requests __req0, Tl.Events<global::Game.Cue> __ev0)
 {
@@ -276,6 +257,15 @@ case 6:
 {
 var __def = __cstage->Steps + __entry.Step;
 if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
+byte* __row6 = (byte*)__def->FrameRow;
+byte* __first6 = __row6 + sizeof(global::Game.MoveTrack);
+byte* __second6 = __def->FactorSpan == 0 ? null : __first6 + sizeof(global::Game.MoveClip);
+float __blend6 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__ctick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len6 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within6 = (ushort)(__ctick - __def->WindowStart);
+sbyte __dir6 = __cbackward ? (sbyte)-1 : (sbyte)1;
+Frame_6(__row6, __first6, __second6, __blend6, __ctick, __len6, __within6, (ushort)__def->TrackIndex, (ushort)__ctl->Duration, __dir6, __cbase, out var __t6, out var __cc6, out var __f6);
+global::Game.MoveLift.OnClipEnd(in __f6);
 break;
 }
 }
@@ -287,11 +277,6 @@ internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable pla
 var __view = world.View; var __pview = players.View;
 Tl.Requests __rq0;
 Tl.Events<global::Game.Cue> __eb0;
-Tl.BatchItem<float>* __bb6 = stackalloc Tl.BatchItem<float>[128];
-int* __bsl6 = stackalloc int[128];
-int __bn6 = 0;
-Tl.LibraryStage* __bstage6 = null;
-int __bstep6 = -1; ushort __btick6 = 0; int __bdir6 = 0; int __bsyn6 = 0; ushort __bdur6 = 0;
 var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
 for (var __w = __firstWord; __w < __w1; __w++)
 {
@@ -431,6 +416,8 @@ case 6:
 {
 var __def = __stage->Steps + __entry.Step;
 if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+if (__def->FoldLane == null)
+{
 byte* __row6 = (byte*)__def->FrameRow;
 byte* __first6 = __row6 + sizeof(global::Game.MoveTrack);
 byte* __second6 = __def->FactorSpan == 0 ? null : __first6 + sizeof(global::Game.MoveClip);
@@ -443,19 +430,20 @@ byte* __lane6 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 
 float __fd6_0 = default;
 if (__def->FoldLane == null)
 {
-global::Game.MoveBatch.Fold(in __f6, out __fd6_0);
+global::Game.MoveLift.Fold(in __f6, out __fd6_0);
 }
 else
 {
 __fd6_0 = *(float*)(__lane6 + 0);
 }
-if (__def->FoldLane == null) throw new System.InvalidOperationException("global::Game.MoveBatch: fold lane is not loaded.");
-int __syn6 = (__pb->Flags & __PF.ReenterPending) != 0 ? 2 : ((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) ? 1 : 0;
-if (__bn6 >= 128 || __bstage6 != __stage || __bstep6 != __entry.Step || __btick6 != __tick || __bdir6 != (__backward ? 1 : 0) || __bsyn6 != __syn6) { Flush_6(__bb6, __bsl6, __bn6, __bstage6, __bstep6, __btick6, __bdir6, __bsyn6, __bdur6, __c0, __c1, __c2, __c3, __n, __req0, __ev0); __bn6 = 0; __bstep6 = -1; }
-__bstage6 = __stage; __bstep6 = __entry.Step; __btick6 = __tick; __bdir6 = __backward ? 1 : 0; __bsyn6 = __syn6; __bdur6 = (ushort)__tl->Duration;
-__bb6[__bn6] = new Tl.BatchItem<float>(__e, __tick, *(float*)((byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4 + 0));
-__bsl6[__bn6] = __s;
-__bn6++;
+global::Game.MoveLift.ExecuteActive(in __f6, in __fd6_0, ref __c0[__e]);
+}
+else
+{
+byte* __lane6 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
+float __fd6_0 = *(float*)((byte*)__lane6 + 0);
+__c0[__e].Y += __fd6_0;
+}
 break;
 }
 }
@@ -477,18 +465,12 @@ global::Game.Footsteps.OnMarker(in __mf2, ref __eb0);
 }
 }
 }
-if (__bn6 > 0 && __bstage6 != null) { Flush_6(__bb6, __bsl6, __bn6, __bstage6, __bstep6, __btick6, __bdir6, __bsyn6, __bdur6, __c0, __c1, __c2, __c3, __n, __req0, __ev0); __bn6 = 0; }
 }
 internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, int __n, int __firstWord, int __endWord, Tl.Requests __req0, Tl.Events<global::Game.Cue> __ev0)
 {
 var __view = world.View; var __pview = players.View;
 Tl.Requests __rq0;
 Tl.Events<global::Game.Cue> __eb0;
-Tl.BatchItem<float>* __bb6 = stackalloc Tl.BatchItem<float>[128];
-int* __bsl6 = stackalloc int[128];
-int __bn6 = 0;
-Tl.LibraryStage* __bstage6 = null;
-int __bstep6 = -1; ushort __btick6 = 0; int __bdir6 = 0; int __bsyn6 = 0; ushort __bdur6 = 0;
 var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
 for (var __w = __firstWord; __w < __w1; __w++)
 {
@@ -632,6 +614,8 @@ case 6:
 {
 var __def = __stage->Steps + __entry.Step;
 if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+if (__def->FoldLane == null)
+{
 byte* __row6 = (byte*)__def->FrameRow;
 byte* __first6 = __row6 + sizeof(global::Game.MoveTrack);
 byte* __second6 = __def->FactorSpan == 0 ? null : __first6 + sizeof(global::Game.MoveClip);
@@ -644,19 +628,20 @@ byte* __lane6 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 
 float __fd6_0 = default;
 if (__def->FoldLane == null)
 {
-global::Game.MoveBatch.Fold(in __f6, out __fd6_0);
+global::Game.MoveLift.Fold(in __f6, out __fd6_0);
 }
 else
 {
 __fd6_0 = *(float*)(__lane6 + 0);
 }
-if (__def->FoldLane == null) throw new System.InvalidOperationException("global::Game.MoveBatch: fold lane is not loaded.");
-int __syn6 = (__pb->Flags & __PF.ReenterPending) != 0 ? 2 : ((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) ? 1 : 0;
-if (__bn6 >= 128 || __bstage6 != __stage || __bstep6 != __entry.Step || __btick6 != __tick || __bdir6 != (__backward ? 1 : 0) || __bsyn6 != __syn6) { Flush_6(__bb6, __bsl6, __bn6, __bstage6, __bstep6, __btick6, __bdir6, __bsyn6, __bdur6, __c0, __c1, __c2, __c3, __n, __req0, __ev0); __bn6 = 0; __bstep6 = -1; }
-__bstage6 = __stage; __bstep6 = __entry.Step; __btick6 = __tick; __bdir6 = __backward ? 1 : 0; __bsyn6 = __syn6; __bdur6 = (ushort)__tl->Duration;
-__bb6[__bn6] = new Tl.BatchItem<float>(__e, __tick, *(float*)((byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4 + 0));
-__bsl6[__bn6] = __s;
-__bn6++;
+global::Game.MoveLift.ExecuteActive(in __f6, in __fd6_0, ref __c0[__e]);
+}
+else
+{
+byte* __lane6 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
+float __fd6_0 = *(float*)((byte*)__lane6 + 0);
+__c0[__e].Y += __fd6_0;
+}
 break;
 }
 }
@@ -691,7 +676,6 @@ if ((__pb->Flags & (__PF.Ended | __PF.Paused)) != 0) break;
 }
 }
 }
-if (__bn6 > 0 && __bstage6 != null) { Flush_6(__bb6, __bsl6, __bn6, __bstage6, __bstep6, __btick6, __bdir6, __bsyn6, __bdur6, __c0, __c1, __c2, __c3, __n, __req0, __ev0); __bn6 = 0; }
 }
 }
 internal static unsafe class TlSystem_Test_global__Game_Combat
