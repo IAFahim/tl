@@ -183,6 +183,16 @@ public sealed unsafe class KindTickTests : IDisposable
                         if ((entry->Flags & KindEntryFlags.Span) != 0) flags &= unchecked((byte)~(byte)KindEntryFlags.Synthetic);
                         have.Add(new Key(flags, entry->Timeline == 0 ? (byte)0 : entry->Slot, entry->Timeline, entry->Step, entry->Timeline == 0 ? (byte)0 : entry->Feeder, entry->Timeline == 0 ? *(int*)((byte*)entry + 8) : 0));
                     }
+                var score = run.Store.Score;
+                for (var i = 0; i < p.CountOf(e); i++)
+                {
+                    var s = p.SlotsOf(e) + i;
+                    if (s->Timeline == 0 || !KindScore.Listed(s->Flags)) continue;
+                    var cell = score.CellOf(s->Timeline, s->Tick, k);
+                    if (cell < 0) continue;
+                    for (var f = score.Start[cell]; f < score.Start[cell + 1]; f++)
+                        have.Add(new Key((byte)KindEntryFlags.Span, (byte)i, s->Timeline, score.Spans[f].Window, score.Spans[f].Ordinal, 0));
+                }
                 var expect = want.TryGetValue((e, k), out var l) ? l : new List<Key>();
                 var a = have.OrderBy(x => x.GetHashCode()).ThenBy(x => x.ToString(), StringComparer.Ordinal).ToList();
                 var b = expect.OrderBy(x => x.GetHashCode()).ThenBy(x => x.ToString(), StringComparer.Ordinal).ToList();
@@ -264,7 +274,12 @@ public sealed unsafe class KindTickTests : IDisposable
                     }
                 }
             }
-            run.Store.ClearPulses();
+            for (var k = 0; k < run.Store.KindCount; k++)
+            {
+                var consumed = run.Store.Table(k);
+                if (consumed == null) continue;
+                for (var r = 0; r < consumed->Rows; r++) consumed->Clear(r);
+            }
         }
         _ = damage;
         Assert.Equal(0, mismatches);

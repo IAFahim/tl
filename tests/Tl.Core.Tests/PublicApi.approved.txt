@@ -77,10 +77,10 @@ type Tl.IHostedConsumer
 type Tl.IKindRows
   Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
   Method Void Purge(Int32, Byte, UInt16)
-  Method Void RemoveSpan(Int32, Int32, Byte, UInt16, UInt16)
   Method Tl.Playback* Reserve(Int32, Int32, Int32)
-  Method Void Sample(Int32, Byte, Byte)
-  Method Void Unsample(Int32)
+  Method Void Sampled(Int32, Int32)
+type Tl.IKindSteps
+  Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
 type Tl.IMarker`1
 type Tl.IPlaybackSlots
   Method Boolean Admit(UInt16)
@@ -180,7 +180,6 @@ type Tl.KindEntryFlags
   Field Tl.KindEntryFlags Interrupted
   Field Tl.KindEntryFlags Pulse
   Field Tl.KindEntryFlags Ready
-  Field Tl.KindEntryFlags Sample
   Field Tl.KindEntryFlags Span
   Field Tl.KindEntryFlags Synthetic
   Field Byte value__
@@ -218,15 +217,24 @@ type Tl.KindPulses`2
   Method Void To(Int32, T)
 type Tl.KindRules
   Method Void Close[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
-  Method Boolean Due(Tl.KindEntry*, Int32, Tl.Playback*)
-  Method Boolean IsSampled(Byte*, Int32)
-  Field Byte Marker
+  Method Int32 Depth(Tl.Playback*, Int32)
+  Method Boolean Due(Tl.KindEntry*, Int32, Tl.Playback*, Int32)
   Field Int32 MaxSampleSlots
   Method Boolean Rebind[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
-  Method Void Reenter[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
-  Method Int32 SampleDepth(Byte*, Int32, Int32, Tl.Playback*)
   Method Boolean TickEntity[TRows](Tl.KindTables ByRef, Tl.Playback*, Int32, TRows ByRef, Int32, Int32)
   Method Boolean TickSlot[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Int32, Tl.Playback*, Int32)
+type Tl.KindScore
+  Method Tl.KindScore Build[TSteps](Tl.KindTables ByRef, TSteps ByRef)
+  Field Int32* CellBase
+  Method Int32 CellOf(UInt16, Int32, Int32)
+  Field Int32 Cells
+  Method Void Free()
+  Method Boolean Listed(Tl.PlaybackFlags)
+  Field Tl.LibraryKindTimeline* Masks
+  Field Tl.KindSpan* Spans
+  Field Int32* Start
+  Method Boolean Synthetic(Tl.PlaybackFlags, Int32, Tl.LibraryStep*, Boolean)
+  Field Int32 TimelineCount
 type Tl.KindSectionView
   Field Byte* Base
   Field UInt32 Bytes
@@ -249,6 +257,11 @@ type Tl.KindSectionView
   Method Tl.LibraryKindTimeline* TimelineOf(UInt16)
   Field Tl.LibraryKindTimeline* Timelines
   Method Tl.LibraryWindow* Windows(Tl.LibraryKindTimeline*)
+type Tl.KindSpan
+  Field UInt16 Feeder
+  Field Byte Ordinal
+  Field Tl.LibraryStep* Step
+  Field UInt16 Window
 type Tl.KindStats
   Field Int64 BytesPerRow
   Field Int32 MaxLength
@@ -261,10 +274,15 @@ type Tl.KindStore
   Method Int32 IndexOf(System.String)
   Method UInt16* Join(System.String, Int32, System.String, Int32, Int32 ByRef)
   Property Int32 KindCount
+  Method UInt64* ListedOf(Int32)
   Method UInt32 MarkerOf(UInt16, Int32)
   Method System.String NameOf(Int32)
+  Property UInt64* Playing
   Method Tl.KindPulses`1[T] Pulses[T](System.String)
   Method Tl.KindPulses`2[T,TFold] Pulses[T,TFold](System.String)
+  Method Boolean RowsAreEntities(Int32)
+  Method Int32 SamplesOf(Int32)
+  Property Tl.KindScore Score
   Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
   Method Tl.KindTable* Table(Int32)
   Method Int32 TrailingZeros(UInt64)
@@ -285,15 +303,11 @@ type Tl.KindTable
   Field Int32 MaxLength
   Field Int32 Overflows
   Method Void Purge(Int32, Byte, UInt16)
-  Method Void RemovePulses(Int32)
-  Method Boolean RemoveSpan(Int32, Byte, UInt16, UInt16, Int32)
   Field Int32 Rows
-  Method Void Sample(Int32, Byte, Byte)
   Method Void SetEnabled(Int32, Boolean)
   Field UInt64* Spilled
   Property Int64 StorageBytesPerRow
   Field Int32 Stride
-  Method Void Unsample(Int32)
   Field Int32 ValueAt
   Field Int32 Words
 type Tl.KindTables

@@ -356,15 +356,13 @@ public sealed unsafe class GlideDifferentialLaws
             return null;
         }
 
-        public void RemoveSpan(int row, int kind, byte slot, ushort timeline, ushort step) => Events++;
         public void Purge(int row, byte slot, ushort timeline) => Events++;
         public Playback* Reserve(int row, int used, int length)
         {
             Events++;
             return null;
         }
-        public void Sample(int row, byte slot, byte sample) => Events++;
-        public void Unsample(int row) => Events++;
+        public void Sampled(int row, int samples) { }
         public void Seal() { }
     }
 

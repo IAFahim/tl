@@ -160,4 +160,68 @@ public sealed unsafe class KindSpeedTests
         }
         Assert.Equal(new[] { 74, 63, 62, 61 }, health);
     }
+
+    [Fact]
+    public void ARatedPlaybackThatEndsLeavesNoCopiesForLaterSteps()
+    {
+        using var fast = new Game(2);
+        using var slow = new Game(2);
+        var fastDamage = fast.Store.Pulses<int>("KindGame.Damage");
+        var slowDamage = slow.Store.Pulses<int>("KindGame.Damage");
+        fast.Players.Start(0, Jump);
+        fast.Players.SetSpeed(0, Jump, 32);
+        fast.Players.Start(1, Stomp);
+        fast.Players.SetSpeed(1, Stomp, 32);
+        slow.Players.Start(0, Jump);
+        slow.Players.Start(1, Stomp);
+        for (var s = 0; s < 16; s++)
+        {
+            fastDamage.To(1, 1);
+            slowDamage.To(1, 1);
+            fast.Step();
+            slow.Step();
+            slow.Step();
+            Assert.Equal(slow.Motion[0].X, fast.Motion[0].X);
+            Assert.Equal(slow.Motion[0].Y, fast.Motion[0].Y);
+            Assert.Equal(slow.Stamina[0].Value, fast.Stamina[0].Value);
+            Assert.Equal(slow.Health[1].Value, fast.Health[1].Value);
+        }
+        Assert.Equal(0, fast.Store.SamplesOf(0));
+        Assert.Equal(0, fast.Store.SamplesOf(1));
+        Assert.Equal(0, fast.Players.View.SlotOf(0, 0)->Timeline);
+    }
+
+    [Theory]
+    [InlineData(176)]
+    [InlineData(192)]
+    [InlineData(255)]
+    public void APlaybackThatBeginsAndEndsInsideOneStepStillAppliesEveryTick(int speed)
+    {
+        using var fast = new Game(1);
+        using var slow = new Game(1);
+        fast.Players.Start(0, Jump);
+        fast.Players.SetSpeed(0, Jump, (byte)speed);
+        slow.Players.Start(0, Jump);
+        var slowSteps = 0;
+        for (var s = 1; s <= 3; s++)
+        {
+            fast.Step();
+            for (; slowSteps < s * speed / 16; slowSteps++) slow.Step();
+            if (speed % 16 != 0) continue;
+            Assert.Equal(slow.Motion[0].X, fast.Motion[0].X);
+            Assert.Equal(slow.Motion[0].Y, fast.Motion[0].Y);
+            Assert.Equal(slow.Stamina[0].Value, fast.Stamina[0].Value);
+        }
+        for (var s = 0; s < 4; s++)
+        {
+            fast.Step();
+            slow.Step();
+        }
+        Assert.Equal(12f, fast.Motion[0].X);
+        Assert.Equal(72f, fast.Motion[0].Y);
+        Assert.Equal(slow.Motion[0].X, fast.Motion[0].X);
+        Assert.Equal(slow.Motion[0].Y, fast.Motion[0].Y);
+        Assert.Equal(slow.Stamina[0].Value, fast.Stamina[0].Value);
+        Assert.Equal(0, fast.Store.SamplesOf(0));
+    }
 }

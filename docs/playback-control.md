@@ -2,7 +2,9 @@
 
 `Playback` remains eight unmanaged bytes. Control requests change a playback or an entity's channel; library replacement keeps the playback's current position.
 
-When a live library is replaced, both hosts call `KindRules.Rebind`. The rule removes entries belonging to the old playback, clamps its tick to the replacement timeline, and preserves pause, direction and held state. An active playback keeps its tick for the replacement step and re-enters only the active spans, marked synthetic. Clip-start, clip-end and marker pulses are not repeated. A playback that has not started yet still begins once. A stopping playback is removed.
+When a live library is replaced, both hosts call `KindRules.Rebind`. The rule removes entries belonging to the old playback, clamps its tick to the replacement timeline, and preserves pause, direction and held state. An active playback keeps its tick for the replacement step and re-enters only the active spans, marked synthetic on that step. Clip-start, clip-end and marker pulses are not repeated. A playback that has not started yet still begins once. A stopping playback is removed.
+
+A span feeder sees `Synthetic` on the step its playback began mid-clip or re-entered after a replacement or a seek, and not on the later ticks of that clip: spans come from the library's load-time table, not from per-entity entries that carried the flag.
 
 `PlaybackFlags.ReenterPending` is transient host state used for that replacement step. An `IKindRows` storage adapter must implement `Purge(row, slot, timeline)` to remove all old entries for exactly that playback, without removing other playbacks or game pulses. Entry and playback pointers are borrowed only for the current row operation. Hosts finish all jobs using the old library before replacing it; the rule retains no pointers.
 
@@ -49,3 +51,15 @@ The generator writes an internal `[TimelineKind]` struct `Tl.Derived.<Template>_
 ## Finding a timeline by name
 
 `world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
+
+## Migration: spans from the load-time table (#652)
+
+This is an unreleased source change after `v4.0.0-preview.1`; the package version stays `4.0.0-preview.1`, and no tag or NuGet release is created. The public API approval lists every change.
+
+- Regenerate systems with `Tl.Gen.CSharp`. Generated kind loops read `KindStore.Score` and call `KindRules.Due(entry, substep, run, count)` and `KindRules.Depth(copies, samples)`.
+- `IKindRows` adapters: remove `RemoveSpan`, `Sample` and `Unsample`, and implement `Sampled(row, samples)`. It records how many rated copies the step wrote after the row's slots (0 when none); a kind loop walks those copies by substep.
+- Removed with the span entries: `KindTable.RemoveSpan`, `Sample`, `Unsample`, `KindEntryFlags.Sample`, `KindRules.Reenter`, `IsSampled`, `SampleDepth` and `KindRules.Marker`. To count live spans, take `cell = score.CellOf(timeline, tick, kind)`; when `cell >= 0`, read `score.Start[cell + 1] - score.Start[cell]` (a cell of -1 means the timeline does not feed that kind).
+- `KindTable.RemovePulses` is gone: every entry a kind row holds is a pulse (timeline pulses, game pulses and a foreign feeder's span values), and an owner clears every row it visited once it has applied it (a grouped kind drops only its own members' entries). A host that appends its own entries with `KindTable.Append` must expect them to be consumed by the owner's next run.
+- A foreign feeder must run before its owner in every step. The first step rejects the opposite order (`KindStore.Join`); a host that reorders its systems later gets values one step late.
+- A host that does not use `KindStore` builds its own table with `KindScore.Build(in tables, ref steps)`, where `steps` implements `IKindSteps.StepOf(timeline, window, tick)`, and calls `Free` when the library is replaced. `tables` must come from a validated kind section (`Build` throws when a feeder's kind is outside its timeline's kind mask), and the score borrows that section's timeline rows, so the library bytes must outlive it.
+- Behaviour: last-wins kinds combine rated copies first (by source slot, then crossing), then the other slots in slot order, each in authored pair order, and a span feeder sees `Synthetic` only on the step its playback began mid-clip or re-entered (see above).

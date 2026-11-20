@@ -62,8 +62,6 @@ public sealed unsafe class KindGlideTests
             return Entries + Appended++;
         }
 
-        public void RemoveSpan(int row, int kind, byte slot, ushort timeline, ushort step) => Log.Add("remove " + row + " " + kind + " " + slot + " " + timeline + " " + step);
-
         public void Purge(int row, byte slot, ushort timeline) => Log.Add("purge " + row + " " + slot + " " + timeline);
 
         public Playback* Reserve(int row, int used, int length)
@@ -72,9 +70,7 @@ public sealed unsafe class KindGlideTests
             return Slots;
         }
 
-        public void Sample(int row, byte slot, byte sample) => Log.Add("sample " + row + " " + slot + " " + sample);
-
-        public void Unsample(int row) => Log.Add("unsample " + row);
+        public void Sampled(int row, int samples) { }
 
         public void Seal()
         {
