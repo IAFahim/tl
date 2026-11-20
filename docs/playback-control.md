@@ -51,3 +51,13 @@ The generator writes an internal `[TimelineKind]` struct `Tl.Derived.<Template>_
 ## Finding a timeline by name
 
 `world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
+
+## Migration: spans from the load-time table (#652)
+
+This is an unreleased source change after `v4.0.0-preview.1`; the package version stays `4.0.0-preview.1`, and no tag or NuGet release is created. The public API approval lists every change.
+
+- Regenerate systems with `Tl.Gen.CSharp`. Generated kind loops read `KindStore.Score` and call `KindRules.Due(entry, substep, run, count)` and `KindRules.Depth(copies, samples)`.
+- `IKindRows` adapters: remove `RemoveSpan`, `Sample` and `Unsample`, and implement `Sampled(row, samples)`. It records how many rated copies the step wrote after the row's slots (0 when none); a kind loop walks those copies by substep.
+- Removed with the span entries: `KindTable.RemoveSpan`, `Sample`, `Unsample`, `KindEntryFlags.Sample`, `KindRules.Reenter`, `IsSampled`, `SampleDepth` and the marker copy. To count live spans, take `cell = score.CellOf(timeline, tick, kind)` and read `score.Start[cell + 1] - score.Start[cell]`.
+- A host that does not use `KindStore` builds its own table with `KindScore.Build(in tables, ref steps)`, where `steps` implements `IKindSteps.StepOf(timeline, window, tick)`, and calls `Free` when the library is replaced.
+- Behaviour: last-wins kinds combine in slot order, then pair order, and a span feeder sees `Synthetic` only on the step its playback began mid-clip or re-entered (see above).
