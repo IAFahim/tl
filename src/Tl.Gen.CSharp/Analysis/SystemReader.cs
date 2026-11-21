@@ -946,7 +946,7 @@ internal static partial class SystemReader
             return false;
         }
         var kind = parameter.RefKind == RefKind.Ref ? ConsumerParamKind.Column : ConsumerParamKind.ColumnReadOnly;
-        bound = new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Ref ? "ref " : "in ", kind, -1);
+        bound = new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Ref ? "ref " : "in ", kind, -1) { ByValue = parameter.RefKind == RefKind.None };
         return true;
     }
 

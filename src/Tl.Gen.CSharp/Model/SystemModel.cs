@@ -39,7 +39,10 @@ internal enum ConsumerParamKind : byte
     Events,
 }
 
-internal sealed record ConsumerParam(string Name, string TypeName, string Modifier, ConsumerParamKind Kind, int FoldIndex);
+internal sealed record ConsumerParam(string Name, string TypeName, string Modifier, ConsumerParamKind Kind, int FoldIndex)
+{
+    public bool ByValue { get; init; }
+}
 
 internal sealed record DirectLane(bool Eligible, string Op, string WrittenType, string WrittenMember, IReadOnlyList<int> FoldOffsets, IReadOnlyList<string> ReadTypes)
 {

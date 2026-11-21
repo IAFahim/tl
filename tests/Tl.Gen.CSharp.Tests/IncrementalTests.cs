@@ -183,6 +183,35 @@ public sealed class IncrementalTests
     }
 
     [Fact]
+    public void FeederMethodDistinguishesByValueAndInParametersWithSameNameAndType()
+    {
+        foreach (var byValFirst in new[] { true, false })
+        {
+            const string shared = """
+                using System;
+                using Tl;
+                namespace Portable;
+                public struct ValState { public float A; public float B; }
+                public struct ValClip { public float V; }
+                public struct ValTrack : IBlend<ValClip> { public void Blend(in ValClip first, in ValClip second, float factor, out ValClip result) => result = first; }
+                [TimelineSystem] public ref partial struct ValSystem { public Span<ValState> State; public ReadOnlySpan<float> Gain; }
+                [TimelineKind(Associative = true)] public struct KindA { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref ValState state) => state.A += total; }
+                [TimelineKind(Associative = true)] public struct KindB { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref ValState state) => state.B += total; }
+                """;
+            const string byVal = "[Feeds(typeof(KindA))] public static float Eval(float gain) => gain;";
+            const string byIn = "[Feeds(typeof(KindB))] public static float Eval(in float v) => v + (int)FrameFlags.Synthetic;";
+            var methods = byValFirst ? $"{byVal}\n    {byIn}" : $"{byIn}\n    {byVal}";
+            var consumer = shared + "\npublic struct ValConsumer : ITrack<ValTrack, ValClip>\n{\n    public static void Fold(in Frame<ValTrack, ValClip> frame, out float v) => v = frame.Clip.V;\n    " + methods + "\n}\n";
+            var driver = NewDriver();
+            var (run, trees) = Step(ref driver, Compile(("Val.cs", consumer)));
+            Assert.Equal(2, run.Diagnostics.Length);
+            Assert.Contains(run.Diagnostics, static d => d.Id == "TLGEN115" && d.GetMessage().Contains("Kind 'KindA'") && d.GetMessage().Contains("takes 'float'"));
+            Assert.Contains(run.Diagnostics, static d => d.Id == "TLGEN115" && d.GetMessage().Contains("Kind 'KindB'") && d.GetMessage().Contains("reads FrameFlags.Synthetic"));
+            Assert.DoesNotContain("SpanValues<", string.Join("\n", trees));
+        }
+    }
+
+    [Fact]
     public void EditingARelevantTypeModifiesItsStepAndReassigns()
     {
         var driver = NewDriver();

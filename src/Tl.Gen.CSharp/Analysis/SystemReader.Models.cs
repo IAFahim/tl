@@ -172,7 +172,7 @@ internal static partial class SystemReader
             {
                 var expected = feeder.Method.Params[p];
                 var actual = method.Parameters[p];
-                var refMatch = expected.Modifier == "ref " ? actual.RefKind == RefKind.Ref : actual.RefKind is RefKind.In or RefKind.None;
+                var refMatch = expected.Modifier == "ref " ? actual.RefKind == RefKind.Ref : expected.ByValue ? actual.RefKind == RefKind.None : actual.RefKind is not (RefKind.None or RefKind.Ref or RefKind.Out);
                 if (!refMatch || !string.Equals(Symbols.Name(actual.Type), expected.TypeName, StringComparison.Ordinal))
                 {
                     matched = false;
