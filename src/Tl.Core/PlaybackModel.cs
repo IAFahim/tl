@@ -167,6 +167,7 @@ public sealed unsafe class PlaybackTable : IDisposable
 
     public int SlotsPerEntity => _slotsPerEntity;
     public PlaybackView View { get { Escape(); return new(_slots, _counts, _spilled, _blocks, _entities, _slotsPerEntity); } }
+    internal PlaybackView RawView => new(_slots, _counts, _spilled, _blocks, _entities, _slotsPerEntity);
     public int HorizonLimit => _limit;
     ushort* InlineDue(int entity) => _due + (nuint)entity * (nuint)_slotsPerEntity;
     internal ushort* DueOf(int entity) => IsSpilled(entity) ? _blockDue + *(int*)InlineRun(entity) : InlineDue(entity);

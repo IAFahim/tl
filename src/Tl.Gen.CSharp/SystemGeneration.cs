@@ -13,24 +13,14 @@ internal static class SystemGeneration
         => type is { TypeKind: TypeKind.Struct, IsUnmanagedType: true, SpecialType: SpecialType.None }
         && type.ContainingNamespace?.ToDisplayString() != "Tl";
 
-    static SystemDecl AutoSystem(NewStyleAnalysis analysis)
-    {
-        var fields = new List<SystemField>();
-        foreach (var column in analysis.AutoColumns)
-            fields.Add(new(column.Name, column.Writable ? "global::System.Span<" + column.TypeName + ">" : "global::System.ReadOnlySpan<" + column.TypeName + ">",
-                column.Writable ? SystemFieldKind.Column : SystemFieldKind.ColumnReadOnly, column.TypeName));
-        foreach (var property in analysis.AutoEvents)
-            fields.Add(new(property.Name, "global::Tl.Events<" + property.TypeName + ">", SystemFieldKind.Events, property.TypeName));
-        return new("global::Tl.Generated." + analysis.AutoName, true, SystemReader.StableKey("Tl.Generated." + analysis.AutoName), fields);
-    }
-
     public static (IReadOnlyList<CompileArtifact> Artifacts, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Emit(CSharpCompilation compilation, string id = "")
     {
-        var analysis = NewStyle.Prepare(compilation, id.Length == 0 ? "Game" : id, IsPlainState);
-        var autoSystem = analysis.HasAuto ? AutoSystem(analysis) : null;
-        var read = SystemReader.Read(compilation, autoSystem, analysis.Members);
-        var artifacts = ArtifactsFor(read.Assignments, read.Diagnostics, analysis.HasAuto ? analysis.AutoSource : "", (compilation.AssemblyName ?? ""), id);
-        return (artifacts, read.Diagnostics);
+        var models = SystemReader.Order(SystemReader.CollectModels(compilation), compilation, default);
+        var read = SystemReader.AssignModels(models, id.Length == 0 ? "Game" : id);
+        var diagnostics = new List<DeclarationDiagnostic>(read.Diagnostics);
+        Connections.Warn(compilation, diagnostics);
+        var artifacts = ArtifactsFor(read.Assignments, diagnostics, read.AutoSource, compilation.AssemblyName ?? "", id);
+        return (artifacts, diagnostics);
     }
 
     internal static IReadOnlyList<CompileArtifact> ArtifactsFor(IReadOnlyList<SystemAssignment> assignments, IReadOnlyList<DeclarationDiagnostic> diagnostics, string autoSource, string assemblyName, string id)

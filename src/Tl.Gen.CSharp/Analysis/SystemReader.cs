@@ -37,61 +37,13 @@ internal static partial class SystemReader
         return feeds is null || pulse is null || timelineKind is null && tlKind is null ? null : new KindContracts(timelineKind, tlKind, feeds, pulse);
     }
 
-    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation, SystemDecl? autoSystem = null, ISet<string>? autoMembers = null)
+    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation)
     {
-        var systems = new List<SystemDecl>();
-        var consumers = new List<SystemConsumer>();
-        var kinds = new List<KindDecl>();
-        var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
-        var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
-        var derived = new Dictionary<string, (KindDecl Kind, SyntaxNode Site)>(StringComparer.Ordinal);
-        var kindContracts = KindContractsOf(compilation);
-        var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
-        var diagnostics = new List<DeclarationDiagnostic>();
-        var contracts = Contracts(compilation);
-        if (contracts is null) return ([], [], []);
-        foreach (var tree in compilation.SyntaxTrees)
-        {
-            var model = compilation.GetSemanticModel(tree);
-            foreach (var node in tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
-            {
-                if (model.GetDeclaredSymbol(node) is not INamedTypeSymbol type) continue;
-                if (IsSystem(type, contracts)) systems.Add(ReadSystem(type, node, diagnostics));
-                if (kindContracts is not null && ReadKind(type, node, kindContracts, contracts, diagnostics) is { } kind)
-                {
-                    kinds.Add(kind);
-                    kindSites[kind.TypeName] = node;
-                }
-                if (ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics, foreign, derived) is { } consumer)
-                {
-                    var owned = autoSystem is not null && autoMembers is not null && autoMembers.Contains(consumer.ConsumerTypeName)
-                        ? consumer with { MemberSystems = [autoSystem.TypeName] }
-                        : consumer;
-                    consumers.Add(owned);
-                    sites[owned.ConsumerTypeName] = node;
-                }
-            }
-        }
-        if (autoSystem is not null) systems.Add(autoSystem);
-        foreach (var pair in derived)
-        {
-            if (kindSites.ContainsKey(pair.Value.Kind.TypeName)) continue;
-            kinds.Add(pair.Value.Kind);
-            kindSites[pair.Value.Kind.TypeName] = pair.Value.Site;
-        }
-        foreach (var pair in foreign)
-        {
-            if (kindSites.ContainsKey(pair.Key)) continue;
-            if (ReadForeignKind(pair.Value.Type, pair.Value.Site, diagnostics) is not { } kind) continue;
-            kinds.Add(kind);
-            kindSites[kind.TypeName] = pair.Value.Site;
-        }
-        consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
-        kinds.Sort(static (a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : string.CompareOrdinal(a.Name, b.Name));
-        DerivedKinds.CheckTwoWriters(kinds, kindSites, consumers, sites, diagnostics);
-        Connections.Warn(compilation, diagnostics);
-        var assignments = Assign(systems, consumers, sites, diagnostics);
-        return (systems, kinds.Count == 0 && !consumers.Any(static c => c.Feeders.Count > 0) ? assignments : AssignKinds(systems, assignments, kinds, kindSites, sites, diagnostics), diagnostics);
+        var ordered = Order(CollectModels(compilation), compilation, default);
+        var (systems, assignments, diagnostics, _) = AssignModels(ordered, "", withAuto: false);
+        var list = new List<DeclarationDiagnostic>(diagnostics);
+        Connections.Warn(compilation, list);
+        return (systems, assignments, list);
     }
 
     internal static ContractSet? Contracts(Compilation compilation)
@@ -304,6 +256,13 @@ internal static partial class SystemReader
         return 0;
     }
 
+    static string NamedString(AttributeData attribute, string name)
+    {
+        foreach (var pair in attribute.NamedArguments)
+            if (pair.Key == name && pair.Value.Value is string text) return text;
+        return "";
+    }
+
     static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics, Compilation compilation, Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)> foreign, Dictionary<string, (KindDecl Kind, SyntaxNode Site)> derived)
     {
         var result = new List<FeederDecl>();
@@ -402,7 +361,7 @@ internal static partial class SystemReader
 
     internal static string FlagReadOf(INamedTypeSymbol type, IMethodSymbol method, FeederDecl feeder, Compilation compilation)
     {
-        if (feeder.Trigger != FeederTrigger.Span) return "";
+        if (feeder.Trigger is not (FeederTrigger.Span or FeederTrigger.Start or FeederTrigger.End)) return "";
         var read = FlagRead(method, feeder.Method.Params.Count > 0 && feeder.Method.Params[0].Kind == ConsumerParamKind.Frame, compilation);
         if (read.Length == 0 && feeder.Method.Params.Any(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0 && m.Parameters.Length > 0) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
             read = "takes a fold whose Fold " + folded;
@@ -471,9 +430,7 @@ internal static partial class SystemReader
             }
             parameters.Add(bound);
         }
-        string group = "";
-        foreach (var pair in attribute.NamedArguments)
-            if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
+        var group = NamedString(attribute, "Group");
         List<ConsumerParam>? idleParams = null;
         var idle = type.GetMembers("Idle").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
         if (idle is not null)
@@ -509,9 +466,7 @@ internal static partial class SystemReader
             Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{Symbols.Name(type)}' from assembly '{type.ContainingAssembly?.Name}' needs public static void Apply(in <value> total, ...) with an unmanaged value type.");
             return null;
         }
-        string group = "";
-        foreach (var pair in attribute.NamedArguments)
-            if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
+        var group = NamedString(attribute, "Group");
         return new(type.Name, Symbols.Name(type), Symbols.Name(apply.Parameters[0].Type), NamedInt(attribute, "Mode") == 1, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, [], []) { Foreign = true, Id = StableName(type) };
     }
 
@@ -595,20 +550,32 @@ internal static partial class SystemReader
 
     static KindDecl Route(KindDecl kind, SystemAssignment a, IReadOnlyDictionary<string, SyntaxNode> kindSites, List<DeclarationDiagnostic> diagnostics)
     {
-        if (kind.Foreign || !kind.Associative) return kind;
-        var spans = a.Consumers.SelectMany(static c => c.Feeders).Where(f => f.KindName == kind.Id && f.Trigger == FeederTrigger.Span)
-            .OrderBy(static f => f.ConsumerMetadata, StringComparer.Ordinal).ThenBy(static f => f.MethodName, StringComparer.Ordinal).ToList();
-        if (spans.Count == 0) return kind;
-        var why = kind.Each ? "Mode is Each" : "";
-        foreach (var feeder in spans)
+        if (kind.Foreign) return kind;
+        if (kind.Associative)
         {
-            if (why.Length > 0) break;
-            var taken = feeder.Method.Params.FirstOrDefault(static p => p.Kind is not (ConsumerParamKind.Frame or ConsumerParamKind.FoldFeed));
-            if (taken is not null) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' takes '{taken.TypeName}'";
-            else if (feeder.FlagRead.Length > 0) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' {feeder.FlagRead}";
+            var spans = a.Consumers.SelectMany(static c => c.Feeders).Where(f => f.KindName == kind.Id && f.Trigger == FeederTrigger.Span)
+                .OrderBy(static f => f.ConsumerMetadata, StringComparer.Ordinal).ThenBy(static f => f.MethodName, StringComparer.Ordinal).ToList();
+            if (spans.Count > 0)
+            {
+                var why = kind.Each ? "Mode is Each" : "";
+                foreach (var feeder in spans)
+                {
+                    if (why.Length > 0) break;
+                    var taken = feeder.Method.Params.FirstOrDefault(static p => p.Kind is not (ConsumerParamKind.Frame or ConsumerParamKind.FoldFeed));
+                    if (taken is not null) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' takes '{taken.TypeName}'";
+                    else if (feeder.FlagRead.Length > 0) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' {feeder.FlagRead}";
+                }
+                if (why.Length == 0) return kind with { Precombined = true };
+                Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN115", $"Kind '{kind.Name}' declares Associative but keeps the per-span path in system '{a.System.TypeName}': {why}. Precombined spans need span feeders that take only the frame and their folds and do not read Synthetic or Interrupted; move per-entity inputs into Apply.");
+                return kind;
+            }
         }
-        if (why.Length == 0) return kind with { Precombined = true };
-        Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN115", $"Kind '{kind.Name}' declares Associative but keeps the per-span path in system '{a.System.TypeName}': {why}. Precombined spans need span feeders that take only the frame and their folds and do not read Synthetic or Interrupted; move per-entity inputs into Apply.");
+        if (kind.Group.Length == 0 && kind.Accepts == 1 && kind.IdleParams is null)
+        {
+            var pulses = a.Consumers.SelectMany(static c => c.Feeders).Where(f => f.KindName == kind.Id && f.Trigger != FeederTrigger.Span).ToList();
+            if (pulses.Count > 0 && pulses.All(static f => f.Trigger is (FeederTrigger.Start or FeederTrigger.End) && f.FlagRead.Length == 0 && f.Method.Params.All(static p => p.Kind is (ConsumerParamKind.Frame or ConsumerParamKind.FoldFeed))))
+                return kind with { PrecombinedPulses = true };
+        }
         return kind;
     }
 
@@ -1091,65 +1058,51 @@ internal static partial class SystemReader
                 if (consumer.MemberSystems.Contains(system.TypeName, StringComparer.Ordinal)) membered++;
             }
             if (membered > 0) continue;
+            void ReportMissing()
+            {
+                if (FirstMissingParam(consumer, systems) is { } m)
+                    Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN90", $"Consumer '{consumer.ConsumerTypeName}' needs {m.Kind} '{m.Type}' but no system provides it.");
+                else
+                    Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN98", $"Consumer '{consumer.ConsumerTypeName}' fits no system; it never runs.");
+            }
             if (consumer.MemberSystems.Count > 0)
             {
                 if (fitting > 0)
                     Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN91", $"Consumer '{consumer.ConsumerTypeName}' names systems that do not fit it; a fitting system exists outside its TimelineSystemMember list.");
-                else if (FirstMissingParam(consumer, systems) is { } missing)
-                    Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN90", $"Consumer '{consumer.ConsumerTypeName}' needs {missing.Kind} '{missing.Type}' but no system provides it.");
                 else
-                    Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN98", $"Consumer '{consumer.ConsumerTypeName}' fits no system; it never runs.");
+                    ReportMissing();
                 continue;
             }
-            if (fitting > 0) continue;
-            if (FirstMissingParam(consumer, systems) is { } uncovered)
-                Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN90", $"Consumer '{consumer.ConsumerTypeName}' needs {uncovered.Kind} '{uncovered.Type}' but no system provides it.");
-            else
-                Symbols.Error(diagnostics, sites[consumer.ConsumerTypeName], "TLGEN98", $"Consumer '{consumer.ConsumerTypeName}' fits no system; it never runs.");
+            if (fitting == 0) ReportMissing();
         }
         return result;
     }
+
+    static bool HasField(SystemDecl system, SystemFieldKind kind, string? type)
+        => system.Fields.Any(field => field.Kind == kind && (type is null || string.Equals(field.ElementTypeName, type, StringComparison.Ordinal)));
+
+    static bool Covers(SystemDecl system, ConsumerParam parameter) => parameter.Kind switch
+    {
+        ConsumerParamKind.Frame or ConsumerParamKind.MarkerFrame or ConsumerParamKind.FoldFeed or ConsumerParamKind.FoldResult => true,
+        ConsumerParamKind.Requests => HasField(system, SystemFieldKind.Requests, null),
+        ConsumerParamKind.Events => HasField(system, SystemFieldKind.Events, EventElement(parameter.TypeName)),
+        ConsumerParamKind.Column => HasField(system, SystemFieldKind.Column, parameter.TypeName) || HasField(system, SystemFieldKind.Context, parameter.TypeName),
+        _ => HasField(system, SystemFieldKind.Column, parameter.TypeName) || HasField(system, SystemFieldKind.ColumnReadOnly, parameter.TypeName) || HasField(system, SystemFieldKind.Context, parameter.TypeName),
+    };
+
     static (string Kind, string Type)? FirstMissingParam(SystemConsumer consumer, IReadOnlyList<SystemDecl> systems)
     {
         foreach (var method in consumer.Methods)
             foreach (var parameter in method.Params)
             {
-                var covered = false;
-                foreach (var system in systems)
+                if (systems.Any(system => Covers(system, parameter))) continue;
+                return (parameter.Kind switch
                 {
-                    switch (parameter.Kind)
-                    {
-                        case ConsumerParamKind.Frame:
-                        case ConsumerParamKind.MarkerFrame:
-                        case ConsumerParamKind.FoldFeed:
-                        case ConsumerParamKind.FoldResult:
-                            covered = true;
-                            break;
-                        case ConsumerParamKind.Requests:
-                            covered = system.Fields.Any(static field => field.Kind == SystemFieldKind.Requests);
-                            break;
-                        case ConsumerParamKind.Events:
-                            covered = system.Fields.Any(field => field.Kind == SystemFieldKind.Events && string.Equals(field.ElementTypeName, EventElement(parameter.TypeName), StringComparison.Ordinal));
-                            break;
-                        case ConsumerParamKind.Column:
-                            covered = system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))
-                                || system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal));
-                            break;
-                        default:
-                            covered = system.Fields.Any(field => (field.Kind == SystemFieldKind.Column || field.Kind == SystemFieldKind.ColumnReadOnly) && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))
-                                || system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal));
-                            break;
-                    }
-                    if (covered) break;
-                }
-                if (!covered)
-                    return (parameter.Kind switch
-                    {
-                        ConsumerParamKind.Column or ConsumerParamKind.ColumnReadOnly => "column",
-                        ConsumerParamKind.Context => "context",
-                        ConsumerParamKind.Requests => "Requests",
-                        _ => "Events",
-                    }, parameter.Kind == ConsumerParamKind.Events ? EventElement(parameter.TypeName) : parameter.TypeName);
+                    ConsumerParamKind.Column or ConsumerParamKind.ColumnReadOnly => "column",
+                    ConsumerParamKind.Context => "context",
+                    ConsumerParamKind.Requests => "Requests",
+                    _ => "Events",
+                }, parameter.Kind == ConsumerParamKind.Events ? EventElement(parameter.TypeName) : parameter.TypeName);
             }
         return null;
     }
@@ -1159,45 +1112,15 @@ internal static partial class SystemReader
         foreach (var parameter in parameters)
         {
             if (parameter.Kind != ConsumerParamKind.Column || parameter.Modifier != "ref ") continue;
-            if (system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) continue;
+            if (HasField(system, SystemFieldKind.Column, parameter.TypeName)) continue;
             foreach (var field in system.Fields) if (field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal)) return (field.Name, parameter.TypeName);
         }
         return null;
     }
 
-    static bool Fits(SystemDecl system, SystemConsumer consumer)
-    {
-        foreach (var method in consumer.Methods)
-            foreach (var parameter in method.Params)
-            {
-                switch (parameter.Kind)
-                {
-                    case ConsumerParamKind.Frame:
-                    case ConsumerParamKind.MarkerFrame:
-                    case ConsumerParamKind.FoldFeed:
-                    case ConsumerParamKind.FoldResult:
-                        continue;
-                    case ConsumerParamKind.Requests:
-                        if (!system.Fields.Any(static field => field.Kind == SystemFieldKind.Requests)) return false;
-                        continue;
-                    case ConsumerParamKind.Events:
-                        var element = EventElement(parameter.TypeName);
-                        if (!system.Fields.Any(field => field.Kind == SystemFieldKind.Events && string.Equals(field.ElementTypeName, element, StringComparison.Ordinal))) return false;
-                        continue;
-                    case ConsumerParamKind.Column:
-                        if (!system.Fields.Any(field => field.Kind == SystemFieldKind.Column && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))
-                            && !system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) return false;
-                        continue;
-                    default:
-                        if (!system.Fields.Any(field => (field.Kind == SystemFieldKind.Column || field.Kind == SystemFieldKind.ColumnReadOnly) && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))
-                            && !system.Fields.Any(field => field.Kind == SystemFieldKind.Context && string.Equals(field.ElementTypeName, parameter.TypeName, StringComparison.Ordinal))) return false;
-                        continue;
-                }
-            }
-        return true;
-    }
+    static bool Fits(SystemDecl system, SystemConsumer consumer) => consumer.Methods.All(method => method.Params.All(parameter => Covers(system, parameter)));
 
-    static string EventElement(string typeName)
+    internal static string EventElement(string typeName)
     {
         var start = typeName.IndexOf('<');
         var end = typeName.LastIndexOf('>');

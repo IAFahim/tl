@@ -228,6 +228,20 @@ type Tl.KindPayload
   Method Boolean SameCatalog(Tl.KindPayload)
   Field UInt32 Version
   Method Byte[] Write(System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], Byte[])
+type Tl.KindPulseBuffer
+  Field Int32 Count
+  Field Tl.KindPulseHit* Items
+  Method Int32 LowerBound(Int32)
+type Tl.KindPulseHit
+  Field Int32 Cell
+  Field Int32 Entity
+type Tl.KindPulseValues
+  Field Int64 Bytes
+  Field Int32 Cells
+  Field Byte* Data
+  Field Int32 Part
+  Field Int32* Start
+  Field Int32 Stride
 type Tl.KindPulses`1
   Method Void To(Int32, T)
 type Tl.KindPulses`2
@@ -288,6 +302,7 @@ type Tl.KindStore
   Method Void Dispose()
   Property Int64 DroppedPulses
   Method Tl.KindStats GetStats(Int32)
+  Property Boolean HasSamples
   Method Int32 IndexOf(System.String)
   Method UInt16* Join(System.String, Int32, System.String, Int32, Int32 ByRef)
   Property Int32 KindCount
@@ -295,6 +310,9 @@ type Tl.KindStore
   Method UInt32 MarkerOf(UInt16, Int32)
   Method System.String NameOf(Int32)
   Property UInt64* Playing
+  Method Tl.KindPulseBuffer* PulseHitsOf(Int32)
+  Method Int64 PulseValueBytes(Int32)
+  Method Tl.KindPulseValues* PulseValues[T,TEval](Int32, Int32, TEval ByRef)
   Method Tl.KindPulses`1[T] Pulses[T](System.String)
   Method Tl.KindPulses`2[T,TFold] Pulses[T,TFold](System.String)
   Method Boolean RowsAreEntities(Int32)
