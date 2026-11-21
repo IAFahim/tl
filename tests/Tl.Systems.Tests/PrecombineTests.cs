@@ -442,13 +442,14 @@ public sealed class PrecombineTests
     public void OnlyOptedInKindsWithPureSpanFeedersArePrecombined()
     {
         var pre = Pre.Value;
-        Assert.Contains("SpanValues<float, KindSpans_", pre.Fast.Generated);
-        Assert.DoesNotContain("SpanValues<", pre.Plain.Generated);
+        Assert.Contains("__b.Add<float, KindSpans_", pre.Fast.Generated);
+        Assert.Contains("if (!Fused(world, players, __ks", pre.Fast.Generated);
+        Assert.DoesNotContain("KindFill", pre.Plain.Generated);
         Assert.Empty(pre.Plain.Diagnostics);
         var info = Assert.Single(pre.Fast.Diagnostics);
         Assert.StartsWith("TLGEN115: Kind 'Seen' declares Associative but keeps the per-span path in system 'global::PreGame.PreSystem': feeder 'PreGame.Rise.Spot' reads FrameFlags.Synthetic.", info);
         var peak = Peak.Value;
-        Assert.Contains("SpanValues<float, KindSpans_0>", peak.Fast.Generated);
+        Assert.Contains("__b.Add<float, KindSpans_0>", peak.Fast.Generated);
         Assert.Empty(peak.Fast.Diagnostics);
     }
 
@@ -486,13 +487,13 @@ public sealed class PrecombineTests
         if (why.Length == 0)
         {
             Assert.Empty(codes);
-            Assert.Contains("SpanValues<float, KindSpans_0>", generated);
+            Assert.Contains("__b.Add<float, KindSpans_0>", generated);
             return;
         }
         var info = Assert.Single(codes);
         Assert.StartsWith("TLGEN115: Kind 'K' declares Associative but keeps the per-span path in system 'global::T.S': feeder 'T.C.", info);
         Assert.Contains(why, info);
-        Assert.DoesNotContain("SpanValues<", generated);
+        Assert.DoesNotContain("KindFill", generated);
     }
 
     [Fact]
@@ -501,9 +502,9 @@ public sealed class PrecombineTests
         const string feeder = "public struct C : ITrack<Tr, Cl> { [Feeds(typeof(K2))] public static float E(in Frame<Tr, Cl> f) => f.Clip.V; }";
         var (codes, generated) = Route("[TimelineKind] public struct K2 { public static void Combine(ref float t, in float n) => t += n; public static void Apply(in float t, ref M m) => m.X += t; }" + feeder);
         Assert.Empty(codes);
-        Assert.DoesNotContain("SpanValues<", generated);
+        Assert.DoesNotContain("KindFill", generated);
         (codes, generated) = Route("[TimelineKind(Mode = KindMode.Each, Associative = true)] public struct K2 { public static void Apply(in float t, ref M m) => m.X += t; }" + feeder);
         Assert.Contains("Mode is Each", Assert.Single(codes));
-        Assert.DoesNotContain("SpanValues<", generated);
+        Assert.DoesNotContain("KindFill", generated);
     }
 }

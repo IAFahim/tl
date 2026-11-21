@@ -227,7 +227,7 @@ public sealed unsafe class KindStore : IDisposable
 
     public KindScore Score => _score;
 
-    public KindValues* SpanValues<T, TSpans>(int kind, int part, ushort* routes, ref TSpans spans) where T : unmanaged where TSpans : struct, IKindSpanValues<T>
+    public KindValues* SpanValues<TFill>(int kind, int part, ref TFill fill) where TFill : struct, IKindFill
     {
         if ((uint)kind >= (uint)_kindCount) return null;
         var v = _values + kind;
@@ -237,17 +237,28 @@ public sealed unsafe class KindStore : IDisposable
             {
                 if (v->Data == null)
                 {
-                    var built = KindValues.Layout<T>(in _score, _tls, kind, part, (int*)Zeroed((nuint)Math.Max(1, _score.TimelineCount) * 4));
-                    var data = (byte*)Zeroed((nuint)built.Rows * (nuint)built.Stride);
-                    built.Data = data;
-                    built.Fill<T, TSpans>(in _score, _tls, kind, routes, false, ref spans);
-                    built.Data = null;
-                    *v = built;
-                    Volatile.Write(ref *(nint*)&v->Data, (nint)data);
+                    var views = (KindValues*)Zeroed((nuint)64 * (nuint)sizeof(KindValues));
+                    var row = (int*)Zeroed((nuint)Math.Max(1, _score.TimelineCount) * 4);
+                    var b = KindBuild.Of(in _score, _tls, views, row, false, ref fill);
+                    var data = (byte*)Zeroed((nuint)b.Rows * (nuint)b.Stride);
+                    b.Fill(data, ref fill);
+                    for (var k = 0; k < _kindCount; k++)
+                        if ((b.Kinds >> k & 1) != 0)
+                        {
+                            views[k].Data = null;
+                            _values[k] = views[k];
+                            Volatile.Write(ref *(nint*)&_values[k].Data, (nint)data);
+                        }
+                    if (b.Kinds == 0)
+                    {
+                        NativeMemory.AlignedFree(row);
+                        NativeMemory.AlignedFree(data);
+                    }
+                    NativeMemory.AlignedFree(views);
                 }
             }
         }
-        return v->Part == part ? v : null;
+        return v->Data != null && v->Part == part ? v : null;
     }
 
     public long SpanValueBytes(int kind) => (uint)kind < (uint)_kindCount && _values[kind].Data != null ? _values[kind].Bytes : 0;

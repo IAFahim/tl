@@ -170,12 +170,16 @@ RunClose(world, players, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n); RunL
 var __ks = players.Kinds;
 if (__ks != null)
 {
-Kind_0(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_1(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_2(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_3(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
+Kinds(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
 }
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+{
+Kind_0(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_1(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_2(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_3(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
@@ -1037,8 +1041,12 @@ if (world is null) throw new System.ArgumentNullException(nameof(world)); if (pl
 var __ks = players.Kinds;
 if (__ks != null)
 {
-Kind_0(world, players, __ks, forward, __c0, __n, 0, 2147483647);
+Kinds(world, players, __ks, forward, __c0, __n, 0, 2147483647);
 }
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
+{
+Kind_0(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
 {
@@ -1189,13 +1197,7 @@ public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
 TlSystems.TlSystem_Kinds_global__KindGame_Movement.RunLegacyRange(world, players, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-var __ks = players.Kinds; if (__ks != null) {
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_0(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_1(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_2(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_3(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_4(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-}
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kinds(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
@@ -1255,9 +1257,7 @@ public global::KindGame.Health* __c0;
 public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
-var __ks = players.Kinds; if (__ks != null) {
-TlSystems.TlSystem_Kinds_global__KindGame_Vitals.Kind_0(world, players, __ks, forward, __s->__c0, __s->__n, __fw, __ew);
-}
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__KindGame_Vitals.Kinds(world, players, __ks, forward, __s->__c0, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {

@@ -72,6 +72,8 @@ type Tl.Horizon
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
+type Tl.IKindFill
+  Method Void Add(Tl.KindBuild ByRef)
 type Tl.IKindRows
   Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
   Method Void Purge(Int32, Byte, UInt16)
@@ -152,6 +154,20 @@ type Tl.Inspection+TablesSnapshot
   Property InternSnapshot Intern
   Property PairSnapshot Pair
   Method System.String ToString()
+type Tl.KindBuild
+  Method Void Add[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef)
+  Field Int32 Align
+  Field Boolean ByFeeder
+  Method Void Fill[TFill](Byte*, TFill ByRef)
+  Field Boolean Filling
+  Field UInt64 Kinds
+  Method Tl.KindBuild Of[TFill](Tl.KindScore ByRef, Tl.LibraryTimeline*, Tl.KindValues*, Int32*, Boolean, TFill ByRef)
+  Field Int32 Rows
+  Field Tl.KindScore Score
+  Field Int32 Shift
+  Field Int32 Stride
+  Field Tl.LibraryTimeline* Timelines
+  Field Tl.KindValues* Views
 type Tl.KindCalm
   Field Byte* Backward
   Method Tl.KindCalm Build(Tl.KindTables ByRef, Byte*, Byte*, Int32*)
@@ -285,7 +301,7 @@ type Tl.KindStore
   Method Int32 SamplesOf(Int32)
   Property Tl.KindScore Score
   Method Int64 SpanValueBytes(Int32)
-  Method Tl.KindValues* SpanValues[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef)
+  Method Tl.KindValues* SpanValues[TFill](Int32, Int32, TFill ByRef)
   Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
   Method Tl.KindTable* Table(Int32)
   Method Int32 TrailingZeros(UInt64)
@@ -329,11 +345,12 @@ type Tl.KindValues
   Method Void Fill[T,TSpans](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, UInt16*, Boolean, TSpans ByRef)
   Method Void Free()
   Field Int32 Front
-  Method Tl.KindValues Layout[T](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, Int32, Int32*)
+  Method UInt32* HeadOf(UInt16, UInt16)
   Field Int32 Part
   Field Int32* Row
   Method Byte* RowOf(UInt16, UInt16)
   Field Int32 Rows
+  Field Int32 Shift
   Field Int32 Stride
   Field Int32 TimelineCount
 type Tl.LibraryAssembler

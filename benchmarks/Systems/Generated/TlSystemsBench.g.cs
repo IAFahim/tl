@@ -139,6 +139,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __n); RunLegacyRange(world, players, forward, __c0, __n, 0, 2147483647);
 }
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int __n, int __firstWord, int __endWord)
+{
+}
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int __n)
 {
 var __view = world.View; var __pview = players.View;
@@ -390,6 +393,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __n); RunLegacyRange(world, players, forward, __c0, __c1, __n, 0, 2147483647);
 }
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
+{
+}
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n)
 {
 var __view = world.View; var __pview = players.View;
@@ -628,6 +634,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __n); RunLegacyRange(world, players, forward, __c0, __c1, __n, 0, 2147483647);
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, int* __c0, float* __c1, int __n, int __firstWord, int __endWord)
+{
 }
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int* __c0, float* __c1, int __n)
 {
@@ -910,6 +919,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __c2, __c3, __n); RunLegacyRange(world, players, forward, __c0, __c1, __c2, __c3, __n, 0, 2147483647);
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, short* __c2, sbyte* __c3, int __n, int __firstWord, int __endWord)
+{
 }
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, short* __c2, sbyte* __c3, int __n)
 {
@@ -1379,6 +1391,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __n); RunLegacyRange(world, players, forward, __c0, __c1, __n, 0, 2147483647);
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, int* __c0, short* __c1, int __n, int __firstWord, int __endWord)
+{
 }
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int* __c0, short* __c1, int __n)
 {
@@ -2712,6 +2727,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __n, ref __ctx0); RunLegacyRange(world, players, forward, __n, 0, 2147483647, ref __ctx0);
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, int __n, int __firstWord, int __endWord, ref global::Bench.Shared __ctx0)
+{
 }
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int __n, ref global::Bench.Shared __ctx0)
 {
