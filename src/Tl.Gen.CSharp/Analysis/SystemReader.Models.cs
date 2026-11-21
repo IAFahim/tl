@@ -18,9 +18,12 @@ internal static partial class SystemReader
     internal static SystemTypeModel? KindOf(GeneratorAttributeSyntaxContext context, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (context.SemanticModel.Compilation is not CSharpCompilation compilation) return null;
-        if (context.TargetSymbol is not INamedTypeSymbol type) return null;
-        if (context.TargetNode is not TypeDeclarationSyntax node) return null;
+        return context.SemanticModel.Compilation is CSharpCompilation compilation && context.TargetSymbol is INamedTypeSymbol type && context.TargetNode is TypeDeclarationSyntax node
+            ? KindOf(compilation, type, node) : null;
+    }
+
+    internal static SystemTypeModel? KindOf(CSharpCompilation compilation, INamedTypeSymbol type, SyntaxNode node)
+    {
         var contracts = Contracts(compilation);
         var kindContracts = KindContractsOf(compilation);
         if (contracts is null || kindContracts is null) return null;
@@ -30,8 +33,8 @@ internal static partial class SystemReader
         if (kind is not null)
         {
             var apply = ApplyLike(type, "Apply"); var idle = ApplyLike(type, "Idle");
-            if (apply is not null) for (var i = 1; i < apply.Parameters.Length; i++) applyPlain.Add(SystemGeneration.IsPlainState(apply.Parameters[i].Type));
-            if (idle is not null) foreach (var p in idle.Parameters) idlePlain.Add(SystemGeneration.IsPlainState(p.Type));
+            if (apply is not null) for (var i = 1; i < apply.Parameters.Length; i++) applyPlain.Add(NewStyle.IsPlainState(apply.Parameters[i].Type));
+            if (idle is not null) foreach (var p in idle.Parameters) idlePlain.Add(NewStyle.IsPlainState(p.Type));
         }
         return Stamp(Mk(type, node, compilation, SystemModelKind.Kind)) with { KindDecl = kind, Diagnostics = diagnostics, ApplyPlain = applyPlain, IdlePlain = idlePlain };
     }
@@ -43,12 +46,16 @@ internal static partial class SystemReader
     static SystemTypeModel? TypeOf(GeneratorAttributeSyntaxContext context, CancellationToken cancellation, SystemModelKind kind, bool state)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (context.TargetSymbol is not INamedTypeSymbol type) return null;
-        if (context.TargetNode is not TypeDeclarationSyntax node) return null;
+        return context.TargetSymbol is INamedTypeSymbol type && context.TargetNode is TypeDeclarationSyntax node
+            ? TypeOf(context.SemanticModel.Compilation, type, node, kind, state) : null;
+    }
+
+    static SystemTypeModel? TypeOf(Compilation compilation, INamedTypeSymbol type, SyntaxNode node, SystemModelKind kind, bool state)
+    {
+        if (state && type.TypeKind != TypeKind.Struct) return null;
         var diagnostics = new List<DeclarationDiagnostic>();
         var system = state ? null : ReadSystem(type, node, diagnostics);
-        if (state && type.TypeKind != TypeKind.Struct) return null;
-        return Stamp(Mk(type, node, context.SemanticModel.Compilation, kind)) with { System = system, Diagnostics = diagnostics };
+        return Stamp(Mk(type, node, compilation, kind)) with { System = system, Diagnostics = diagnostics };
     }
 
     static IMethodSymbol? ApplyLike(INamedTypeSymbol type, string name) => type.GetMembers(name).OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
@@ -56,9 +63,12 @@ internal static partial class SystemReader
     internal static SystemTypeModel? FeederOf(GeneratorAttributeSyntaxContext context, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (context.SemanticModel.Compilation is not CSharpCompilation compilation) return null;
-        if (context.TargetSymbol is not IMethodSymbol method) return null;
-        if (context.TargetNode is not MethodDeclarationSyntax node) return null;
+        return context.SemanticModel.Compilation is CSharpCompilation compilation && context.TargetSymbol is IMethodSymbol method && context.TargetNode is MethodDeclarationSyntax node
+            ? FeederOf(compilation, method, node) : null;
+    }
+
+    internal static SystemTypeModel? FeederOf(CSharpCompilation compilation, IMethodSymbol method, SyntaxNode node)
+    {
         var type = method.ContainingType;
         if (type is null) return null;
         var contracts = Contracts(compilation);
@@ -82,14 +92,14 @@ internal static partial class SystemReader
             if (ReadForeignKind(entry.Value.Type, entry.Value.Site, diagnostics) is { } known) foreignKinds.Add(known);
         var facts = new List<string>();
         foreach (var p in method.Parameters)
-            facts.Add(Symbols.Name(p.Type) + "\0" + (SystemGeneration.IsPlainState(p.Type) ? "1" : "0") + "\0" + (p.RefKind == RefKind.Ref ? "1" : "0"));
+            facts.Add(Symbols.Name(p.Type) + "\0" + (NewStyle.IsPlainState(p.Type) ? "1" : "0") + "\0" + (p.RefKind == RefKind.Ref ? "1" : "0"));
         var kindType = ""; var kindForeign = false; string? derivedColumn = null;
         foreach (var attribute in method.GetAttributes())
             if (attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is INamedTypeSymbol fed)
             {
                 kindType = Symbols.Name(fed);
                 kindForeign = NewStyle.IsForeignKind(fed, compilation.Assembly);
-                if (DerivedKinds.TemplateOf(fed, out var derivedType) != DerivedKind.None && derivedType is not null && SystemGeneration.IsPlainState(derivedType))
+                if (DerivedKinds.TemplateOf(fed, out var derivedType) != DerivedKind.None && derivedType is not null && NewStyle.IsPlainState(derivedType))
                     derivedColumn = Symbols.Name(derivedType);
             }
         facts.Insert(0, kindType + "\0" + (kindForeign ? "1" : "0"));
@@ -100,9 +110,12 @@ internal static partial class SystemReader
     internal static SystemTypeModel? TrackOf(GeneratorSyntaxContext context, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (context.SemanticModel.Compilation is not CSharpCompilation compilation) return null;
-        if (context.Node is not TypeDeclarationSyntax node) return null;
-        if (context.SemanticModel.GetDeclaredSymbol(node) is not INamedTypeSymbol type) return null;
+        return context.SemanticModel.Compilation is CSharpCompilation compilation && context.Node is TypeDeclarationSyntax node && context.SemanticModel.GetDeclaredSymbol(node) is INamedTypeSymbol type
+            ? TrackOf(compilation, type, node) : null;
+    }
+
+    internal static SystemTypeModel? TrackOf(CSharpCompilation compilation, INamedTypeSymbol type, SyntaxNode node)
+    {
         if (type.AllInterfaces.Any(static i => i.OriginalDefinition is { MetadataName: "ITlModule", ContainingNamespace: { Name: "Tl" } }))
             return Stamp(Mk(type, node, compilation, SystemModelKind.Module));
         var consumer = ReadConsumerFor(compilation, type, node);
@@ -119,6 +132,35 @@ internal static partial class SystemReader
         var diagnostics = new List<DeclarationDiagnostic>();
         var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
         return ReadConsumer(type, node, contracts, KindContractsOf(compilation), compilation, diagnostics, foreign, new Dictionary<string, (KindDecl Kind, SyntaxNode Site)>(StringComparer.Ordinal), collectFeeders: false);
+    }
+
+    internal static ImmutableArray<SystemTypeModel?> CollectModels(CSharpCompilation compilation)
+    {
+        var contracts = Contracts(compilation);
+        if (contracts is null) return ImmutableArray<SystemTypeModel?>.Empty;
+        var kindContracts = KindContractsOf(compilation);
+        var builder = ImmutableArray.CreateBuilder<SystemTypeModel?>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var node in tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
+            {
+                if (model.GetDeclaredSymbol(node) is not INamedTypeSymbol type || !seen.Add(type)) continue;
+                if (IsSystem(type, contracts)) builder.Add(TypeOf(compilation, type, node, SystemModelKind.System, false));
+                if (kindContracts is not null)
+                {
+                    if (type.GetAttributes().Any(a => IsKindContract(kindContracts, a.AttributeClass)))
+                        builder.Add(KindOf(compilation, type, node));
+                    foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
+                        foreach (var attr in method.GetAttributes())
+                            if (Symbols.Same(attr.AttributeClass, kindContracts.Feeds) || Symbols.Same(attr.AttributeClass, kindContracts.Pulse))
+                                builder.Add(FeederOf(compilation, method, method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() ?? node));
+                }
+                if (TrackOf(compilation, type, node) is { } track) builder.Add(track);
+            }
+        }
+        return builder.ToImmutable();
     }
 
     internal static ImmutableArray<SystemTypeModel> Order(ImmutableArray<SystemTypeModel?> models, Compilation compilation, CancellationToken cancellation)
@@ -152,7 +194,7 @@ internal static partial class SystemReader
         for (var i = 0; i < feeders.Count; i++)
         {
             var feeder = feeders[i];
-            if (feeder.Trigger != FeederTrigger.Span || FeederMethod(type, feeder) is not { } method) continue;
+            if (feeder.Trigger is not (FeederTrigger.Span or FeederTrigger.Start or FeederTrigger.End) || FeederMethod(type, feeder) is not { } method) continue;
             var read = FlagReadOf(type, method, feeder, compilation);
             if (read == feeder.FlagRead) continue;
             reread ??= [.. feeders];
@@ -166,7 +208,7 @@ internal static partial class SystemReader
         foreach (var method in type.GetMembers(feeder.MethodName).OfType<IMethodSymbol>())
         {
             if (!method.IsStatic || method.ReturnsVoid || method.Arity != 0 || method.Parameters.Length != feeder.Method.Params.Count) continue;
-            if (!method.GetAttributes().Any(static a => a.AttributeClass is { Name: "FeedsAttribute", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } })) continue;
+            if (!method.GetAttributes().Any(static a => a.AttributeClass is { Name: "FeedsAttribute" or "PulseAttribute", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } })) continue;
             var matched = true;
             for (var p = 0; p < feeder.Method.Params.Count; p++)
             {
@@ -184,10 +226,10 @@ internal static partial class SystemReader
         return null;
     }
 
-    internal static (IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics, string AutoSource) AssignModels(IReadOnlyList<SystemTypeModel> models, string id)
+    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics, string AutoSource) AssignModels(IReadOnlyList<SystemTypeModel> models, string id, bool withAuto = true, SystemDecl? customAuto = null, ISet<string>? customMembers = null)
     {
         var diagnostics = new List<DeclarationDiagnostic>();
-        var (auto, members, source) = AutoOf(models, id);
+        var (auto, members, source) = withAuto ? AutoOf(models, id) : (customAuto, customMembers ?? new HashSet<string>(StringComparer.Ordinal), "");
         var systems = new List<SystemDecl>(); var consumers = new List<SystemConsumer>(); var kinds = new List<KindDecl>();
         var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal); var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
         var feeders = new Dictionary<string, List<FeederDecl>>(StringComparer.Ordinal); var foreign = new HashSet<string>(StringComparer.Ordinal);
@@ -224,7 +266,16 @@ internal static partial class SystemReader
         DerivedKinds.CheckTwoWriters(kinds, kindSites, withFeeders, sites, diagnostics);
         var assignments = Assign(systems, withFeeders, sites, diagnostics);
         var result = kinds.Count == 0 && !withFeeders.Any(static c => c.Feeders.Count > 0) ? assignments : AssignKinds(systems, assignments, kinds, kindSites, sites, diagnostics);
-        return (result, diagnostics, source);
+        return (systems, result, diagnostics, source);
+    }
+
+    static void AddFacts(IReadOnlyList<string> facts, List<(string type, bool writable)> columns)
+    {
+        for (var i = 1; i < facts.Count; i++)
+        {
+            var parts = facts[i].Split('\0');
+            if (parts.Length == 3 && parts[1] == "1") NewStyle.AddColumn(columns, parts[0], parts[2] == "1");
+        }
     }
 
     static (SystemDecl? AutoSystem, ISet<string> Members, string AutoSource) AutoOf(IReadOnlyList<SystemTypeModel> models, string id)
@@ -263,24 +314,16 @@ internal static partial class SystemReader
                 if (systemColumns.Contains(model.DerivedColumn)) continue;
                 members.Add(model.TypeName);
                 NewStyle.AddColumn(columns, model.DerivedColumn, true);
-                for (var i = 1; i < model.Facts.Count; i++)
-                {
-                    var parts = model.Facts[i].Split('\0');
-                    if (parts.Length == 3 && parts[1] == "1") NewStyle.AddColumn(columns, parts[0], parts[2] == "1");
-                }
+                AddFacts(model.Facts, columns);
                 continue;
             }
             var meta = model.Facts[0].Split('\0');
             if (meta[1] == "0" && !autoKinds.Contains(meta[0])) continue;
             feedsForeign |= meta[1] == "1";
             members.Add(model.TypeName);
-            for (var i = 1; i < model.Facts.Count; i++)
-            {
-                var parts = model.Facts[i].Split('\0');
-                if (parts.Length == 3 && parts[1] == "1") NewStyle.AddColumn(columns, parts[0], parts[2] == "1");
-            }
+            AddFacts(model.Facts, columns);
         }
-        var autoEvents = new List<string>(); var eventFields = new List<NewStyleColumn>();
+        var autoEvents = new List<string>(); var eventFields = new List<(string Name, string TypeName, bool Writable)>();
         foreach (var model in models)
         {
             if (model.Kind != SystemModelKind.Consumer || model.Events is not { Count: > 0 }) continue;
@@ -292,18 +335,18 @@ internal static partial class SystemReader
         var autoName = NewStyle.AutoNameOf(id);
         var text = new StringBuilder();
         text.Append("namespace Tl.Generated\n{\n[global::Tl.TimelineSystem]\npublic ref partial struct ").Append(autoName).Append("\n{\n");
-        var autoColumns = new List<NewStyleColumn>();
+        var autoColumns = new List<(string Name, string TypeName, bool Writable)>();
         for (var i = 0; i < columns.Count; i++)
         {
             var name = "C" + i + "_" + NewStyle.Simple(columns[i].type);
             text.Append("public global::System.").Append(columns[i].writable ? "Span<" : "ReadOnlySpan<").Append(columns[i].type).Append("> ").Append(name).Append(";\n");
-            autoColumns.Add(new(name, columns[i].type, columns[i].writable));
+            autoColumns.Add((name, columns[i].type, columns[i].writable));
         }
         for (var i = 0; i < autoEvents.Count; i++)
         {
             var name = "E" + i + "_" + NewStyle.Simple(autoEvents[i]);
             text.Append("public global::Tl.Events<").Append(autoEvents[i]).Append("> ").Append(name).Append(";\n");
-            eventFields.Add(new(name, autoEvents[i], true));
+            eventFields.Add((name, autoEvents[i], true));
         }
         text.Append("}\n}\n");
         var fields = new List<SystemField>();

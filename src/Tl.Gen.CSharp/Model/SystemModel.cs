@@ -91,6 +91,7 @@ internal sealed record KindDecl(
     public IReadOnlyList<DerivedField> DerivedFields { get; init; } = [];
     public bool Associative { get; init; }
     public bool Precombined { get; init; }
+    public bool PrecombinedPulses { get; init; }
 }
 
 internal sealed record SystemConsumer(

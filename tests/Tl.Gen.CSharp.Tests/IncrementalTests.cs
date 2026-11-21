@@ -117,14 +117,14 @@ public sealed class IncrementalTests
         var incremental = NewDriver();
         var (run, precombined) = Step(ref incremental, pure);
         Assert.Empty(Codes(run));
-        Assert.Contains(precombined, static tree => tree.Contains("SpanValues<float, KindSpans_0>", StringComparison.Ordinal));
+        Assert.Contains(precombined, static tree => tree.Contains("__b.Add<float, KindSpans_0>", StringComparison.Ordinal));
         Assert.Equal(Fresh(pure).Trees, precombined);
         var synthetic = pure.ReplaceSyntaxTree(foldTree, parse(syntheticFold));
         Assert.Same(pure.SyntaxTrees.Single(static tree => tree.FilePath == "Jump.cs"), synthetic.SyntaxTrees.Single(static tree => tree.FilePath == "Jump.cs"));
         (run, var walked) = Step(ref incremental, synthetic);
         var info = Assert.Single(Codes(run));
         Assert.StartsWith("TLGEN115: Kind 'LiftKind' declares Associative but keeps the per-span path in system 'global::Portable.LiftSystem': feeder 'Portable.Jump.Rise' takes a fold whose Fold reads FrameFlags.Synthetic.", info);
-        Assert.DoesNotContain(walked, static tree => tree.Contains("SpanValues<", StringComparison.Ordinal));
+        Assert.DoesNotContain(walked, static tree => tree.Contains("KindFill", StringComparison.Ordinal));
         var fresh = Fresh(synthetic);
         Assert.Equal(fresh.Codes, Codes(run));
         Assert.Equal(fresh.Trees, walked);
@@ -159,7 +159,7 @@ public sealed class IncrementalTests
             var info = Assert.Single(run.Diagnostics);
             Assert.Equal("TLGEN115", info.Id);
             Assert.Contains("Kind 'KindB'", info.GetMessage());
-            Assert.Contains("SpanValues<float, KindSpans_0>", string.Join("\n", trees));
+            Assert.Contains("__b.Add<float, KindSpans_0>", string.Join("\n", trees));
             Assert.DoesNotContain("KindSpans_1", string.Join("\n", trees));
         }
     }
@@ -173,7 +173,7 @@ public sealed class IncrementalTests
         var driver = NewDriver();
         var (run, trees) = Step(ref driver, Compile(("Jump.cs", feeder), ("Fold.cs", pureWithZeroArgHelper)));
         Assert.Empty(run.Diagnostics);
-        Assert.Contains(trees, static tree => tree.Contains("SpanValues<float, KindSpans_0>", StringComparison.Ordinal));
+        Assert.Contains(trees, static tree => tree.Contains("__b.Add<float, KindSpans_0>", StringComparison.Ordinal));
         var validFold = Compile(("Jump.cs", feeder), ("Fold.cs", "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Clip.Y; }\n"));
         var inc = NewDriver();
         Step(ref inc, validFold);
@@ -207,7 +207,7 @@ public sealed class IncrementalTests
             Assert.Equal(2, run.Diagnostics.Length);
             Assert.Contains(run.Diagnostics, static d => d.Id == "TLGEN115" && d.GetMessage().Contains("Kind 'KindA'") && d.GetMessage().Contains("takes 'float'"));
             Assert.Contains(run.Diagnostics, static d => d.Id == "TLGEN115" && d.GetMessage().Contains("Kind 'KindB'") && d.GetMessage().Contains("reads FrameFlags.Synthetic"));
-            Assert.DoesNotContain("SpanValues<", string.Join("\n", trees));
+            Assert.DoesNotContain("KindFill", string.Join("\n", trees));
         }
     }
 

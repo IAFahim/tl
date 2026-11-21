@@ -72,6 +72,12 @@ type Tl.Horizon
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
+type Tl.IKindFill
+  Method Void Add(Tl.KindBuild ByRef)
+type Tl.IKindPulseSink
+  Property Boolean Active
+  Method Void Push(Tl.KindTables ByRef, Int32, Int32, Int32)
+  Method Void Rewind(Tl.KindTables ByRef, Int32, Int32)
 type Tl.IKindRows
   Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
   Method Void Purge(Int32, Byte, UInt16)
@@ -152,6 +158,13 @@ type Tl.Inspection+TablesSnapshot
   Property InternSnapshot Intern
   Property PairSnapshot Pair
   Method System.String ToString()
+type Tl.KindBuild
+  Method Void Add[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef)
+  Method Void Fill[TFill](Byte*, TFill ByRef)
+  Field UInt64 Kinds
+  Method Tl.KindBuild Of[TFill](Tl.KindScore ByRef, Tl.LibraryTimeline*, Tl.KindValues*, Int32*, Boolean, TFill ByRef)
+  Field Int32 Rows
+  Field Int32 Stride
 type Tl.KindCalm
   Field Byte* Backward
   Method Tl.KindCalm Build(Tl.KindTables ByRef, Byte*, Byte*, Int32*)
@@ -212,6 +225,19 @@ type Tl.KindPayload
   Method Boolean SameCatalog(Tl.KindPayload)
   Field UInt32 Version
   Method Byte[] Write(System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], Byte[])
+type Tl.KindPulseBuffer
+  Field Int32 Count
+  Field Tl.KindPulseHit* Items
+  Method Int32 LowerBound(Int32)
+type Tl.KindPulseHit
+  Field Int32 Cell
+  Field Int32 Entity
+type Tl.KindPulseValues
+  Field Int64 Bytes
+  Field Int32 Cells
+  Field Byte* Data
+  Field Int32* Start
+  Field Int32 Stride
 type Tl.KindPulses`1
   Method Void To(Int32, T)
 type Tl.KindPulses`2
@@ -223,6 +249,7 @@ type Tl.KindRules
   Field Int32 MaxSampleSlots
   Method Boolean Rebind[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
   Method Boolean TickEntity[TRows](Tl.KindTables ByRef, Tl.Playback*, Int32, TRows ByRef, Int32, Int32)
+  Method Boolean TickEntity[TRows,TPulse](Tl.KindTables ByRef, Tl.Playback*, Int32, TRows ByRef, Int32, Int32, TPulse ByRef)
   Method Boolean TickSlot[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Int32, Tl.Playback*, Int32)
 type Tl.KindScore
   Method Tl.KindScore Build[TSteps](Tl.KindTables ByRef, TSteps ByRef)
@@ -269,9 +296,11 @@ type Tl.KindStats
   Field Int32 Overflows
   Field Int32 Rows
 type Tl.KindStore
+  Method Void ClearPulseHits(Int32, Int32)
   Method Void Dispose()
   Property Int64 DroppedPulses
   Method Tl.KindStats GetStats(Int32)
+  Property Boolean HasSamples
   Method Int32 IndexOf(System.String)
   Method UInt16* Join(System.String, Int32, System.String, Int32, Int32 ByRef)
   Property Int32 KindCount
@@ -279,13 +308,16 @@ type Tl.KindStore
   Method UInt32 MarkerOf(UInt16, Int32)
   Method System.String NameOf(Int32)
   Property UInt64* Playing
+  Method Tl.KindPulseBuffer* PulseHitsOf(Int32)
+  Method Int64 PulseValueBytes(Int32)
+  Method Tl.KindPulseValues* PulseValues[T,TEval](Int32, Int32, TEval ByRef)
   Method Tl.KindPulses`1[T] Pulses[T](System.String)
   Method Tl.KindPulses`2[T,TFold] Pulses[T,TFold](System.String)
   Method Boolean RowsAreEntities(Int32)
   Method Int32 SamplesOf(Int32)
   Property Tl.KindScore Score
   Method Int64 SpanValueBytes(Int32)
-  Method Tl.KindValues* SpanValues[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef)
+  Method Tl.KindValues* SpanValues[TFill](Int32, Int32, TFill ByRef)
   Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
   Method Tl.KindTable* Table(Int32)
   Method Int32 TrailingZeros(UInt64)
@@ -315,11 +347,16 @@ type Tl.KindTable
   Field Int32 Words
 type Tl.KindTables
   Field UInt64* Closure
+  Field UInt64 FastPulseMask
   Field Int32 KindCount
   Field Int32* PairStart
   Field UInt32* Pairs
+  Field Int32* PulseBase
+  Field Byte* PulseBits
+  Field UInt64* PulseMasks
   Method Boolean Reaches(UInt16, UInt64)
   Field Tl.KindSectionView Sec
+  Field UInt32* SpanMeta
   Field Int32 TimelineCount
   Field Tl.LibraryTimeline* Timelines
 type Tl.KindValues
@@ -329,11 +366,12 @@ type Tl.KindValues
   Method Void Fill[T,TSpans](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, UInt16*, Boolean, TSpans ByRef)
   Method Void Free()
   Field Int32 Front
-  Method Tl.KindValues Layout[T](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, Int32, Int32*)
+  Method UInt32* HeadOf(UInt16, UInt16)
   Field Int32 Part
   Field Int32* Row
   Method Byte* RowOf(UInt16, UInt16)
   Field Int32 Rows
+  Field Int32 Shift
   Field Int32 Stride
   Field Int32 TimelineCount
 type Tl.LibraryAssembler

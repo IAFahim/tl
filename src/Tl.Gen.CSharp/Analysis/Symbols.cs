@@ -22,12 +22,5 @@ internal static class Symbols
     }
 
     internal static void Error(ICollection<DeclarationDiagnostic> errors, SyntaxNode node, string code, string message)
-    {
-        var span = node.GetLocation().GetLineSpan();
-        errors.Add(new(span.Path, span.StartLinePosition.Line + 1, span.StartLinePosition.Character + 1, code, message)
-        {
-            SpanStart = node.SpanStart, SpanLength = node.Span.Length,
-            EndLine = span.EndLinePosition.Line + 1, EndColumn = span.EndLinePosition.Character + 1,
-        });
-    }
+        => errors.Add(Site(node) with { Code = code, Message = message });
 }
