@@ -90,6 +90,27 @@ public unsafe interface IKindRows
     void Sampled(int row, int samples);
 }
 
+internal unsafe interface IPulseSink
+{
+    bool Active { get; }
+    void Push(in KindTables t, int kind, int row, int cell);
+    void Rewind(in KindTables t, int kind, int row);
+}
+
+internal unsafe struct NoPulseSink : IPulseSink
+{
+    public bool Active => false;
+    public void Push(in KindTables t, int kind, int row, int cell) { }
+    public void Rewind(in KindTables t, int kind, int row) { }
+}
+
+internal unsafe struct BufferPulseSink : IPulseSink
+{
+    public bool Active => true;
+    public void Push(in KindTables t, int kind, int row, int cell) => t.PulseHits[kind].Push(row, cell);
+    public void Rewind(in KindTables t, int kind, int row) => t.PulseHits[kind].Rewind(row);
+}
+
 public static unsafe class KindRules
 {
     public static bool Rebind<TRows>(in KindTables t, ref TRows rows, int row, ref Playback s, int slot) where TRows : struct, IKindRows
@@ -135,9 +156,15 @@ public static unsafe class KindRules
 
     public static bool TickEntity<TRows>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int stepDir) where TRows : struct, IKindRows
     {
+        NoPulseSink none = default;
+        return TickEntityCore(in t, slots, count, ref rows, row, stepDir, ref none);
+    }
+
+    internal static bool TickEntityCore<TRows, TPulse>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int stepDir, ref TPulse pulse) where TRows : struct, IKindRows where TPulse : struct, IPulseSink
+    {
         if (t.SpanMeta == null) return TickEntitySlow(in t, slots, count, ref rows, row, stepDir);
         var ep = t.EntryPulse;
-        var fastMask = ep != null && (ep[row >> 6] >> (row & 63) & 1) != 0 ? 0ul : t.FastPulseMask;
+        var fastMask = !pulse.Active || (ep != null && (ep[row >> 6] >> (row & 63) & 1) != 0) ? 0ul : t.FastPulseMask;
         var hitFast = 0ul;
         var live = false;
         var meta = t.SpanMeta;
@@ -159,7 +186,7 @@ public static unsafe class KindRules
                     tick = tick < 0 ? (int)dur - 1 : 0;
                 }
                 s->Tick = (ushort)tick;
-                PulseAt(in t, ref rows, row, i, id, tick, dir, fastMask, ref hitFast);
+                PulseAt(in t, ref rows, row, i, id, tick, dir, fastMask, ref hitFast, ref pulse);
                 live = true;
                 continue;
             }
@@ -167,13 +194,13 @@ public static unsafe class KindRules
             {
                 if (fastMask != 0)
                 {
-                    Backfill(in t, slots, i, ref rows, row, stepDir, ref hitFast);
+                    Backfill(in t, slots, i, ref rows, row, stepDir, ref hitFast, ref pulse);
                     fastMask = 0;
                 }
                 return TickRatedFrom(in t, slots, count, ref rows, row, i, stepDir, live);
             }
         slow:
-            live |= TickSlotCore(in t, slots, i, ref rows, row, s, stepDir, ref fastMask, ref hitFast);
+            live |= TickSlotCore(in t, slots, i, ref rows, row, s, stepDir, ref fastMask, ref hitFast, ref pulse);
         }
         return live;
     }
@@ -202,7 +229,8 @@ public static unsafe class KindRules
                 }
             }
             else if (s->Rate != 0) return TickRatedFrom(in t, slots, count, ref rows, row, i, stepDir, live);
-            live |= TickSlotCore(in t, slots, i, ref rows, row, s, stepDir, ref zero, ref zero);
+            NoPulseSink none = default;
+            live |= TickSlotCore(in t, slots, i, ref rows, row, s, stepDir, ref zero, ref zero, ref none);
         }
         rows.Sampled(row, 0);
         return live;
@@ -260,10 +288,11 @@ public static unsafe class KindRules
     public static bool TickSlot<TRows>(in KindTables t, ref TRows rows, int row, int i, Playback* s, int stepDir) where TRows : struct, IKindRows
     {
         ulong zero = 0;
-        return TickSlotCore(in t, null, i, ref rows, row, s, stepDir, ref zero, ref zero);
+        NoPulseSink none = default;
+        return TickSlotCore(in t, null, i, ref rows, row, s, stepDir, ref zero, ref zero, ref none);
     }
 
-    static bool TickSlotCore<TRows>(in KindTables t, Playback* slots, int i, ref TRows rows, int row, Playback* s, int stepDir, ref ulong fastMask, ref ulong hitFast) where TRows : struct, IKindRows
+    static bool TickSlotCore<TRows, TPulse>(in KindTables t, Playback* slots, int i, ref TRows rows, int row, Playback* s, int stepDir, ref ulong fastMask, ref ulong hitFast, ref TPulse pulse) where TRows : struct, IKindRows where TPulse : struct, IPulseSink
     {
         if ((s->Flags & (PlaybackFlags.Began | PlaybackFlags.ReenterPending)) == (PlaybackFlags.Began | PlaybackFlags.ReenterPending)) s->Flags &= ~PlaybackFlags.ReenterPending;
         s->Flags &= ~PlaybackFlags.Began;
@@ -282,7 +311,7 @@ public static unsafe class KindRules
         {
             if (fastMask != 0)
             {
-                Backfill(in t, slots, i, ref rows, row, stepDir, ref hitFast);
+                Backfill(in t, slots, i, ref rows, row, stepDir, ref hitFast, ref pulse);
                 fastMask = 0;
             }
             Begin(in t, ref rows, row, i, s, stepDir);
@@ -302,13 +331,13 @@ public static unsafe class KindRules
         {
             case PlaybackMotion.Stepped:
             case PlaybackMotion.Wrapped:
-                if (t.PulseBase != null) PulseAt(in t, ref rows, row, i, before.Timeline, s->Tick, dir, fastMask, ref hitFast);
+                if (t.PulseBase != null) PulseAt(in t, ref rows, row, i, before.Timeline, s->Tick, dir, fastMask, ref hitFast, ref pulse);
                 else Events(in t, ref rows, row, i, before.Timeline, s->Tick, dir);
                 return true;
             case PlaybackMotion.Handed:
                 if (fastMask != 0)
                 {
-                    Backfill(in t, slots, i, ref rows, row, stepDir, ref hitFast);
+                    Backfill(in t, slots, i, ref rows, row, stepDir, ref hitFast, ref pulse);
                     fastMask = 0;
                 }
                 Begin(in t, ref rows, row, i, s, stepDir);
@@ -326,14 +355,14 @@ public static unsafe class KindRules
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static void PulseAt<TRows>(in KindTables t, ref TRows rows, int row, int slot, ushort id, int tick, int dir, ulong fastMask, ref ulong hitFast) where TRows : struct, IKindRows
+    static void PulseAt<TRows, TPulse>(in KindTables t, ref TRows rows, int row, int slot, ushort id, int tick, int dir, ulong fastMask, ref ulong hitFast, ref TPulse pulse) where TRows : struct, IKindRows where TPulse : struct, IPulseSink
     {
         var pb = t.PulseBase[id - 1];
         if (pb < 0) return;
         var d = dir > 0 ? 0 : 1;
         if ((t.PulseBits[pb + tick] & (1 << d)) == 0) return;
         var cell = ((pb + tick) << 1) + d;
-        RouteEvents(in t, ref rows, row, slot, id, tick, dir, cell, t.PulseMasks[cell], fastMask, ref hitFast);
+        RouteEvents(in t, ref rows, row, slot, id, tick, dir, cell, t.PulseMasks[cell], fastMask, ref hitFast, ref pulse);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -343,15 +372,15 @@ public static unsafe class KindRules
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static void RouteEvents<TRows>(in KindTables t, ref TRows rows, int row, int slot, ushort id, int tick, int dir, int cell, ulong km, ulong fastMask, ref ulong hitFast) where TRows : struct, IKindRows
+    static void RouteEvents<TRows, TPulse>(in KindTables t, ref TRows rows, int row, int slot, ushort id, int tick, int dir, int cell, ulong km, ulong fastMask, ref ulong hitFast, ref TPulse pulse) where TRows : struct, IKindRows where TPulse : struct, IPulseSink
     {
-        var fast = km & fastMask;
+        var fast = pulse.Active ? km & fastMask : 0ul;
         if (fast != 0)
         {
             hitFast |= fast;
             do
             {
-                t.PulseHits[KindStore.Tz(fast)].Push(row, cell);
+                pulse.Push(in t, KindStore.Tz(fast), row, cell);
                 fast &= fast - 1;
             } while (fast != 0);
         }
@@ -360,10 +389,10 @@ public static unsafe class KindRules
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static void Backfill<TRows>(in KindTables t, Playback* slots, int upto, ref TRows rows, int row, int stepDir, ref ulong hitFast) where TRows : struct, IKindRows
+    static void Backfill<TRows, TPulse>(in KindTables t, Playback* slots, int upto, ref TRows rows, int row, int stepDir, ref ulong hitFast, ref TPulse pulse) where TRows : struct, IKindRows where TPulse : struct, IPulseSink
     {
-        if (hitFast == 0) return;
-        for (var m = hitFast; m != 0; m &= m - 1) t.PulseHits[KindStore.Tz(m)].Rewind(row);
+        if (!pulse.Active || hitFast == 0) return;
+        for (var m = hitFast; m != 0; m &= m - 1) pulse.Rewind(in t, KindStore.Tz(m), row);
         if (slots != null)
             for (var j = 0; j < upto; j++)
             {

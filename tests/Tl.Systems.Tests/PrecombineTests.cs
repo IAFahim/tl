@@ -1381,6 +1381,19 @@ public sealed class PrecombinePulseTests
             }
             Assert.Equal(0L, fh.PulseBytes("PulseOracle.Comb"));
         }
+
+        using (var fh = fast.CreateHarness(libF, 2))
+        {
+            fh.Players.Start(0, 1, 1);
+            fh.TickAndRun(true);
+            Assert.True(fh.PulseBytes("PulseOracle.Comb") > 0L);
+            fh.TickOnly(true);
+            fh.JoinForeign("PulseOracle.Comb", 42);
+            fh.TickOnly(true);
+            fh.RunOnly(true);
+            Assert.Equal(306L, (long)fh.CombSum(0));
+            Assert.Equal(0L, fh.PulseBytes("PulseOracle.Comb"));
+        }
     }
 
     [Fact]
@@ -1424,6 +1437,23 @@ public sealed class PrecombinePulseTests
             {
                 if (step == 6) { fh.Players.Stop(0, 2); sh.Players.Stop(0, 2); }
                 if (step == 9) { fh.Players.Start(0, 6); sh.Players.Start(0, 6); }
+                fh.TickAndRun(true); sh.TickAndRun(true);
+                Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            }
+        }
+
+        using (var fh = fast.CreateHarness(libF, 80, 1, 2))
+        using (var sh = slow.CreateHarness(libS, 80, 1, 2))
+        {
+            for (var e = 0; e < 80; e++)
+                for (ushort tl = 1; tl <= 4; tl++) { fh.Players.Start(e, tl); sh.Players.Start(e, tl); }
+            fh.TickAndRun(true); sh.TickAndRun(true);
+            Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            for (var e = 0; e < 80; e++)
+                for (ushort tl = 5; tl <= 7; tl++) { fh.Players.Start(e, tl); sh.Players.Start(e, tl); }
+            fh.Players.SetSpeed(0, 1, 32); sh.Players.SetSpeed(0, 1, 32);
+            for (var step = 0; step < 10; step++)
+            {
                 fh.TickAndRun(true); sh.TickAndRun(true);
                 Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
             }

@@ -321,16 +321,15 @@ public sealed unsafe class PlaybackTable : IDisposable
                 return inline;
             }
             var size = NextPow2(Math.Min(needed, MaxSlots));
-            Playback* src = inline;
             int oldOff = -1, oldCap = 0;
             if (IsSpilled(entity))
             {
                 oldOff = *(int*)inline;
                 oldCap = *(int*)((byte*)inline + 4);
                 if (oldCap >= Math.Min(needed, MaxSlots)) return _blocks + (nuint)oldOff;
-                src = _blocks + (nuint)oldOff;
             }
             var newOffset = AllocBlock(size);
+            var src = oldOff >= 0 ? _blocks + (nuint)oldOff : inline;
             new ReadOnlySpan<Playback>(src, count).CopyTo(new Span<Playback>(_blocks + (nuint)newOffset, count));
             if (oldOff >= 0) FreeBlock(oldOff, oldCap);
             else _spilled[entity >> 6] |= 1ul << (entity & 63);

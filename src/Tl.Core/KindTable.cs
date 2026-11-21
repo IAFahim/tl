@@ -86,8 +86,6 @@ public unsafe struct KindTable
         NativeMemory.AlignedFree(t);
     }
 
-    static KindTable* ZeroedTable(nuint bytes) => (KindTable*)KindStore.Zeroed(bytes);
-
     public long StorageBytesPerRow => 6 + (long)Inline * Stride;
 
     public bool IsActive(int row) => (Active[row >> 6] & (1ul << (row & 63))) != 0;

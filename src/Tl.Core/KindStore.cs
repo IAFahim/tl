@@ -626,7 +626,7 @@ public sealed unsafe class KindStore : IDisposable
         if (_samples[entities] != 0) NativeMemory.Clear(_samples, (nuint)entities + 1);
         _t.EntryPulse = _hasClosed ? _closedEntity : null;
         var fast = _tablePulses;
-        for (var m = fast; m != 0; m &= m - 1)
+        for (var m = fast | _tickTablePulses; m != 0; m &= m - 1)
         {
             var k = Tz(m);
             if (_pulseHits[k].Count != 0)
@@ -662,6 +662,7 @@ public sealed unsafe class KindStore : IDisposable
         var counts = p.Counts;
         var spilled = p.Spilled;
         var stride = (nuint)p.SlotsPerEntity;
+        var pulse = default(BufferPulseSink);
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
@@ -674,7 +675,7 @@ public sealed unsafe class KindStore : IDisposable
                 var e = baseE + bit;
                 var inline = slots + (nuint)e * stride;
                 var run = (spilled[w] >> bit & 1) == 0 ? inline : _players.RawView.Blocks + *(int*)inline;
-                if (!KindRules.TickEntity(in _t, run, counts[e], ref _kindRows, e, stepDir)) playing[w] &= ~(1ul << bit);
+                if (!KindRules.TickEntityCore(in _t, run, counts[e], ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << bit);
             }
         }
     }
