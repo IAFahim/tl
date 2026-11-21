@@ -69,12 +69,12 @@ struct NativeStep { public uint Slot, Pair; }
 }
 public readonly unsafe struct TimelineRef
 {
-	static uint U32(ReadOnlySpan<byte> s, int o) => BinaryPrimitives.ReadUInt32LittleEndian(s.Slice(o));
+	static uint U32(ReadOnlySpan<byte> s, int o) => LibraryLayout.U32(s, o);
 	static ushort U16(ReadOnlySpan<byte> s, int o) => BinaryPrimitives.ReadUInt16LittleEndian(s.Slice(o));
+	static void Fail(string message) => throw new ArgumentException(message);
 
 	internal static void Validate(ReadOnlySpan<byte> baked)
 	{
-		void Fail(string message) => throw new ArgumentException(message);
 		if (baked.Length < 64) Fail("TLB truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
 		if (h.Magic != 0x31424C54 || (h.Version != 5 && h.Version != 6)) Fail("TLB magic or version invalid; rebake the asset with the current toolchain.");
@@ -107,14 +107,13 @@ public readonly unsafe struct TimelineRef
 			}
 		}
 		var pairs = MemoryMarshal.Cast<byte, NativePair>(baked.Slice((int)h.PairOffset, 48 * (int)h.PairCount));
-		Action<string> fail = Fail;
 		for (var i = 1; i < pairs.Length; i++) if (pairs[i - 1].Key >= pairs[i].Key) Fail("TLB pair keys must be sorted.");
 		for (var i = 0; i < pairs.Length; i++)
 		{
 			var pair = pairs[i];
 			if (pair.SlotStride % 8 != 0 || pair.SlotStride < SlotRow.RowBytes) Fail("TLB slot stride must be 8-aligned.");
-			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, fail);
-			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, fail);
+			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes);
+			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes);
 		}
 		var stages = MemoryMarshal.Cast<byte, NativeStage>(baked.Slice((int)h.StageOffset, 16 * (int)h.StageCount));
 		var programs = h.StageOffset + 16ul * h.StageCount;
@@ -130,7 +129,7 @@ public readonly unsafe struct TimelineRef
 				var pair = pairs[(int)step.Pair];
 				if (step.Slot < h.FrameOffset || step.Slot % 8 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 8-aligned in bounds.");
 				if (h.Version == 6 && markerCount != 0 && step.Slot >= markerOff) Fail("TLB slots must precede the marker section.");
-				ValidateRow(baked, (int)step.Slot, pair, h.TrackCount, stage.Start, stage.End, fail);
+				ValidateRow(baked, (int)step.Slot, pair, h.TrackCount, stage.Start, stage.End);
 			}
 			edge = stage.End;
 		}
@@ -139,7 +138,6 @@ public readonly unsafe struct TimelineRef
 
 	static void ValidateMarkers(ReadOnlySpan<byte> baked, int at, int count, uint duration, uint hotLength)
 	{
-		void Fail(string message) => throw new ArgumentException(message);
 		var off = (uint)at;
 		for (var i = 0; i < count; i++)
 		{
@@ -156,13 +154,13 @@ public readonly unsafe struct TimelineRef
 		if (off > hotLength) Fail("TLB marker section out of bounds.");
 	}
 
-	static void ValidatePool(NativeHeader h, ulong address, uint count, uint valueBytes, Action<string> fail)
+	static void ValidatePool(NativeHeader h, ulong address, uint count, uint valueBytes)
 	{
-		if (address % 16 != 0) fail("TLB value pools must be 16-byte aligned.");
-		if (address < h.PoolOffset || count > 65535 || address + (ulong)count * valueBytes > h.FrameOffset) fail("TLB value pool out of bounds.");
+		if (address % 16 != 0) Fail("TLB value pools must be 16-byte aligned.");
+		if (address < h.PoolOffset || count > 65535 || address + (ulong)count * valueBytes > h.FrameOffset) Fail("TLB value pool out of bounds.");
 	}
 
-	static void ValidateRow(ReadOnlySpan<byte> baked, int at, NativePair pair, uint trackCount, uint stageStart, uint stageEnd, Action<string> fail)
+	static void ValidateRow(ReadOnlySpan<byte> baked, int at, NativePair pair, uint trackCount, uint stageStart, uint stageEnd)
 	{
 		var trackValue = U16(baked, at);
 		var first = U16(baked, at + 2);
@@ -172,12 +170,12 @@ public readonly unsafe struct TimelineRef
 		var windowEnd = U32(baked, at + 12);
 		var factorStart = U32(baked, at + 16);
 		var factorSpan = U32(baked, at + 20);
-		if (trackValue >= pair.TrackPoolCount || first >= pair.ClipPoolCount) fail("TLB slot value index out of bounds.");
-		if (second != SlotRow.NoClipValue && second >= pair.ClipPoolCount) fail("TLB slot second value index out of bounds.");
-		if (factorSpan != 0 && second == SlotRow.NoClipValue) fail("TLB blend window requires a second value index.");
-		if (factorSpan == 0 && second != SlotRow.NoClipValue) fail("TLB second value index requires a blend window.");
-		if (trackIndex >= trackCount) fail("TLB slot track index out of bounds.");
-		if (stageStart < windowStart || stageEnd > windowEnd) fail("TLB slot window must contain the referencing stage.");
-		if (factorSpan != 0 && (stageStart < factorStart || stageEnd > factorStart + (ulong)factorSpan)) fail("TLB blend window must contain the referencing stage.");
+		if (trackValue >= pair.TrackPoolCount || first >= pair.ClipPoolCount) Fail("TLB slot value index out of bounds.");
+		if (second != SlotRow.NoClipValue && second >= pair.ClipPoolCount) Fail("TLB slot second value index out of bounds.");
+		if (factorSpan != 0 && second == SlotRow.NoClipValue) Fail("TLB blend window requires a second value index.");
+		if (factorSpan == 0 && second != SlotRow.NoClipValue) Fail("TLB second value index requires a blend window.");
+		if (trackIndex >= trackCount) Fail("TLB slot track index out of bounds.");
+		if (stageStart < windowStart || stageEnd > windowEnd) Fail("TLB slot window must contain the referencing stage.");
+		if (factorSpan != 0 && (stageStart < factorStart || stageEnd > factorStart + (ulong)factorSpan)) Fail("TLB blend window must contain the referencing stage.");
 	}
 }

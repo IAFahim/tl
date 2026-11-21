@@ -33,8 +33,8 @@ internal static partial class SystemReader
         if (kind is not null)
         {
             var apply = ApplyLike(type, "Apply"); var idle = ApplyLike(type, "Idle");
-            if (apply is not null) for (var i = 1; i < apply.Parameters.Length; i++) applyPlain.Add(SystemGeneration.IsPlainState(apply.Parameters[i].Type));
-            if (idle is not null) foreach (var p in idle.Parameters) idlePlain.Add(SystemGeneration.IsPlainState(p.Type));
+            if (apply is not null) for (var i = 1; i < apply.Parameters.Length; i++) applyPlain.Add(NewStyle.IsPlainState(apply.Parameters[i].Type));
+            if (idle is not null) foreach (var p in idle.Parameters) idlePlain.Add(NewStyle.IsPlainState(p.Type));
         }
         return Stamp(Mk(type, node, compilation, SystemModelKind.Kind)) with { KindDecl = kind, Diagnostics = diagnostics, ApplyPlain = applyPlain, IdlePlain = idlePlain };
     }
@@ -92,14 +92,14 @@ internal static partial class SystemReader
             if (ReadForeignKind(entry.Value.Type, entry.Value.Site, diagnostics) is { } known) foreignKinds.Add(known);
         var facts = new List<string>();
         foreach (var p in method.Parameters)
-            facts.Add(Symbols.Name(p.Type) + "\0" + (SystemGeneration.IsPlainState(p.Type) ? "1" : "0") + "\0" + (p.RefKind == RefKind.Ref ? "1" : "0"));
+            facts.Add(Symbols.Name(p.Type) + "\0" + (NewStyle.IsPlainState(p.Type) ? "1" : "0") + "\0" + (p.RefKind == RefKind.Ref ? "1" : "0"));
         var kindType = ""; var kindForeign = false; string? derivedColumn = null;
         foreach (var attribute in method.GetAttributes())
             if (attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is INamedTypeSymbol fed)
             {
                 kindType = Symbols.Name(fed);
                 kindForeign = NewStyle.IsForeignKind(fed, compilation.Assembly);
-                if (DerivedKinds.TemplateOf(fed, out var derivedType) != DerivedKind.None && derivedType is not null && SystemGeneration.IsPlainState(derivedType))
+                if (DerivedKinds.TemplateOf(fed, out var derivedType) != DerivedKind.None && derivedType is not null && NewStyle.IsPlainState(derivedType))
                     derivedColumn = Symbols.Name(derivedType);
             }
         facts.Insert(0, kindType + "\0" + (kindForeign ? "1" : "0"));
@@ -226,10 +226,10 @@ internal static partial class SystemReader
         return null;
     }
 
-    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics, string AutoSource) AssignModels(IReadOnlyList<SystemTypeModel> models, string id, bool withAuto = true)
+    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics, string AutoSource) AssignModels(IReadOnlyList<SystemTypeModel> models, string id, bool withAuto = true, SystemDecl? customAuto = null, ISet<string>? customMembers = null)
     {
         var diagnostics = new List<DeclarationDiagnostic>();
-        var (auto, members, source) = withAuto ? AutoOf(models, id) : (null, new HashSet<string>(StringComparer.Ordinal), "");
+        var (auto, members, source) = withAuto ? AutoOf(models, id) : (customAuto, customMembers ?? new HashSet<string>(StringComparer.Ordinal), "");
         var systems = new List<SystemDecl>(); var consumers = new List<SystemConsumer>(); var kinds = new List<KindDecl>();
         var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal); var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
         var feeders = new Dictionary<string, List<FeederDecl>>(StringComparer.Ordinal); var foreign = new HashSet<string>(StringComparer.Ordinal);

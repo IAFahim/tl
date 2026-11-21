@@ -9,10 +9,6 @@ using Tl.Gen.CSharp.Model;
 namespace Tl.Gen.CSharp;
 internal static class SystemGeneration
 {
-    internal static bool IsPlainState(ITypeSymbol type)
-        => type is { TypeKind: TypeKind.Struct, IsUnmanagedType: true, SpecialType: SpecialType.None }
-        && type.ContainingNamespace?.ToDisplayString() != "Tl";
-
     public static (IReadOnlyList<CompileArtifact> Artifacts, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Emit(CSharpCompilation compilation, string id = "")
     {
         var models = SystemReader.Order(SystemReader.CollectModels(compilation), compilation, default);

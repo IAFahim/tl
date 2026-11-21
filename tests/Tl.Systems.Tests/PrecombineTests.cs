@@ -112,9 +112,12 @@ public sealed class PrecombineTests
             }
 
             public static ulong[] Many(byte[] first, byte[] second, int steps, int rows, int workerCount)
+                => ManySpilled(first, second, steps, rows, workerCount, 8);
+
+            public static ulong[] ManySpilled(byte[] first, byte[] second, int steps, int rows, int workerCount, int slotsPerEntity)
             {
                 using var world = new TimelineWorld(first);
-                using var players = new PlaybackTable(rows, 8);
+                using var players = new PlaybackTable(rows, slotsPerEntity);
                 using var kinds = new KindStore(world, players);
                 using var workers = workerCount > 0 ? new TlWorkers(workerCount) : null;
                 var pre = new Pre[rows];
@@ -567,6 +570,102 @@ public sealed class PrecombineTests
         Assert.Contains("Mode is Each", Assert.Single(codes));
         Assert.DoesNotContain("KindFill", generated);
     }
+
+    [Fact]
+    public void SpilledPlaybackBlocksInFusedMatchTheSpanWalk()
+    {
+        var pair = Pre.Value;
+        foreach (var (rows, workers) in new[] { (16, 0), (64, 4) })
+        {
+            var fast = Play(pair.Fast, "ManySpilled", pair.First, pair.Second, ManySteps, rows, workers, 2);
+            var plain = Play(pair.Plain, "ManySpilled", pair.First, pair.Second, ManySteps, rows, 0, 2);
+            Same(plain, fast, ManySteps);
+            Assert.True(fast[ManySteps] > 0 && fast[ManySteps + 2] > 0);
+        }
+    }
+
+    [Fact]
+    public void FusedExcludesKindsWhosePulseFeederBindsContext()
+    {
+        static (string[] Codes, string Generated) EmitWithPulse(string pulse)
+        {
+            var src = $$"""
+                using System;
+                using Tl;
+                namespace T
+                {
+                public struct M { public float X; }
+                public struct Ctx { public int X; }
+                public struct Cl { public float V; }
+                public struct Tr : IBlend<Cl> { public void Blend(in Cl a, in Cl b, float t, out Cl r) => r = a; }
+                [TimelineSystem] public ref partial struct S { public Span<M> M; public Ctx C; }
+                [TimelineKind(Associative = true, Accepts = KindEntries.Both)] public struct K1 { public static void Combine(ref float t, in float n) => t += n; public static void Apply(in float t, ref M m) => m.X += t; }
+                [TimelineKind(Associative = true, Accepts = KindEntries.Both)] public struct K2 { public static void Combine(ref float t, in float n) => t += n; public static void Apply(in float t, ref M m) => m.X += t; }
+                public struct C : ITrack<Tr, Cl>
+                {
+                    [Feeds(typeof(K1))] public static float F1(in Frame<Tr, Cl> f) => f.Clip.V;
+                    [Feeds(typeof(K2))] public static float F2(in Frame<Tr, Cl> f) => f.Clip.V;
+                    {{pulse}}
+                }
+                }
+                """;
+            var compilation = KindEmissionTests.Compile(src, "FusedCtx");
+            IncrementalParityTests.AssertParity(compilation);
+            var emitted = SystemGeneration.Emit(compilation, "FusedCtx");
+            return (emitted.Diagnostics.Select(static d => d.Code + ": " + d.Message).ToArray(), string.Join("\n", emitted.Artifacts.Select(static a => a.Content)));
+        }
+
+        var (codes, gen) = EmitWithPulse("[Pulse(typeof(K2))] public static float P(in Frame<Tr, Cl> f) => f.Clip.V;");
+        Assert.Empty(codes);
+        Assert.Contains("Fused(", gen);
+
+        (codes, gen) = EmitWithPulse("[Pulse(typeof(K2))] public static float P(in Frame<Tr, Cl> f, in Ctx c) => f.Clip.V + c.X;");
+        Assert.Empty(codes);
+        Assert.DoesNotContain("Fused(", gen);
+        Assert.Contains("__b.Add<float, KindSpans_0>", gen);
+        Assert.Contains("__b.Add<float, KindSpans_1>", gen);
+
+        (codes, gen) = EmitWithPulse("[Pulse(typeof(K2))] public static float P(in Frame<Tr, Cl> f, ref Ctx c) { c.X++; return f.Clip.V; }");
+        Assert.DoesNotContain("Fused(", gen);
+        Assert.Contains(codes, static d => d.StartsWith("TLGEN107:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EleventhAssociativeKindReportsDiagnosticAndStaysPerSpan()
+    {
+        var sb = new System.Text.StringBuilder("""
+            using System;
+            using Tl;
+            namespace Cap
+            {
+            public struct M { public float X; }
+            public struct Cl { public float V; }
+            public struct Tr : IBlend<Cl> { public void Blend(in Cl a, in Cl b, float t, out Cl r) => r = a; }
+            [TimelineSystem] public ref partial struct S { public Span<M> M; }
+            """);
+        sb.AppendLine();
+        for (var i = 0; i < 11; i++)
+            sb.AppendLine($"[TimelineKind(Associative = true)] public struct K{i:D2} {{ public static void Combine(ref float t, in float n) => t += n; public static void Apply(in float t, ref M m) => m.X += t; }}");
+        sb.AppendLine("public struct C11 : ITrack<Tr, Cl> {");
+        for (var i = 0; i < 11; i++)
+            sb.AppendLine($"[Feeds(typeof(K{i:D2}))] public static float F{i}(in Frame<Tr, Cl> f) => f.Clip.V;");
+        sb.AppendLine("}\n}");
+        var compilation = KindEmissionTests.Compile(sb.ToString(), "Cap11");
+        IncrementalParityTests.AssertParity(compilation);
+        var emitted = SystemGeneration.Emit(compilation, "Cap11");
+        var codes = emitted.Diagnostics.Select(static d => d.Code + ": " + d.Message).ToArray();
+        var diag = Assert.Single(codes);
+        Assert.StartsWith("TLGEN115: Kind 'K10' declares Associative", diag);
+        Assert.Contains("system already has 10 precombined span kinds", diag);
+        var gen = string.Join("\n", emitted.Artifacts.Select(static a => a.Content));
+        for (var i = 0; i < 10; i++) Assert.Contains($"__b.Add<float, KindSpans_{i}>", gen);
+        Assert.DoesNotContain("KindSpans_10", gen);
+        foreach (var artifact in emitted.Artifacts)
+            compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(artifact.Content, Parse, artifact.RelativePath));
+        using var ms = new MemoryStream();
+        var emitResult = compilation.Emit(ms);
+        Assert.True(emitResult.Success, string.Join("\n", emitResult.Diagnostics.Where(static d => d.Severity == DiagnosticSeverity.Error)));
+    }
 }
 
 public sealed class PrecombinePulseTests
@@ -666,11 +765,11 @@ public sealed class PrecombinePulseTests
             public readonly State[] States;
             readonly TlWorkers? _workers;
 
-            public Harness(byte[] library, int entities, int workers = 1)
+            public Harness(byte[] library, int entities, int workers = 1, int slotsPerEntity = 8, string[]? kindNames = null, ulong[]? reach = null)
             {
                 World = new TimelineWorld(library);
-                Players = new PlaybackTable(entities);
-                Store = new KindStore(World, Players);
+                Players = new PlaybackTable(entities, slotsPerEntity);
+                Store = new KindStore(World, Players, kindNames, reach);
                 States = new State[entities];
                 if (workers > 1) _workers = new TlWorkers(workers);
             }
@@ -688,15 +787,20 @@ public sealed class PrecombinePulseTests
                 RunOnly(forward);
             }
 
-            public void RunOnly(bool forward = true)
+            public void TickOnly(bool forward = true) => World.Tick(Players, forward);
+
+            public void RunOnly(bool forward = true) => RunSpan(States.Length, forward);
+
+            public void RunSpan(int count, bool forward = true)
             {
-                var sys = new PulseSystem { States = States };
+                var sys = new PulseSystem { States = States.AsSpan(0, count) };
                 if (_workers is not null) sys.Run(World, Players, forward, _workers);
                 else sys.Run(World, Players, forward);
             }
 
             public byte[] Snapshot() => MemoryMarshal.AsBytes<State>(States).ToArray();
             public long PulseBytes(string kind) => Store.PulseValueBytes(Store.IndexOf(kind));
+            public void JoinForeign(string kind, int key) => Store.Join(kind, sizeof(long), "", key, out _);
             public void PulseComb(int entity, long value) => Store.Pulses<long>("PulseOracle.Comb").To(entity, value);
             public void PulseEach(int entity, int value) => Store.Pulses<int>("PulseOracle.Each").To(entity, value);
             public void SetEnabled(int entity, string kind, bool on)
@@ -715,8 +819,8 @@ public sealed class PrecombinePulseTests
 
     sealed record PulseVariant(Assembly Domain, Assembly Host, string Generated, IReadOnlyList<string> Diagnostics, string Name)
     {
-        public dynamic CreateHarness(byte[] library, int entities, int workers = 1)
-            => Activator.CreateInstance(Host.GetType("PulseHost.Harness", true)!, library, entities, workers)!;
+        public dynamic CreateHarness(byte[] library, int entities, int workers = 1, int slotsPerEntity = 8, string[]? kindNames = null, ulong[]? reach = null)
+            => Activator.CreateInstance(Host.GetType("PulseHost.Harness", true)!, library, entities, workers, slotsPerEntity, kindNames, reach)!;
     }
 
     static PulseVariant CompileVariant(bool fast, string tag)
@@ -1077,6 +1181,251 @@ public sealed class PrecombinePulseTests
                 Assert.Equal(expected, (byte[])slw.Snapshot());
                 Assert.Equal(expected, (byte[])seq.Snapshot());
                 Assert.Equal(expected, (byte[])par.Snapshot());
+            }
+        }
+    }
+
+    [Fact]
+    public void ParallelSparsePlayingBitsAndZeroPlayingMatchOracle()
+    {
+        var fast = FastVariant.Value;
+        var slow = SlowVariant.Value;
+        var libF = BuildLibrary(fast.Domain);
+        var libS = BuildLibrary(slow.Domain);
+        const int n = 200;
+        using var par = fast.CreateHarness(libF, n, 4);
+        using var seq = fast.CreateHarness(libF, n, 1);
+        using var slw = slow.CreateHarness(libS, n, 1);
+
+        par.PulseComb(0, 11); seq.PulseComb(0, 11); slw.PulseComb(0, 11);
+        par.PulseComb(64, 22); seq.PulseComb(64, 22); slw.PulseComb(64, 22);
+        par.PulseEach(199, 33); seq.PulseEach(199, 33); slw.PulseEach(199, 33);
+        par.TickAndRun(true); seq.TickAndRun(true); slw.TickAndRun(true);
+        var expected = (byte[])slw.Snapshot();
+        Assert.Equal(expected, (byte[])seq.Snapshot());
+        Assert.Equal(expected, (byte[])par.Snapshot());
+        par.RunOnly(true); seq.RunOnly(true); slw.RunOnly(true);
+        Assert.Equal(expected, (byte[])seq.Snapshot());
+        Assert.Equal(expected, (byte[])par.Snapshot());
+
+        par.Players.Start(199, 1); seq.Players.Start(199, 1); slw.Players.Start(199, 1);
+        for (var step = 0; step < 10; step++)
+        {
+            if (step == 3)
+            {
+                par.PulseComb(0, 44); seq.PulseComb(0, 44); slw.PulseComb(0, 44);
+                par.PulseEach(199, 55); seq.PulseEach(199, 55); slw.PulseEach(199, 55);
+            }
+            par.TickAndRun(true); seq.TickAndRun(true); slw.TickAndRun(true);
+            expected = (byte[])slw.Snapshot();
+            Assert.Equal(expected, (byte[])seq.Snapshot());
+            Assert.Equal(expected, (byte[])par.Snapshot());
+            if (step is 2 or 3)
+            {
+                par.RunOnly(true); seq.RunOnly(true); slw.RunOnly(true);
+                Assert.Equal(expected, (byte[])seq.Snapshot());
+                Assert.Equal(expected, (byte[])par.Snapshot());
+            }
+        }
+    }
+
+    [Fact]
+    public void ConsecutiveTicksWithoutRunAndShortSpanRunMatchOracle()
+    {
+        var fast = FastVariant.Value;
+        var slow = SlowVariant.Value;
+        var libF = BuildLibrary(fast.Domain);
+        var libS = BuildLibrary(slow.Domain);
+
+        using (var fh = fast.CreateHarness(libF, 6))
+        {
+            fh.Players.Start(0, 1, 0);
+            fh.TickAndRun(true);
+            Assert.True(fh.PulseBytes("PulseOracle.Comb") > 0L);
+
+            fh.TickOnly(true);
+            fh.PulseComb(0, 10);
+            fh.TickOnly(true);
+            fh.Players.Start(4, 2);
+            fh.TickOnly(true);
+
+            fh.RunOnly(true);
+            Assert.Equal(306L * 31L + 10L, (long)fh.CombSum(0));
+            Assert.True(fh.CombSum(4) == 0L);
+        }
+
+        using (var fh = fast.CreateHarness(libF, 6))
+        using (var sh = slow.CreateHarness(libS, 6))
+        {
+            fh.Players.Start(0, 1); sh.Players.Start(0, 1);
+            fh.Players.Start(1, 3); sh.Players.Start(1, 3);
+            fh.Players.Start(2, 5); sh.Players.Start(2, 5);
+
+            fh.TickOnly(true); sh.TickOnly(true);
+            fh.PulseComb(0, 10); sh.PulseComb(0, 10);
+            fh.PulseEach(3, 20); sh.PulseEach(3, 20);
+            fh.Players.Start(4, 2); sh.Players.Start(4, 2);
+            fh.TickOnly(true); sh.TickOnly(true);
+            fh.PulseComb(1, 30); sh.PulseComb(1, 30);
+            fh.PulseEach(4, 40); sh.PulseEach(4, 40);
+            fh.TickOnly(true); sh.TickOnly(true);
+
+            fh.RunOnly(true); sh.RunOnly(true);
+            Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+
+            for (var step = 0; step < 5; step++)
+            {
+                fh.TickAndRun(true); sh.TickAndRun(true);
+                Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            }
+        }
+
+        using (var fh = fast.CreateHarness(libF, 8))
+        using (var sh = slow.CreateHarness(libS, 8))
+        {
+            for (var e = 0; e < 8; e++) { fh.Players.Start(e, 1, 1); sh.Players.Start(e, 1, 1); }
+            fh.TickAndRun(true); sh.TickAndRun(true);
+            Assert.True(fh.PulseBytes("PulseOracle.Comb") > 0L);
+
+            fh.TickOnly(true); sh.TickOnly(true);
+            fh.RunSpan(3, true); sh.RunSpan(3, true);
+            Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            Assert.Equal(306L, (long)fh.CombSum(0));
+            Assert.Equal(0L, (long)fh.CombSum(3));
+            fh.RunOnly(true); sh.RunOnly(true);
+            Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            Assert.Equal(306L, (long)fh.CombSum(3));
+            Assert.Equal(306L, (long)fh.CombSum(7));
+            fh.RunOnly(true); sh.RunOnly(true);
+            Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+
+            for (var step = 0; step < 2; step++)
+            {
+                fh.TickAndRun(true); sh.TickAndRun(true);
+                Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            }
+
+            fh.TickOnly(true); sh.TickOnly(true);
+            fh.RunSpan(3, true); sh.RunSpan(3, true);
+            Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            fh.TickOnly(true);
+            fh.RunOnly(true);
+            for (var e = 3; e < 8; e++)
+            {
+                Assert.Equal((long)fh.CombSum(0), (long)fh.CombSum(e));
+                Assert.Equal((long)fh.CombHistory(0), (long)fh.CombHistory(e));
+                Assert.Equal((long)fh.EachLog(0), (long)fh.EachLog(e));
+                Assert.Equal((int)fh.EachCount(0), (int)fh.EachCount(e));
+                Assert.Equal((long)fh.Folded(0), (long)fh.Folded(e));
+            }
+        }
+    }
+
+    [Fact]
+    public void IneligiblePulseValuesReportZeroBytes()
+    {
+        var fast = FastVariant.Value;
+        var slow = SlowVariant.Value;
+        var libF = BuildLibrary(fast.Domain);
+        var libS = BuildLibrary(slow.Domain);
+
+        string[] names = ["PulseOracle.Comb", "PulseOracle.Each", "PulseOracle.Folded", "PulseOracle.Fallback", "PulseOracle.SynthFallback"];
+        ulong[] reach = [0b11111ul, 0b11110ul, 0b11111ul, 0b11101ul];
+        using (var fh = fast.CreateHarness(libF, 4, 1, 8, names, reach))
+        using (var sh = slow.CreateHarness(libS, 4, 1, 8, names, reach))
+        {
+            fh.Players.Start(0, 1); sh.Players.Start(0, 1);
+            fh.Players.Start(1, 8); sh.Players.Start(1, 8);
+            fh.Players.Start(2, 1); sh.Players.Start(2, 1);
+            fh.Players.Start(3, 8); sh.Players.Start(3, 8);
+            fh.PulseEach(1, 55); sh.PulseEach(1, 55);
+            fh.PulseComb(3, 66); sh.PulseComb(3, 66);
+            for (var step = 0; step < 6; step++)
+            {
+                fh.TickAndRun(true); sh.TickAndRun(true);
+                Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            }
+            Assert.Equal(0L, fh.PulseBytes("PulseOracle.Comb"));
+            Assert.Equal(0L, fh.PulseBytes("PulseOracle.Each"));
+            Assert.True(fh.PulseBytes("PulseOracle.Folded") > 0L);
+        }
+
+        using (var fh = fast.CreateHarness(libF, 2))
+        using (var sh = slow.CreateHarness(libS, 2))
+        {
+            fh.JoinForeign("PulseOracle.Comb", 42);
+            sh.JoinForeign("PulseOracle.Comb", 42);
+            fh.Players.Start(0, 1); sh.Players.Start(0, 1);
+            for (var step = 0; step < 6; step++)
+            {
+                fh.TickAndRun(true); sh.TickAndRun(true);
+                Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            }
+            Assert.Equal(0L, fh.PulseBytes("PulseOracle.Comb"));
+            Assert.True(fh.PulseBytes("PulseOracle.Each") > 0L);
+        }
+
+        using (var fh = fast.CreateHarness(libF, 2))
+        using (var sh = slow.CreateHarness(libS, 2))
+        {
+            fh.Players.Start(0, 1); sh.Players.Start(0, 1);
+            fh.TickAndRun(true); sh.TickAndRun(true);
+            Assert.True(fh.PulseBytes("PulseOracle.Comb") > 0L);
+            fh.JoinForeign("PulseOracle.Comb", 42);
+            sh.JoinForeign("PulseOracle.Comb", 42);
+            Assert.Equal(0L, fh.PulseBytes("PulseOracle.Comb"));
+            for (var step = 0; step < 6; step++)
+            {
+                fh.TickAndRun(true); sh.TickAndRun(true);
+                Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            }
+            Assert.Equal(0L, fh.PulseBytes("PulseOracle.Comb"));
+        }
+    }
+
+    [Fact]
+    public void ResetClearsPendingFastPulseHitsAndSpilledBlocksMatchOracle()
+    {
+        var fast = FastVariant.Value;
+        var slow = SlowVariant.Value;
+        var libF = BuildLibrary(fast.Domain);
+        var libS = BuildLibrary(slow.Domain);
+
+        using (var fh = fast.CreateHarness(libF, 4))
+        using (var sh = slow.CreateHarness(libS, 4))
+        {
+            fh.Players.Start(0, 1, 0); sh.Players.Start(0, 1, 0);
+            fh.Players.Start(1, 1, 1); sh.Players.Start(1, 1, 1);
+            fh.Players.Start(2, 1, 0); sh.Players.Start(2, 1, 0);
+            fh.TickAndRun(true); sh.TickAndRun(true);
+            Assert.True(fh.PulseBytes("PulseOracle.Comb") > 0L);
+            fh.TickOnly(true); sh.TickOnly(true);
+            fh.Players.Reset(1); sh.Players.Reset(1);
+            fh.TickOnly(true); sh.TickOnly(true);
+            fh.RunOnly(true); sh.RunOnly(true);
+            Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
+            Assert.Equal(0L, (long)fh.CombSum(1));
+            Assert.Equal(0, (int)fh.EachCount(1));
+            Assert.Equal(306L, (long)fh.CombSum(0));
+            Assert.Equal(306L, (long)fh.CombSum(2));
+        }
+
+        using (var fh = fast.CreateHarness(libF, 4, 1, 2))
+        using (var sh = slow.CreateHarness(libS, 4, 1, 2))
+        {
+            for (ushort tl = 1; tl <= 5; tl++) { fh.Players.Start(0, tl); sh.Players.Start(0, tl); }
+            fh.Players.SetSpeed(0, 1, 32); sh.Players.SetSpeed(0, 1, 32);
+            fh.Players.Start(1, 3); sh.Players.Start(1, 3);
+            fh.Players.Start(2, 1); sh.Players.Start(2, 1);
+            fh.Players.Start(2, 3); sh.Players.Start(2, 3);
+            fh.Players.Start(2, 5); sh.Players.Start(2, 5);
+            fh.Players.Start(2, 6); sh.Players.Start(2, 6);
+            for (var step = 0; step < 15; step++)
+            {
+                if (step == 6) { fh.Players.Stop(0, 2); sh.Players.Stop(0, 2); }
+                if (step == 9) { fh.Players.Start(0, 6); sh.Players.Start(0, 6); }
+                fh.TickAndRun(true); sh.TickAndRun(true);
+                Assert.Equal((byte[])sh.Snapshot(), (byte[])fh.Snapshot());
             }
         }
     }

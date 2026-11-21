@@ -156,18 +156,11 @@ type Tl.Inspection+TablesSnapshot
   Method System.String ToString()
 type Tl.KindBuild
   Method Void Add[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef)
-  Field Int32 Align
-  Field Boolean ByFeeder
   Method Void Fill[TFill](Byte*, TFill ByRef)
-  Field Boolean Filling
   Field UInt64 Kinds
   Method Tl.KindBuild Of[TFill](Tl.KindScore ByRef, Tl.LibraryTimeline*, Tl.KindValues*, Int32*, Boolean, TFill ByRef)
   Field Int32 Rows
-  Field Tl.KindScore Score
-  Field Int32 Shift
   Field Int32 Stride
-  Field Tl.LibraryTimeline* Timelines
-  Field Tl.KindValues* Views
 type Tl.KindCalm
   Field Byte* Backward
   Method Tl.KindCalm Build(Tl.KindTables ByRef, Byte*, Byte*, Int32*)
@@ -236,12 +229,8 @@ type Tl.KindPulseHit
   Field Int32 Cell
   Field Int32 Entity
 type Tl.KindPulseValues
-  Field Int64 Bytes
-  Field Int32 Cells
   Field Byte* Data
-  Field Int32 Part
   Field Int32* Start
-  Field Int32 Stride
 type Tl.KindPulses`1
   Method Void To(Int32, T)
 type Tl.KindPulses`2
@@ -299,6 +288,7 @@ type Tl.KindStats
   Field Int32 Overflows
   Field Int32 Rows
 type Tl.KindStore
+  Method Void ClearPulseHits(Int32, Int32)
   Method Void Dispose()
   Property Int64 DroppedPulses
   Method Tl.KindStats GetStats(Int32)

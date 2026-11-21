@@ -37,10 +37,10 @@ internal static partial class SystemReader
         return feeds is null || pulse is null || timelineKind is null && tlKind is null ? null : new KindContracts(timelineKind, tlKind, feeds, pulse);
     }
 
-    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation)
+    internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation, SystemDecl? auto = null, ISet<string>? members = null)
     {
         var ordered = Order(CollectModels(compilation), compilation, default);
-        var (systems, assignments, diagnostics, _) = AssignModels(ordered, "", withAuto: false);
+        var (systems, assignments, diagnostics, _) = AssignModels(ordered, "", withAuto: false, auto, members);
         var list = new List<DeclarationDiagnostic>(diagnostics);
         Connections.Warn(compilation, list);
         return (systems, assignments, list);
@@ -401,7 +401,7 @@ internal static partial class SystemReader
             Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' must be a struct.");
             return null;
         }
-        var apply = type.GetMembers("Apply").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+        var apply = ApplyLike(type, "Apply");
         if (apply is null || apply.Parameters.Length == 0 || apply.Parameters[0].RefKind != RefKind.In || !apply.Parameters[0].Type.IsUnmanagedType)
         {
             Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' needs public static void Apply(in <value> total, ...) with an unmanaged value type.");
@@ -419,20 +419,25 @@ internal static partial class SystemReader
                 return null;
             }
         }
-        var parameters = new List<ConsumerParam>();
-        for (var i = 1; i < apply.Parameters.Length; i++)
+        bool BindParams(string method, IMethodSymbol sym, int start, List<ConsumerParam> dst)
         {
-            if (!BindValue(type, "Apply", apply.Parameters[i], contracts, diagnostics, site, out var bound)) return null;
-            if (bound.Kind is ConsumerParamKind.Requests or ConsumerParamKind.Events)
+            for (var i = start; i < sym.Parameters.Length; i++)
             {
-                Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' Apply takes {bound.Kind}; kinds apply to columns and context only.");
-                return null;
+                if (!BindValue(type, method, sym.Parameters[i], contracts, diagnostics, site, out var bound)) return false;
+                if (bound.Kind is ConsumerParamKind.Requests or ConsumerParamKind.Events)
+                {
+                    Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' {method} takes {bound.Kind}; kinds apply to columns and context only.");
+                    return false;
+                }
+                dst.Add(bound);
             }
-            parameters.Add(bound);
+            return true;
         }
+        var parameters = new List<ConsumerParam>();
+        if (!BindParams("Apply", apply, 1, parameters)) return null;
         var group = NamedString(attribute, "Group");
         List<ConsumerParam>? idleParams = null;
-        var idle = type.GetMembers("Idle").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+        var idle = ApplyLike(type, "Idle");
         if (idle is not null)
         {
             if (group.Length > 0 || NamedInt(attribute, "Accepts") == 1)
@@ -441,16 +446,7 @@ internal static partial class SystemReader
                 return null;
             }
             idleParams = [];
-            for (var i = 0; i < idle.Parameters.Length; i++)
-            {
-                if (!BindValue(type, "Idle", idle.Parameters[i], contracts, diagnostics, site, out var bound)) return null;
-                if (bound.Kind is ConsumerParamKind.Requests or ConsumerParamKind.Events)
-                {
-                    Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' Idle takes {bound.Kind}; kinds apply to columns and context only.");
-                    return null;
-                }
-                idleParams.Add(bound);
-            }
+            if (!BindParams("Idle", idle, 0, idleParams)) return null;
         }
         return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams, Associative = NamedInt(attribute, "Associative") == 1 };
     }
@@ -460,7 +456,7 @@ internal static partial class SystemReader
         AttributeData? attribute = null;
         foreach (var candidate in type.GetAttributes())
             if (NewStyle.IsKindAttribute(candidate.AttributeClass)) attribute = candidate;
-        var apply = type.GetMembers("Apply").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+        var apply = ApplyLike(type, "Apply");
         if (attribute is null || type.TypeKind != TypeKind.Struct || apply is null || apply.Parameters.Length == 0 || !apply.Parameters[0].Type.IsUnmanagedType)
         {
             Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{Symbols.Name(type)}' from assembly '{type.ContainingAssembly?.Name}' needs public static void Apply(in <value> total, ...) with an unmanaged value type.");
@@ -544,11 +540,14 @@ internal static partial class SystemReader
                 parallel = false;
                 break;
             }
-            return a with { Kinds = perSystem[a.System.TypeName].Select(kind => Route(kind, a, kindSites, diagnostics)).ToList(), Parallel = parallel };
+            var routed = new List<KindDecl>();
+            var precombined = 0;
+            foreach (var kind in perSystem[a.System.TypeName]) routed.Add(Route(kind, a, kindSites, diagnostics, ref precombined));
+            return a with { Kinds = routed, Parallel = parallel };
         }).ToList();
     }
 
-    static KindDecl Route(KindDecl kind, SystemAssignment a, IReadOnlyDictionary<string, SyntaxNode> kindSites, List<DeclarationDiagnostic> diagnostics)
+    static KindDecl Route(KindDecl kind, SystemAssignment a, IReadOnlyDictionary<string, SyntaxNode> kindSites, List<DeclarationDiagnostic> diagnostics, ref int precombined)
     {
         if (kind.Foreign) return kind;
         if (kind.Associative)
@@ -557,7 +556,7 @@ internal static partial class SystemReader
                 .OrderBy(static f => f.ConsumerMetadata, StringComparer.Ordinal).ThenBy(static f => f.MethodName, StringComparer.Ordinal).ToList();
             if (spans.Count > 0)
             {
-                var why = kind.Each ? "Mode is Each" : "";
+                var why = kind.Each ? "Mode is Each" : precombined >= 10 ? "system already has 10 precombined span kinds" : "";
                 foreach (var feeder in spans)
                 {
                     if (why.Length > 0) break;
@@ -565,7 +564,7 @@ internal static partial class SystemReader
                     if (taken is not null) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' takes '{taken.TypeName}'";
                     else if (feeder.FlagRead.Length > 0) why = $"feeder '{feeder.ConsumerMetadata}.{feeder.MethodName}' {feeder.FlagRead}";
                 }
-                if (why.Length == 0) return kind with { Precombined = true };
+                if (why.Length == 0) { precombined++; return kind with { Precombined = true }; }
                 Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN115", $"Kind '{kind.Name}' declares Associative but keeps the per-span path in system '{a.System.TypeName}': {why}. Precombined spans need span feeders that take only the frame and their folds and do not read Synthetic or Interrupted; move per-entity inputs into Apply.");
                 return kind;
             }
@@ -948,14 +947,7 @@ internal static partial class SystemReader
             _ => 0,
         };
 
-    internal static ulong StablePairKey(ITypeSymbol track, ITypeSymbol clip)
-    {
-        var hash = 14695981039346656037UL;
-        foreach (var c in StableName(track)) hash = (hash ^ c) * 1099511628211UL;
-        hash = (hash ^ '\0') * 1099511628211UL;
-        foreach (var c in StableName(clip)) hash = (hash ^ c) * 1099511628211UL;
-        return hash | 1UL;
-    }
+    internal static ulong StablePairKey(ITypeSymbol track, ITypeSymbol clip) => StableKey(StableName(track) + "\0" + StableName(clip));
 
     internal static ulong StableKey(ITypeSymbol type) => StableKey(StableName(type));
 

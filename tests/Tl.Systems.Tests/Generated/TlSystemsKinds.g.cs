@@ -1042,6 +1042,7 @@ var __ks = players.Kinds;
 if (__ks != null)
 {
 Kinds(world, players, __ks, forward, __c0, __n, 0, 2147483647);
+__ks.ClearPulseHits(__ks.IndexOf("KindGame.Damage"), __n);
 }
 }
 internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
@@ -1145,7 +1146,6 @@ if (__len != 0) __kt->Clear(__row);
 }
 if (__has) global::KindGame.Damage.Apply(in __total, ref __c0[__e]);
 }
-if (__firstWord == 0 && __endWord >= __kt->Words) __ph->Count = 0;
 }
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
@@ -1388,8 +1388,9 @@ if (workers.WorkerCount == 1) { TlSystems.TlSystem_Kinds_global__KindGame_Vitals
 var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
-if (players.Kinds != null) { Tl.KindPulseBuffer* __pbh;
-__pbh = players.Kinds.PulseHitsOf(players.Kinds.IndexOf("KindGame.Damage")); if (__pbh != null) __pbh->Count = 0;
+if (players.Kinds != null)
+{
+players.Kinds.ClearPulseHits(players.Kinds.IndexOf("KindGame.Damage"), __len);
 }
 }
 }

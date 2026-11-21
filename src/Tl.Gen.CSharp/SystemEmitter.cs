@@ -165,16 +165,18 @@ internal static class SystemEmitter
         return builder.ToString();
     }
 
+    static string Bare(string typeName) => typeName.StartsWith("global::", StringComparison.Ordinal) ? typeName.Substring(8) : typeName;
+
     static string NamespaceOf(string typeName)
     {
-        var bare = typeName.StartsWith("global::", StringComparison.Ordinal) ? typeName.Substring(8) : typeName;
+        var bare = Bare(typeName);
         var dot = bare.LastIndexOf('.');
         return dot < 0 ? "" : bare.Substring(0, dot);
     }
 
     static string ShortNameOf(string typeName)
     {
-        var bare = typeName.StartsWith("global::", StringComparison.Ordinal) ? typeName.Substring(8) : typeName;
+        var bare = Bare(typeName);
         var dot = bare.LastIndexOf('.');
         var plus = bare.LastIndexOf('+');
         var cut = dot > plus ? dot : plus;
@@ -258,10 +260,7 @@ internal static class SystemEmitter
         return -1;
     }
 
-    static int RequestOf(KernelShape shape)
-    {
-        return shape.Requests.Count > 0 ? 0 : -1;
-    }
+    static int RequestOf(KernelShape shape) => shape.Requests.Count > 0 ? 0 : -1;
 
     static int EventOf(KernelShape shape, string element)
     {
@@ -360,6 +359,11 @@ internal static class SystemEmitter
         W(writer, "}");
     }
 
+    static void EmitClearPulses(StringBuilder w, SystemAssignment a, string ks, string limit)
+    {
+        foreach (var pk in a.Kinds) if (pk.PrecombinedPulses) W(w, $"{ks}.ClearPulseHits({ks}.IndexOf(\"{pk.Id}\"), {limit});");
+    }
+
     static void EmitKindLoops(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
     {
         if (assignment.Kinds.Count == 0) return;
@@ -367,31 +371,28 @@ internal static class SystemEmitter
         W(writer, "if (__ks != null)");
         W(writer, "{");
         W(writer, $"Kinds(world, players, __ks, forward{KindArgs(shape, false)});");
+        EmitClearPulses(writer, assignment, "__ks", "__n");
         W(writer, "}");
     }
 
-    static string KindArgs(KernelShape shape, bool typed, string words = "0, 2147483647")
+    static string ListArgs(KernelShape s, Func<int, string> col, string mid, Func<int, string> ctx, Func<int, string>? req = null, Func<int, string>? ev = null)
     {
-        var args = new StringBuilder();
-        for (var i = 0; i < shape.Columns.Count; i++)
-            if (shape.UsedColumns[i]) args.Append(typed ? $", {shape.Columns[i].ElementTypeName}* __c{i}" : $", __c{i}");
-        args.Append(typed ? ", int __n, int __firstWord, int __endWord" : $", __n, {words}");
-        for (var i = 0; i < shape.Contexts.Count; i++)
-            if (shape.UsedContexts[i]) args.Append(typed ? $", ref {shape.Contexts[i].ElementTypeName} __ctx{i}" : $", ref __ctx{i}");
-        return args.ToString();
+        var sb = new StringBuilder();
+        for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) sb.Append(", ").Append(col(i));
+        sb.Append(", ").Append(mid);
+        for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) sb.Append(", ").Append(ctx(i));
+        if (req != null) for (var i = 0; i < s.Requests.Count; i++) sb.Append(", ").Append(req(i));
+        if (ev != null) for (var i = 0; i < s.Events.Count; i++) sb.Append(", ").Append(ev(i));
+        return sb.ToString();
     }
+
+    static string KindArgs(KernelShape shape, bool typed, string words = "0, 2147483647")
+        => ListArgs(shape, i => typed ? $"{shape.Columns[i].ElementTypeName}* __c{i}" : $"__c{i}", typed ? "int __n, int __firstWord, int __endWord" : $"__n, {words}", i => $"ref {(typed ? shape.Contexts[i].ElementTypeName + " " : "")}__ctx{i}");
 
     static void EmitCloseMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunClose", false)); W(w, "{"); W(w, "var __view = world.View; var __pview = players.View;"); EmitLocalDecls(w, s); EmitCloseLoop(w, a, s); W(w, "}"); }
     static void EmitLegacyRangeMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunLegacyRange", true)); W(w, "{"); W(w, "var __view = world.View; var __pview = players.View;"); EmitLegacyLoop(w, a, s); W(w, "}"); }
     static string PArgs(KernelShape s, bool tail = true)
-    {
-        var sb = new StringBuilder();
-        for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) sb.Append($", __s->__c{i}");
-        sb.Append(", __s->__n, __fw, __ew");
-        for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) sb.Append($", ref *({s.Contexts[i].ElementTypeName}*)__s->__x{i}");
-        if (tail) { for (var i = 0; i < s.Requests.Count; i++) sb.Append(", __sr" + i); for (var i = 0; i < s.Events.Count; i++) sb.Append($", __se{i}"); }
-        return sb.ToString();
-    }
+        => ListArgs(s, i => $"__s->__c{i}", "__s->__n, __fw, __ew", i => $"ref *({s.Contexts[i].ElementTypeName}*)__s->__x{i}", tail ? i => "__sr" + i : null, tail ? i => $"__se{i}" : null);
     static void EmitKindMethods(StringBuilder writer, SystemAssignment assignment, KernelShape shape, int feedKey)
     {
         var values = new List<int>();
@@ -402,7 +403,9 @@ internal static class SystemEmitter
         for (var i = 0; i < assignment.Kinds.Count; i++)
         {
             var kind = assignment.Kinds[i];
-            if (values.Contains(i) && kind.Group.Length == 0 && kind.IdleParams is null && !ApplyTail(shape, kind).Contains("__ctx"))
+            var ctx = BindsContext(shape, kind.ApplyParams);
+            if (!ctx) foreach (var f in FeedersOf(assignment, kind)) if (BindsContext(shape, f.feeder.Method.Params)) { ctx = true; break; }
+            if (values.Contains(i) && kind.Group.Length == 0 && kind.IdleParams is null && !ctx)
                 run.Add(i);
             else
             {
@@ -451,6 +454,14 @@ internal static class SystemEmitter
         for (var r = 0; r < runs.Count; r++) EmitFused(writer, assignment, shape, runs[r], head, runs.Count == 1 ? "Fused" : $"Fused_{r}");
     }
 
+    static bool BindsContext(KernelShape shape, IReadOnlyList<ConsumerParam> ps)
+    {
+        foreach (var p in ps)
+            if (p.Kind == ConsumerParamKind.Context || (p.Kind is (ConsumerParamKind.Column or ConsumerParamKind.ColumnReadOnly) && ColumnOf(shape, p.TypeName, p.Kind == ConsumerParamKind.Column) < 0 && ContextOf(shape, p.TypeName) >= 0))
+                return true;
+        return false;
+    }
+
     static string ApplyTail(KernelShape shape, KindDecl kind)
     {
         var args = CallArgs(shape, new ConsumerMethod(ConsumerMethodKind.ExecuteActive, kind.ApplyParams, [], []), 0, "", "__e", "");
@@ -463,6 +474,9 @@ internal static class SystemEmitter
         if (kind.Group.Length > 0) parts.Insert(0, "@" + kind.Group);
         return string.Join("\\n", parts);
     }
+
+    static string Acc(KindDecl k, string item, string total = "__total", string has = "__has", string sep = "\n")
+        => $"if ({has}) {k.TypeName}.Combine(ref {total}, in {item});{sep}else {{ {total} = {item}; {has} = true; }}";
 
     static void EmitFused(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<int> fused, string head, string name)
     {
@@ -498,13 +512,13 @@ internal static class SystemEmitter
         W(writer, "var __t0 = (uint)(__tid - 1); if (__t0 >= __vtc) continue; var __vr0 = __vrow[__t0]; if (__vr0 < 0) continue;");
         W(writer, "var __at = __vdata + (nuint)(__vr0 + __pb->Tick) * __vstride; var __m = *(uint*)__at;");
         foreach (var i in fused)
-            W(writer, $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)(__at + __vf{i}); if (__fh{i}) {assignment.Kinds[i].TypeName}.Combine(ref __ft{i}, in __sv); else {{ __ft{i} = __sv; __fh{i} = true; }} }}");
+            W(writer, $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)(__at + __vf{i}); {Acc(assignment.Kinds[i], "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
         W(writer, "}");
         W(writer, "else if (__pb->Rate == 0 && Tl.KindScore.Listed(__pb->Flags) && (__pb->Flags & __PF.Paused) == 0)");
         W(writer, "{");
         W(writer, $"var __hd = __kv{f0}->HeadOf(__tid, __pb->Tick); if (__hd == null) continue; var __m = *__hd; var __bk = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0; var __d = __bk ? 2 : 1;");
         foreach (var i in fused)
-            W(writer, $"if ((__m >> (__vsh{i} + __d) & 1) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)((byte*)__hd + (__bk ? __vbk{i} : __vfr{i})); if (__fh{i}) {assignment.Kinds[i].TypeName}.Combine(ref __ft{i}, in __sv); else {{ __ft{i} = __sv; __fh{i} = true; }} }}");
+            W(writer, $"if ((__m >> (__vsh{i} + __d) & 1) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)((byte*)__hd + (__bk ? __vbk{i} : __vfr{i})); {Acc(assignment.Kinds[i], "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");
@@ -573,8 +587,7 @@ internal static class SystemEmitter
         W(writer, "var __bk = forward ? (__pb->Flags & Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & Tl.PlaybackFlags.Reverse) == 0;");
         W(writer, "if ((*(uint*)__vr >> __kv->Shift & (__bk ? 4u : 2u)) == 0) continue;");
         W(writer, $"ref readonly var __sv = ref *({kind.ValueTypeName}*)(__vr + (__bk ? __kv->Back : __kv->Front));");
-        W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __sv);");
-        W(writer, "else { __total = __sv; __has = true; }");
+        W(writer, Acc(kind, "__sv"));
         W(writer, "}");
     }
 
@@ -625,7 +638,7 @@ internal static class SystemEmitter
             W(writer, "var __cell = __hits[__idx++].Cell;");
             W(writer, "for (var __p = __ps[__cell]; __p < __ps[__cell + 1]; __p++)");
             if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __pv[__p]{tail});");
-            else W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __pv[__p]); else {{ __total = __pv[__p]; __has = true; }}");
+            else W(writer, Acc(kind, "__pv[__p]", sep: " "));
             W(writer, "} while (__idx < __hi && __hits[__idx].Entity == __e);");
             W(writer, "if ((__kac[__ew] & __eb) != 0)");
             W(writer, "{");
@@ -635,7 +648,6 @@ internal static class SystemEmitter
             W(writer, "}");
             if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
             W(writer, "}");
-            W(writer, "if (__firstWord == 0 && __endWord >= __kt->Words) __ph->Count = 0;");
             W(writer, "}");
         }
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
@@ -753,11 +765,7 @@ internal static class SystemEmitter
             W(writer, $"System.Runtime.CompilerServices.Unsafe.WriteUnaligned((byte*)__add + {valueAt}, __v);");
         }
         else if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __v{tail});");
-        else
-        {
-            W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __v);");
-            W(writer, "else { __total = __v; __has = true; }");
-        }
+        else W(writer, Acc(kind, "__v"));
         W(writer, "}");
         W(writer, "}");
     }
@@ -778,9 +786,10 @@ internal static class SystemEmitter
 
     static void EmitFrameFlags(StringBuilder writer, string? synthetic, string? interrupted)
     {
+        void Flag(string? t, string f) { if (t != null) W(writer, $"if ({t}) __kflags |= Tl.FrameFlags.{f};"); }
         W(writer, "var __kflags = Tl.FrameFlags.None;");
-        foreach (var (test, flag) in new[] { ("__backward", "Reverse"), (synthetic, "Synthetic"), (interrupted, "Interrupted"), ("__tick == 0", "TimelineStart"), ("__tick == (ushort)(__tl->Duration - 1)", "TimelineEnd") })
-            if (test != null) W(writer, $"if ({test}) __kflags |= Tl.FrameFlags.{flag};");
+        Flag("__backward", "Reverse"); Flag(synthetic, "Synthetic"); Flag(interrupted, "Interrupted");
+        Flag("__tick == 0", "TimelineStart"); Flag("__tick == (ushort)(__tl->Duration - 1)", "TimelineEnd");
         W(writer, "var __ok = false;");
     }
 
@@ -855,11 +864,7 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "}");
         if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __v{tail});");
-        else
-        {
-            W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __v);");
-            W(writer, "else { __total = __v; __has = true; }");
-        }
+        else W(writer, Acc(kind, "__v"));
         W(writer, "}");
     }
 
@@ -897,27 +902,9 @@ internal static class SystemEmitter
     }
 
     static string BaseSig(KernelShape s, string name, bool range)
-    {
-        var sb = new StringBuilder("internal static void " + name + "(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward");
-        for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) sb.Append($", {s.Columns[i].ElementTypeName}* __c{i}");
-        sb.Append(", int __n");
-        if (range) sb.Append(", int __firstWord, int __endWord");
-        for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) sb.Append($", ref {s.Contexts[i].ElementTypeName} __ctx{i}");
-        for (var i = 0; i < s.Requests.Count; i++) sb.Append(", Tl.Requests __req" + i);
-        for (var i = 0; i < s.Events.Count; i++) sb.Append($", {s.Events[i].TypeName} __ev{i}");
-        sb.Append(')');
-        return sb.ToString();
-    }
+        => $"internal static void {name}(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward{ListArgs(s, i => $"{s.Columns[i].ElementTypeName}* __c{i}", range ? "int __n, int __firstWord, int __endWord" : "int __n", i => $"ref {s.Contexts[i].ElementTypeName} __ctx{i}", i => "Tl.Requests __req" + i, i => $"{s.Events[i].TypeName} __ev{i}")})";
     static string FullArgs(KernelShape s, bool range)
-    {
-        var sb = new StringBuilder();
-        for (var i = 0; i < s.Columns.Count; i++) if (s.UsedColumns[i]) sb.Append($", __c{i}");
-        sb.Append(range ? ", __n, 0, 2147483647" : ", __n");
-        for (var i = 0; i < s.Contexts.Count; i++) if (s.UsedContexts[i]) sb.Append($", ref __ctx{i}");
-        for (var i = 0; i < s.Requests.Count; i++) sb.Append(", __req" + i);
-        for (var i = 0; i < s.Events.Count; i++) sb.Append($", __ev{i}");
-        return sb.ToString();
-    }
+        => ListArgs(s, i => $"__c{i}", range ? "__n, 0, 2147483647" : "__n", i => $"ref __ctx{i}", i => "__req" + i, i => $"__ev{i}");
     static void EmitFusedKernel(StringBuilder writer, SystemAssignment assignment, KernelShape shape, string id)
     {
         W(writer, BaseSig(shape, "RunFusedRange", true));
@@ -1237,18 +1224,10 @@ internal static class SystemEmitter
             W(writer, $"if (__len > players.EntityCapacity) throw new System.ArgumentException(\"{system.TypeName}: column length exceeds table capacity.\");");
         }
         var pins = new List<string>();
-        var ptrs = new List<string>();
-        for (var i = 0; i < shape.Columns.Count; i++) { if (!shape.UsedColumns[i]) continue; pins.Add($"fixed ({shape.Columns[i].ElementTypeName}* __p{i} = this.{shape.Columns[i].Name})"); ptrs.Add($"__p{i}"); }
+        for (var i = 0; i < shape.Columns.Count; i++) if (shape.UsedColumns[i]) pins.Add($"fixed ({shape.Columns[i].ElementTypeName}* __p{i} = this.{shape.Columns[i].Name})");
         void WithPins(Action body) { if (pins.Count == 0) body(); else { foreach (var pin in pins) { W(writer, pin); W(writer, "{"); } body(); foreach (var pin in pins) W(writer, "}"); } }
         string Args(bool range)
-        {
-            var a = new StringBuilder();
-            foreach (var ptr in ptrs) a.Append($", {ptr}");
-            a.Append(range ? ", __len, 0, 2147483647" : ", __len");
-            for (var i = 0; i < shape.Contexts.Count; i++) if (shape.UsedContexts[i]) a.Append($", ref this.{shape.Contexts[i].Name}");
-            foreach (var field in system.Fields) { if (field.Kind == SystemFieldKind.Requests) a.Append($", this.{field.Name}"); if (field.Kind == SystemFieldKind.Events) a.Append($", this.{field.Name}"); }
-            return a.ToString();
-        }
+            => ListArgs(shape, i => $"__p{i}", range ? "__len, 0, 2147483647" : "__len", i => $"ref this.{shape.Contexts[i].Name}", i => $"this.{shape.Requests[i].Name}", i => $"this.{shape.Events[i].Name}");
         if (ns.Length > 0) { W(writer, $"namespace {ns}"); W(writer, "{"); }
         W(writer, $"partial struct {shortName}");
         W(writer, "{");
@@ -1293,12 +1272,11 @@ internal static class SystemEmitter
                 init.Append("__n = __len, __forward = forward ? 1 : 0 };");
                 W(writer, init.ToString());
                 W(writer, "var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }");
-                var hasPulse = false;
-                foreach (var pk in assignment.Kinds) if (pk.PrecombinedPulses) hasPulse = true;
-                if (hasPulse)
+                if (assignment.Kinds.Any(static k => k.PrecombinedPulses))
                 {
-                    W(writer, "if (players.Kinds != null) { Tl.KindPulseBuffer* __pbh;");
-                    foreach (var pk in assignment.Kinds) if (pk.PrecombinedPulses) W(writer, $"__pbh = players.Kinds.PulseHitsOf(players.Kinds.IndexOf(\"{pk.Id}\")); if (__pbh != null) __pbh->Count = 0;");
+                    W(writer, "if (players.Kinds != null)");
+                    W(writer, "{");
+                    EmitClearPulses(writer, assignment, "players.Kinds", "__len");
                     W(writer, "}");
                 }
                 for (var i = 0; i < shape.Requests.Count; i++) { W(writer, $"this.{shape.Requests[i].Name}.ConcatSegments(__rq, __chunks); for (var __i = 0; __i < __chunks; __i++) Tl.RequestQueue.Free(__rq[__i]);"); }

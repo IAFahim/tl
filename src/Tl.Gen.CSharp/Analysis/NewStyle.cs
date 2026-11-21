@@ -12,6 +12,10 @@ internal static class NewStyle
 
     internal static string AutoNameOf(string id) => "TlAuto_" + id;
 
+    internal static bool IsPlainState(ITypeSymbol type)
+        => type is { TypeKind: TypeKind.Struct, IsUnmanagedType: true, SpecialType: SpecialType.None }
+        && type.ContainingNamespace?.ToDisplayString() != "Tl";
+
     internal static int FeedKey(string assembly)
     {
         var hash = 2166136261u;

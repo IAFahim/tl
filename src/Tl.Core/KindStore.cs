@@ -95,10 +95,10 @@ public sealed unsafe class KindStore : IDisposable
     ulong* _pulseMasks;
     KindPulseBuffer* _pulseHits;
     KindPulseValues* _pulseValues;
-    ulong* _entryPulse;
     ulong* _closedEntity;
     ulong _tablePulses;
     ulong _tickTablePulses;
+    ulong _slowPulseMask;
     bool _hasClosed;
     readonly Dictionary<(string, int), (nint Routes, int Part)> _joined = new();
     readonly HashSet<string> _feeding = new(StringComparer.Ordinal);
@@ -242,7 +242,8 @@ public sealed unsafe class KindStore : IDisposable
     {
         if ((uint)kind >= (uint)_kindCount) return null;
         var v = _values + kind;
-        if (Volatile.Read(ref *(nint*)&v->Data) == default)
+        var ptr = Volatile.Read(ref *(nint*)&v->Data);
+        if (ptr == default)
         {
             lock (_joinGate)
             {
@@ -250,26 +251,44 @@ public sealed unsafe class KindStore : IDisposable
                 {
                     var views = (KindValues*)Zeroed((nuint)64 * (nuint)sizeof(KindValues));
                     var row = (int*)Zeroed((nuint)Math.Max(1, _score.TimelineCount) * 4);
-                    var b = KindBuild.Of(in _score, _tls, views, row, false, ref fill);
-                    var data = (byte*)Zeroed((nuint)b.Rows * (nuint)b.Stride);
-                    b.Fill(data, ref fill);
-                    for (var k = 0; k < _kindCount; k++)
-                        if ((b.Kinds >> k & 1) != 0)
-                        {
-                            views[k].Data = null;
-                            _values[k] = views[k];
-                            Volatile.Write(ref *(nint*)&_values[k].Data, (nint)data);
-                        }
-                    if (b.Kinds == 0)
+                    byte* data = null;
+                    var committed = false;
+                    try
                     {
-                        NativeMemory.AlignedFree(row);
-                        NativeMemory.AlignedFree(data);
+                        var b = KindBuild.Of(in _score, _tls, views, row, false, ref fill);
+                        if (b.Kinds != 0)
+                        {
+                            var valid = _kindCount == 64 ? ~0ul : (1ul << _kindCount) - 1;
+                            if ((b.Kinds & ~valid) != 0) throw new InvalidOperationException("Tl: kind out of range.");
+                            for (var k = 0; k < _kindCount; k++)
+                                if ((b.Kinds >> k & 1) != 0 && _values[k].Data != null)
+                                    throw new InvalidOperationException("Tl: overlapping span table.");
+                            data = (byte*)Zeroed((nuint)b.Rows * (nuint)b.Stride);
+                            b.Fill(data, ref fill);
+                            for (var k = 0; k < _kindCount; k++)
+                                if ((b.Kinds >> k & 1) != 0)
+                                {
+                                    views[k].Data = null;
+                                    _values[k] = views[k];
+                                    Volatile.Write(ref *(nint*)&_values[k].Data, (nint)data);
+                                }
+                            committed = true;
+                        }
                     }
-                    NativeMemory.AlignedFree(views);
+                    finally
+                    {
+                        if (!committed)
+                        {
+                            NativeMemory.AlignedFree(row);
+                            NativeMemory.AlignedFree(data);
+                        }
+                        NativeMemory.AlignedFree(views);
+                    }
                 }
+                ptr = (nint)v->Data;
             }
         }
-        return v->Data != null && v->Part == part ? v : null;
+        return ptr != default && v->Part == part ? v : null;
     }
 
     public long SpanValueBytes(int kind) => (uint)kind < (uint)_kindCount && _values[kind].Data != null ? _values[kind].Bytes : 0;
@@ -279,28 +298,46 @@ public sealed unsafe class KindStore : IDisposable
     {
         if ((uint)kind >= (uint)_kindCount) return null;
         var v = _pulseValues + kind;
-        if (Volatile.Read(ref *(nint*)&v->Data) == default)
+        var ptr = Volatile.Read(ref *(nint*)&v->Data);
+        if (ptr == default && Volatile.Read(ref v->Cells) >= 0)
         {
             lock (_joinGate)
             {
-                if (v->Data == null && _routes[kind] != null)
+                if (v->Data == null && v->Cells >= 0)
                 {
-                    var steps = new Steps { Store = this };
-                    var built = KindPulseValues.Build<T, TEval, Steps>(in _t, kind, part, _routes[kind], ref eval, ref steps);
-                    var data = built.Data;
-                    built.Data = null;
-                    *v = built;
-                    Volatile.Write(ref *(nint*)&v->Data, (nint)data);
-                    if (RowsAreEntities(kind) && !_feeding.Contains(_kindNames[kind])) _tablePulses |= 1ul << kind;
+                    if (_routes[kind] != null && RowsAreEntities(kind) && !_feeding.Contains(_kindNames[kind]))
+                    {
+                        var steps = new Steps { Store = this };
+                        var built = KindPulseValues.Build<T, TEval, Steps>(in _t, kind, part, _routes[kind], ref eval, ref steps);
+                        var data = built.Data;
+                        built.Data = null;
+                        *v = built;
+                        Volatile.Write(ref *(nint*)&v->Data, (nint)data);
+                        _tablePulses |= 1ul << kind;
+                    }
+                    else Volatile.Write(ref v->Cells, -1);
                 }
+                ptr = (nint)v->Data;
             }
         }
-        return (_tickTablePulses >> kind & 1) != 0 && v->Data != null && v->Part == part ? v : null;
+        return (_tickTablePulses >> kind & 1) != 0 && ptr != default && v->Part == part ? v : null;
     }
 
     public KindPulseBuffer* PulseHitsOf(int kind) => (uint)kind < (uint)_kindCount ? _pulseHits + kind : null;
 
-    public long PulseValueBytes(int kind) => (uint)kind < (uint)_kindCount && _pulseValues[kind].Data != null ? _pulseValues[kind].Bytes : 0;
+    public void ClearPulseHits(int kind, int limit)
+    {
+        if ((uint)kind >= (uint)_kindCount) return;
+        var buf = _pulseHits + kind;
+        if (limit >= _players.EntityCapacity) { buf->Count = 0; return; }
+        if (buf->Count == 0) return;
+        var lo = buf->LowerBound(limit);
+        var rem = buf->Count - lo;
+        if (rem > 0 && lo > 0) Buffer.MemoryCopy(buf->Items + lo, buf->Items, (long)rem * sizeof(KindPulseHit), (long)rem * sizeof(KindPulseHit));
+        buf->Count = rem;
+    }
+
+    public long PulseValueBytes(int kind) => (uint)kind < (uint)_kindCount && (_tablePulses >> kind & 1) != 0 && _pulseValues[kind].Data != null ? _pulseValues[kind].Bytes : 0;
 
     public bool HasSamples => _samples[_players.EntityCapacity] != 0;
 
@@ -423,7 +460,6 @@ public sealed unsafe class KindStore : IDisposable
         _samples[entity] = 0;
         var w = entity >> 6;
         var b = ~(1ul << (entity & 63));
-        if (_entryPulse != null) _entryPulse[w] &= b;
         if (_closedEntity != null) _closedEntity[w] &= b;
         for (var k = 0; k < _kindCount; k++)
         {
@@ -470,6 +506,7 @@ public sealed unsafe class KindStore : IDisposable
 
     internal struct Rows : IKindRows
     {
+        public KindStore Store;
         public KindTable** Tables;
         public ulong* Mask;
         public int* Offset;
@@ -485,6 +522,7 @@ public sealed unsafe class KindStore : IDisposable
             var table = Tables[kind];
             var row = RowOf(entity, kind);
             if ((table->Enabled[row >> 6] >> (row & 63) & 1) == 0) return null;
+            Store._slowPulseMask |= 1ul << kind;
             var entry = table->Append(row);
             entry->Feeder = feeder->Ordinal;
             entry->Owner = 0;
@@ -525,28 +563,93 @@ public sealed unsafe class KindStore : IDisposable
         if (_generation != _world._generation) Rebuild();
     }
 
+    static bool HasActive(KindTable* t)
+    {
+        if (t == null) return false;
+        for (var w = 0; w < t->Words; w++)
+            if (t->Active[w] != 0) return true;
+        return false;
+    }
+
+    void FlushPulseHits(int kind)
+    {
+        var ph = _pulseHits + kind;
+        var count = ph->Count;
+        if (count == 0) return;
+        var table = _tables[kind];
+        var pv = _pulseValues + kind;
+        var items = ph->Items;
+        var vbytes = _valueBytes[kind];
+        var stride = table->Stride;
+        byte[]? saved = null;
+        var i = 0;
+        while (i < count)
+        {
+            var e = items[i].Entity;
+            var j = i + 1;
+            while (j < count && items[j].Entity == e) j++;
+            if ((table->Enabled[e >> 6] >> (e & 63) & 1) != 0)
+            {
+                var existing = (int)table->Length[e];
+                var existingBytes = existing * stride;
+                if (existing != 0)
+                {
+                    if (saved == null || saved.Length < existingBytes) saved = new byte[existingBytes];
+                    fixed (byte* sp = saved) Buffer.MemoryCopy(table->Data(e), sp, existingBytes, existingBytes);
+                    table->Clear(e);
+                }
+                for (var h = i; h < j; h++)
+                {
+                    var cell = items[h].Cell;
+                    for (var p = pv->Start[cell]; p < pv->Start[cell + 1]; p++)
+                    {
+                        var entry = table->Append(e);
+                        *entry = new KindEntry { Flags = KindEntryFlags.Pulse };
+                        CopyValue((byte*)entry + table->ValueAt, pv->Data + (nuint)p * (nuint)vbytes, vbytes);
+                    }
+                }
+                if (existing != 0)
+                    fixed (byte* sp = saved)
+                        for (var r = 0; r < existing; r++)
+                            Buffer.MemoryCopy(sp + r * stride, table->Append(e), stride, stride);
+            }
+            i = j;
+        }
+        ph->Count = 0;
+    }
+
     internal void TickPass(bool forward)
     {
         Sync();
         var entities = _players.EntityCapacity;
         var words = _players.PlayingWords;
         if (_samples[entities] != 0) NativeMemory.Clear(_samples, (nuint)entities + 1);
+        _t.EntryPulse = _hasClosed ? _closedEntity : null;
+        var fast = _tablePulses;
+        for (var m = fast; m != 0; m &= m - 1)
+        {
+            var k = Tz(m);
+            if (_pulseHits[k].Count != 0)
+            {
+                FlushPulseHits(k);
+                _slowPulseMask |= 1ul << k;
+                fast &= ~(1ul << k);
+            }
+            else if ((_slowPulseMask >> k & 1) != 0)
+            {
+                if (HasActive(_tables[k])) fast &= ~(1ul << k);
+                else _slowPulseMask &= ~(1ul << k);
+            }
+        }
+        _tickTablePulses = fast;
+        _t.FastPulseMask = fast;
+        TickPassRange(forward ? 1 : -1, 0, words);
         if (_hasClosed)
         {
-            new ReadOnlySpan<ulong>(_closedEntity, words).CopyTo(new Span<ulong>(_entryPulse, words));
             NativeMemory.Clear(_closedEntity, (nuint)words * 8);
             _hasClosed = false;
-            _samples[entities + 1] = 1;
         }
-        else if (_samples[entities + 1] != 0)
-        {
-            NativeMemory.Clear(_entryPulse, (nuint)words * 8);
-            _samples[entities + 1] = 0;
-        }
-        _tickTablePulses = _tablePulses;
-        _t.FastPulseMask = _tickTablePulses;
-        for (var m = _tickTablePulses; m != 0; m &= m - 1) _pulseHits[Tz(m)].Count = 0;
-        TickPassRange(forward ? 1 : -1, 0, words);
+        _t.EntryPulse = null;
         MergePulses();
     }
 
@@ -596,6 +699,7 @@ public sealed unsafe class KindStore : IDisposable
                     continue;
                 }
                 if ((table->Enabled[row >> 6] >> (row & 63) & 1) == 0) continue;
+                _slowPulseMask |= 1ul << k;
                 var entry = table->Append(row);
                 *entry = new KindEntry { Flags = KindEntryFlags.Pulse };
                 if (table->Grouped) *(ushort*)((byte*)entry + 8) = (ushort)k;
@@ -772,7 +876,7 @@ public sealed unsafe class KindStore : IDisposable
         for (var t = 0; t < _timelineCount; t++)
         {
             var dur = _tls[t].Duration;
-            _spanMeta[t] = dur > 0 && dur <= 0x3FFF_FFFFu ? (dur | (_tls[t].Loop != 0 && dur <= 65536u ? 0x8000_0000u : 0u)) : 0u;
+            _spanMeta[t] = dur > 0 && dur <= 65536u ? (dur | (_tls[t].Loop != 0 ? 0x8000_0000u : 0u)) : 0u;
             _pulseBase[t] = -1;
             if (_kindCount == 0 || _sec.Timelines[t].KindMask == 0 || dur == 0) continue;
             var tk = _sec.Timelines + t;
@@ -816,14 +920,13 @@ public sealed unsafe class KindStore : IDisposable
                 }
             }
         }
-        _samples = (byte*)Zeroed((nuint)entities + 8);
+        _samples = (byte*)Zeroed((nuint)entities + 1);
         _listed = (ulong**)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(nint));
         for (var k = 0; k < _kindCount; k++) _listed[k] = (ulong*)Zeroed((nuint)(_tables[k] == null ? 1 : _tables[k]->Words) * 8);
         _values = (KindValues*)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(KindValues));
         _pulseHits = (KindPulseBuffer*)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(KindPulseBuffer));
         _pulseValues = (KindPulseValues*)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(KindPulseValues));
         var words = _players.PlayingWords;
-        _entryPulse = (ulong*)Zeroed((nuint)words * 8);
         _closedEntity = (ulong*)Zeroed((nuint)words * 8);
         _t = new KindTables
         {
@@ -839,12 +942,10 @@ public sealed unsafe class KindStore : IDisposable
             PulseBits = _pulseBits,
             PulseMasks = _pulseMasks,
             PulseHits = _pulseHits,
-            EntryPulse = _entryPulse,
-            EntryDirty = _samples + entities + 1,
         };
         var steps = new Steps { Store = this };
         _score = KindScore.Build(in _t, ref steps);
-        _kindRows = new Rows { Tables = _tables, Mask = _mask, Offset = _offset, Row = _rows, Players = _players, Samples = _samples, EntityCount = entities };
+        _kindRows = new Rows { Store = this, Tables = _tables, Mask = _mask, Offset = _offset, Row = _rows, Players = _players, Samples = _samples, EntityCount = entities };
     }
 
     void BuildSteps()
@@ -925,29 +1026,33 @@ public sealed unsafe class KindStore : IDisposable
             for (var k = 0; k < _kindCount; k++) _pulseHits[k].Free();
         if (_pulseValues != null)
             for (var k = 0; k < _kindCount; k++) _pulseValues[k].Free();
-        foreach (var block in new void*[] { _tables, _queues, _mask, _offset, _rows, _closure, _pairs, _pairStart, _windowBase, _windows, _samples, _listed, _values, _spanMeta, _pulseBase, _pulseBits, _pulseMasks, _pulseHits, _pulseValues, _entryPulse, _closedEntity })
-            if (block != null) NativeMemory.AlignedFree(block);
-        _samples = null;
+        Free4(_tables, _queues, _mask, _offset);
+        Free4(_rows, _closure, _pairs, _pairStart);
+        Free4(_windowBase, _windows, _samples, _listed);
+        Free4(_values, _spanMeta, _pulseBase, _pulseBits);
+        Free4(_pulseMasks, _pulseHits, _pulseValues, _closedEntity);
+        _samples = _pulseBits = null;
+        _pulseMasks = _closedEntity = _mask = _closure = null;
+        _offset = _rows = _pairStart = _windowBase = _pulseBase = null;
+        _pairs = _spanMeta = null;
         _listed = null;
-        _values = null;
-        _spanMeta = null;
-        _pulseBase = null;
-        _pulseBits = null;
-        _pulseMasks = _entryPulse = _closedEntity = _mask = null;
-        _pulseHits = null;
-        _pulseValues = null;
-        _tablePulses = _tickTablePulses = 0;
-        _hasClosed = false;
         _tables = null;
         _queues = null;
-        _offset = null;
-        _rows = null;
-        _closure = null;
-        _pairs = null;
-        _pairStart = null;
-        _windowBase = null;
+        _values = null;
+        _pulseHits = null;
+        _pulseValues = null;
         _windows = null;
+        _tablePulses = _tickTablePulses = _slowPulseMask = 0;
+        _hasClosed = false;
         _windowTotal = 0;
+    }
+
+    static void Free4(void* a, void* b, void* c, void* d)
+    {
+        NativeMemory.AlignedFree(a);
+        NativeMemory.AlignedFree(b);
+        NativeMemory.AlignedFree(c);
+        NativeMemory.AlignedFree(d);
     }
 
     public void Dispose()

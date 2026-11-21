@@ -105,16 +105,16 @@ public unsafe interface IKindFill
 
 public unsafe struct KindBuild
 {
-    public KindScore Score;
-    public LibraryTimeline* Timelines;
-    public KindValues* Views;
+    internal KindScore Score;
+    internal LibraryTimeline* Timelines;
+    internal KindValues* Views;
     public ulong Kinds;
     public int Stride;
-    public int Align;
-    public int Shift;
+    internal int Align;
+    internal int Shift;
     public int Rows;
-    public bool ByFeeder;
-    public bool Filling;
+    internal bool ByFeeder;
+    internal bool Filling;
 
     public static KindBuild Of<TFill>(in KindScore score, LibraryTimeline* timelines, KindValues* views, int* row, bool byFeeder, ref TFill fill) where TFill : struct, IKindFill
     {
@@ -138,7 +138,7 @@ public unsafe struct KindBuild
                 if (views[k].Shift == 0) owner = k;
                 else rest -= views[k].Bytes = (long)b.Rows * 2 * (views[k].Back - views[k].Front);
             }
-        views[owner].Bytes = rest;
+        if (b.Kinds != 0) views[owner].Bytes = rest;
         return b;
     }
 
@@ -252,10 +252,10 @@ public unsafe struct KindPulseValues
 {
     public int* Start;
     public byte* Data;
-    public int Stride;
-    public int Cells;
-    public int Part;
-    public long Bytes;
+    internal int Stride;
+    internal int Cells;
+    internal int Part;
+    internal long Bytes;
 
     internal static KindPulseValues Build<T, TEval, TSteps>(in KindTables t, int kind, int part, ushort* routes, ref TEval eval, ref TSteps steps)
         where T : unmanaged where TEval : struct, IKindSpanValues<T> where TSteps : struct, IKindSteps
@@ -265,53 +265,63 @@ public unsafe struct KindPulseValues
             if (t.PulseBase != null && t.PulseBase[tl] >= 0)
                 cells = Math.Max(cells, (t.PulseBase[tl] + (int)t.Timelines[tl].Duration) * 2);
         var start = (int*)KindStore.Zeroed((nuint)(cells + 1) * 4);
-        var vals = new List<T>();
-        var feeders = t.Sec.Feeders;
-        for (var tl = 0; tl < t.TimelineCount; tl++)
+        byte* data = null;
+        try
         {
-            var pb = t.PulseBase != null ? t.PulseBase[tl] : -1;
-            if (pb < 0) continue;
-            var id = (ushort)(tl + 1);
-            var tk = t.Sec.Timelines + tl;
-            var events = t.Sec.Events(tk);
-            var dur = (int)t.Timelines[tl].Duration;
-            for (var tick = 0; tick < dur; tick++)
+            var vals = new List<T>();
+            var feeders = t.Sec.Feeders;
+            for (var tl = 0; tl < t.TimelineCount; tl++)
             {
-                var bits = t.PulseBits[pb + tick];
-                for (var d = 0; d < 2; d++)
+                var pb = t.PulseBase != null ? t.PulseBase[tl] : -1;
+                if (pb < 0) continue;
+                var id = (ushort)(tl + 1);
+                var tk = t.Sec.Timelines + tl;
+                var events = t.Sec.Events(tk);
+                var dur = (int)t.Timelines[tl].Duration;
+                for (var tick = 0; tick < dur; tick++)
                 {
-                    var cell = ((pb + tick) << 1) + d;
-                    start[cell] = vals.Count;
-                    if ((bits & (1 << d)) == 0 || (t.PulseMasks[cell] >> kind & 1) == 0) continue;
-                    var to = t.Sec.EventEnd(tk, tick, d);
-                    for (var n = t.Sec.EventStart(tk, tick, d); n < to; n++)
+                    var bits = t.PulseBits[pb + tick];
+                    for (var d = 0; d < 2; d++)
                     {
-                        var ev = events[n];
-                        if (ev.Op < (byte)KindEventOp.PulseStart) continue;
-                        var feeder = feeders + ev.Feeder;
-                        if (feeder->Kind != kind) continue;
-                        var route = routes[feeder->Ordinal];
-                        if ((route >> 8) != part) continue;
-                        var step = steps.StepOf(id, ev.Window, (ushort)tick);
-                        if (step == null || tick < step->WindowStart || tick >= step->WindowEnd) continue;
-                        if (eval.Evaluate(route & 0xff, step, t.Timelines + tl, (ushort)tick, d == 1, out var v)) vals.Add(v);
+                        var cell = ((pb + tick) << 1) + d;
+                        start[cell] = vals.Count;
+                        if ((bits & (1 << d)) == 0 || (t.PulseMasks[cell] >> kind & 1) == 0) continue;
+                        var to = t.Sec.EventEnd(tk, tick, d);
+                        for (var n = t.Sec.EventStart(tk, tick, d); n < to; n++)
+                        {
+                            var ev = events[n];
+                            if (ev.Op < (byte)KindEventOp.PulseStart) continue;
+                            var feeder = feeders + ev.Feeder;
+                            if (feeder->Kind != kind) continue;
+                            var route = routes[feeder->Ordinal];
+                            if ((route >> 8) != part) continue;
+                            var step = steps.StepOf(id, ev.Window, (ushort)tick);
+                            if (step == null || tick < step->WindowStart || tick >= step->WindowEnd) continue;
+                            if (eval.Evaluate(route & 0xff, step, t.Timelines + tl, (ushort)tick, d == 1, out var v)) vals.Add(v);
+                        }
                     }
                 }
             }
+            start[cells] = vals.Count;
+            var stride = sizeof(T);
+            data = (byte*)KindStore.Zeroed((nuint)Math.Max(1, vals.Count) * (nuint)stride);
+            for (var i = 0; i < vals.Count; i++) *(T*)(data + (nuint)i * (nuint)stride) = vals[i];
+            return new KindPulseValues
+            {
+                Start = start,
+                Data = data,
+                Stride = stride,
+                Cells = cells,
+                Part = part,
+                Bytes = (long)(cells + 1) * 4 + (long)vals.Count * stride,
+            };
         }
-        start[cells] = vals.Count;
-        var stride = sizeof(T);
-        var data = (byte*)KindStore.Zeroed((nuint)Math.Max(1, vals.Count) * (nuint)stride);
-        for (var i = 0; i < vals.Count; i++) *(T*)(data + (nuint)i * (nuint)stride) = vals[i];
-        return new KindPulseValues
+        catch
         {
-            Start = start,
-            Data = data,
-            Stride = stride,
-            Cells = cells,
-            Part = part,
-            Bytes = (long)(cells + 1) * 4 + (long)vals.Count * stride,
-        };
+            NativeMemory.AlignedFree(start);
+            NativeMemory.AlignedFree(data);
+            throw;
+        }
     }
 
     internal void Free()

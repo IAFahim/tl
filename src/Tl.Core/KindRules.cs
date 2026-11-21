@@ -56,7 +56,7 @@ public unsafe struct KindPulseBuffer
 
     internal void Free()
     {
-        if (Items != null) NativeMemory.AlignedFree(Items);
+        NativeMemory.AlignedFree(Items);
         this = default;
     }
 }
@@ -76,7 +76,6 @@ public unsafe struct KindTables
     internal ulong* PulseMasks;
     internal KindPulseBuffer* PulseHits;
     internal ulong* EntryPulse;
-    internal byte* EntryDirty;
     internal ulong FastPulseMask;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -142,9 +141,6 @@ public static unsafe class KindRules
         var hitFast = 0ul;
         var live = false;
         var meta = t.SpanMeta;
-        var pulseBase = t.PulseBase;
-        var pulseBits = t.PulseBits;
-        var pulseMasks = t.PulseMasks;
         for (var i = 0; i < count; i++)
         {
             var s = slots + i;
@@ -163,16 +159,7 @@ public static unsafe class KindRules
                     tick = tick < 0 ? (int)dur - 1 : 0;
                 }
                 s->Tick = (ushort)tick;
-                var pb = pulseBase[id - 1];
-                if (pb >= 0)
-                {
-                    var d = dir > 0 ? 0 : 1;
-                    if ((pulseBits[pb + tick] & (1 << d)) != 0)
-                    {
-                        var cell = ((pb + tick) << 1) + d;
-                        RouteEvents(in t, ref rows, row, i, id, tick, dir, cell, pulseMasks[cell], fastMask, ref hitFast);
-                    }
-                }
+                PulseAt(in t, ref rows, row, i, id, tick, dir, fastMask, ref hitFast);
                 live = true;
                 continue;
             }
@@ -222,7 +209,7 @@ public static unsafe class KindRules
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool TickRatedFrom<TRows>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int from, int stepDir, bool live) where TRows : struct, IKindRows
+    internal static bool TickRatedFrom<TRows>(in KindTables t, Playback* slots, int count, ref TRows rows, int row, int from, int stepDir, bool live) where TRows : struct, IKindRows
     {
         var samples = 0;
         for (var i = from; i < count; i++)
@@ -315,21 +302,7 @@ public static unsafe class KindRules
         {
             case PlaybackMotion.Stepped:
             case PlaybackMotion.Wrapped:
-                if (t.PulseBase != null)
-                {
-                    var id = before.Timeline;
-                    var pb = t.PulseBase[id - 1];
-                    if (pb >= 0)
-                    {
-                        var tick = s->Tick;
-                        var d = dir > 0 ? 0 : 1;
-                        if ((t.PulseBits[pb + tick] & (1 << d)) != 0)
-                        {
-                            var cell = ((pb + tick) << 1) + d;
-                            RouteEvents(in t, ref rows, row, i, id, tick, dir, cell, t.PulseMasks[cell], fastMask, ref hitFast);
-                        }
-                    }
-                }
+                if (t.PulseBase != null) PulseAt(in t, ref rows, row, i, before.Timeline, s->Tick, dir, fastMask, ref hitFast);
                 else Events(in t, ref rows, row, i, before.Timeline, s->Tick, dir);
                 return true;
             case PlaybackMotion.Handed:
@@ -342,17 +315,25 @@ public static unsafe class KindRules
                 return true;
             case PlaybackMotion.Parked:
                 return true;
-            case PlaybackMotion.Held:
-                return false;
             case PlaybackMotion.Removed:
-                *s = default;
-                return false;
             case PlaybackMotion.Unknown:
                 *s = default;
                 return false;
+            case PlaybackMotion.Held:
             default:
                 return false;
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static void PulseAt<TRows>(in KindTables t, ref TRows rows, int row, int slot, ushort id, int tick, int dir, ulong fastMask, ref ulong hitFast) where TRows : struct, IKindRows
+    {
+        var pb = t.PulseBase[id - 1];
+        if (pb < 0) return;
+        var d = dir > 0 ? 0 : 1;
+        if ((t.PulseBits[pb + tick] & (1 << d)) == 0) return;
+        var cell = ((pb + tick) << 1) + d;
+        RouteEvents(in t, ref rows, row, slot, id, tick, dir, cell, t.PulseMasks[cell], fastMask, ref hitFast);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -381,11 +362,6 @@ public static unsafe class KindRules
     [MethodImpl(MethodImplOptions.NoInlining)]
     static void Backfill<TRows>(in KindTables t, Playback* slots, int upto, ref TRows rows, int row, int stepDir, ref ulong hitFast) where TRows : struct, IKindRows
     {
-        if (t.EntryPulse != null)
-        {
-            t.EntryPulse[row >> 6] |= 1ul << (row & 63);
-            if (t.EntryDirty != null) *t.EntryDirty = 1;
-        }
         if (hitFast == 0) return;
         for (var m = hitFast; m != 0; m &= m - 1) t.PulseHits[KindStore.Tz(m)].Rewind(row);
         if (slots != null)
@@ -436,7 +412,7 @@ public static unsafe class KindRules
         }
     }
 
-    static void ApplyEventsFiltered<TRows>(in KindTables t, ref TRows rows, int row, int i, ushort id, int tick, int dir, ulong kindMask = ~0ul) where TRows : struct, IKindRows
+    internal static void ApplyEventsFiltered<TRows>(in KindTables t, ref TRows rows, int row, int i, ushort id, int tick, int dir, ulong kindMask = ~0ul) where TRows : struct, IKindRows
     {
         var tk = t.Sec.Timelines + (id - 1);
         var events = t.Sec.Events(tk);

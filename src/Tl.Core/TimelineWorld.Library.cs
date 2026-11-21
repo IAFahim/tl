@@ -44,8 +44,8 @@ namespace Tl
         uint _manifestOff;
         int _manifestCount;
 
-        static uint U32(ReadOnlySpan<byte> s, int o = 0) => BinaryPrimitives.ReadUInt32LittleEndian(s.Slice(o));
-        static uint U32(byte* p, int o = 0) => BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(p + o, 4));
+        static uint U32(ReadOnlySpan<byte> s, int o = 0) => LibraryLayout.U32(s, o);
+        static uint U32(byte* p, int o = 0) => LibraryLayout.U32(new ReadOnlySpan<byte>(p + o, 4));
 
         public ushort Find(string name)
         {
@@ -120,6 +120,13 @@ namespace Tl
             return p;
         }
 
+        static void* TrackZero(nuint size)
+        {
+            var p = TrackAlloc(size);
+            NativeMemory.Clear(p, size);
+            return p;
+        }
+
         static void TrackFree(void* p)
         {
             if (p == null) return;
@@ -179,12 +186,12 @@ namespace Tl
                                 if (tl->Stages[s].Steps != null) { TrackFree(tl->Stages[s].Steps); break; }
                             TrackFree(tl->Stages);
                         }
-                        if (tl->Events != null) TrackFree(tl->Events);
-                        if (tl->EventTickBits != null) TrackFree(tl->EventTickBits);
+                        TrackFree(tl->Events);
+                        TrackFree(tl->EventTickBits);
                     }
                     TrackFree(_view.Timelines);
                 }
-                if (_base != null) TrackFree(_base);
+                TrackFree(_base);
                 foreach (var arena in _arenas) TrackFree((void*)arena);
                 _arenas.Clear();
                 _ownsView = false;
@@ -256,12 +263,13 @@ namespace Tl
                 catch { return (LibraryError.ManifestNameNotUtf8, at, $"game.tlib manifest entry {i} name is not valid UTF-8."); }
                 if (prev != null && string.CompareOrdinal(prev, name) >= 0) return (LibraryError.ManifestNameOrder, at, $"game.tlib manifest names must sort ordinally (entry {i} '{name}' breaks order).");
                 prev = name;
-                if (tlbOff % 8 != 0 || (ulong)tlbOff + tlbLen > blobOff + (total - 32u - blobOff) || tlbOff < blobOff || tlbOff + tlbLen > total - 32u)
+                if (tlbOff % 8 != 0 || tlbOff < blobOff || (ulong)tlbOff + tlbLen > total - 32u)
                     return (LibraryError.ManifestBlobOutOfBounds, at, $"game.tlib manifest entry {i} '{name}' blob out of bounds.");
                 if (channel > 65535) return (LibraryError.ManifestChannelOutOfRange, at, $"game.tlib manifest entry {i} channel out of range.");
                 var blob = library.Slice((int)tlbOff, (int)tlbLen);
                 try { TimelineRef.Validate(blob); }
                 catch (ArgumentException ex) { return (LibraryError.TimelineInvalid, (int)tlbOff, $"game.tlib timeline '{name}': {ex.Message}"); }
+                catch { return (LibraryError.TimelineInvalid, (int)tlbOff, $"game.tlib timeline '{name}' is invalid."); }
                 durations[i].Duration = U32(blob, 12);
                 var blobVersion = U32(blob, 4);
                 var blobChannel = blobVersion == 6 ? U32(blob, 56) : 0u;
@@ -308,36 +316,29 @@ namespace Tl
             _manifestOff = manifestOff;
             _manifestCount = (int)count;
             if (count == 0) { _view.Timelines = null; return; }
-            var timelines = (LibraryTimeline*)TrackAlloc((nuint)(count * (uint)sizeof(LibraryTimeline)));
-            NativeMemory.Clear(timelines, (nuint)(count * (uint)sizeof(LibraryTimeline)));
+            var timelines = (LibraryTimeline*)TrackZero((nuint)(count * (uint)sizeof(LibraryTimeline)));
             _view.Timelines = timelines;
             for (uint i = 0; i < count; i++)
             {
                 var at = (int)(manifestOff + i * 32u);
                 var id = U32(library, at);
-                var channel = U32(library, at + 4);
-                var nameOff = U32(library, at + 8);
-                var nameLen = U32(library, at + 12);
                 var tlbOff = U32(library, at + 16);
                 var tlbLen = U32(library, at + 20);
-                var name = Encoding.UTF8.GetString(_base + nameOff, (int)nameLen);
                 var blob = new ReadOnlySpan<byte>(_base + tlbOff, (int)tlbLen);
-                BuildTimeline(timelines + i, (ushort)id, blob, tlbOff, name, i, channel);
+                BuildTimeline(timelines + i, (ushort)id, blob, tlbOff);
             }
             if (version == 2u) _view.Kinds = KindSectionReader.CreateView(_base + kindOff, kindLen, (int)count, timelines);
         }
 
-        unsafe void BuildTimeline(LibraryTimeline* tl, ushort id, ReadOnlySpan<byte> blob, uint tlbOff, string name, uint index, uint manifestChannel)
+        unsafe void BuildTimeline(LibraryTimeline* tl, ushort id, ReadOnlySpan<byte> blob, uint tlbOff)
         {
             var version = U32(blob, 4);
             var loops = U32(blob, 8);
             var duration = U32(blob, 12);
-            var trackCount = U32(blob, 16);
             var stageCount = U32(blob, 20);
             var pairCount = U32(blob, 24);
             var pairOff = U32(blob, 28);
             var stageOff = U32(blob, 32);
-            var frameOff = U32(blob, 40);
             uint next = 0, channel = 0, flags = 0, markerOff = 0, markerCount = 0;
             if (version == 6)
             {
@@ -347,22 +348,15 @@ namespace Tl
                 markerOff = U32(blob, 64);
                 markerCount = U32(blob, 68);
             }
-            _ = manifestChannel;
             tl->Id = id;
             tl->Channel = (ushort)channel;
             tl->Next = (ushort)next;
-            _ = next;
             tl->Loop = (byte)(loops != 0 ? 1 : 0);
             tl->Hold = (byte)((flags & 1u) != 0 ? 1 : 0);
             tl->Duration = duration;
             tl->StageCount = (int)stageCount;
-            tl->EventCount = 0;
-            tl->Events = null;
-            tl->EventTickBits = null;
-            tl->Stages = null;
             if (stageCount == 0) return;
-            var stages = (LibraryStage*)TrackAlloc((nuint)(stageCount * (uint)sizeof(LibraryStage)));
-            NativeMemory.Clear(stages, (nuint)(stageCount * (uint)sizeof(LibraryStage)));
+            var stages = (LibraryStage*)TrackZero((nuint)(stageCount * (uint)sizeof(LibraryStage)));
             tl->Stages = stages;
             var tlbBase = _base + tlbOff;
             var pairs = (NativePair*)(tlbBase + pairOff);
@@ -374,15 +368,13 @@ namespace Tl
                 var at = tlbBase + stageOff + s * 16u;
                 var start = U32(at);
                 var end = U32(at, 4);
-                var prog = U32(at, 8);
                 var progCount = U32(at, 12);
                 stages[s].Start = start;
                 stages[s].End = end;
                 stages[s].StepCount = (int)progCount;
                 totalSteps += (int)progCount;
             }
-            var flat = totalSteps > 0 ? (LibraryStep*)TrackAlloc((nuint)(totalSteps * (uint)sizeof(LibraryStep))) : null;
-            if (flat != null) NativeMemory.Clear(flat, (nuint)(totalSteps * (uint)sizeof(LibraryStep)));
+            var flat = totalSteps > 0 ? (LibraryStep*)TrackZero((nuint)(totalSteps * (uint)sizeof(LibraryStep))) : null;
             var cursor = 0;
             for (uint s = 0; s < stageCount; s++)
             {
@@ -407,15 +399,12 @@ namespace Tl
                     dst->TrackValueIndex = row->TrackValueIndex;
                     dst->FirstValueIndex = row->FirstValueIndex;
                     dst->SecondValueIndex = row->SecondValueIndex;
-                    dst->FoldLane = null;
                     dst->FrameRow = row;
                     cursor++;
                 }
             }
             BuildEvents(tl, tlbBase, markerOff, markerCount, totalSteps, flat);
             MaterializeSteps(tl, tlbBase, pairs, pairCount, flat, totalSteps, duration, markerOff, markerCount);
-            _ = trackCount;
-            _ = frameOff;
         }
         static nuint Align16(nuint v) => (v + 15u) & ~(nuint)15u;
 
