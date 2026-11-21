@@ -404,7 +404,7 @@ internal static partial class SystemReader
     {
         if (feeder.Trigger != FeederTrigger.Span) return "";
         var read = FlagRead(method, feeder.Method.Params.Count > 0 && feeder.Method.Params[0].Kind == ConsumerParamKind.Frame, compilation);
-        if (read.Length == 0 && feeder.Method.Params.Any(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
+        if (read.Length == 0 && feeder.Method.Params.Any(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0 && m.Parameters.Length > 0) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
             read = "takes a fold whose Fold " + folded;
         return read;
     }
@@ -416,7 +416,7 @@ internal static partial class SystemReader
         var ids = body.DescendantNodes().OfType<IdentifierNameSyntax>().ToList();
         foreach (var id in ids)
             if (model.GetSymbolInfo(id).Symbol is IFieldSymbol { Name: "Synthetic" or "Interrupted", ContainingType: { Name: "FrameFlags", ContainingNamespace.Name: "Tl" } } flag) return "reads FrameFlags." + flag.Name;
-        var frame = framed ? method.Parameters[0] : null;
+        var frame = framed && method.Parameters.Length > 0 ? method.Parameters[0] : null;
         foreach (var id in ids)
         {
             if (frame is null || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(id).Symbol, frame)) continue;

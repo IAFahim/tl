@@ -135,6 +135,54 @@ public sealed class IncrementalTests
     }
 
     [Fact]
+    public void FlagReadsOfMatchesExactOverloadWhenFeederNameAndParameterCountCollide()
+    {
+        foreach (var pureFirst in new[] { true, false })
+        {
+            const string shared = """
+                using System;
+                using Tl;
+                namespace Portable;
+                public struct OverState { public float A; public float B; }
+                public struct OverClip { public float V; }
+                public struct OverTrack : IBlend<OverClip> { public void Blend(in OverClip first, in OverClip second, float factor, out OverClip result) => result = first; }
+                [TimelineSystem] public ref partial struct OverSystem { public Span<OverState> State; }
+                [TimelineKind(Associative = true)] public struct KindA { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref OverState state) => state.A += total; }
+                [TimelineKind(Associative = true)] public struct KindB { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref OverState state) => state.B += total; }
+                """;
+            const string pureMethod = "[Feeds(typeof(KindA))] public static float Eval(in float v) => v;";
+            const string syntheticMethod = "[Feeds(typeof(KindB))] public static float Eval(in Frame<OverTrack, OverClip> f) => f.Has(FrameFlags.Synthetic) ? 0f : f.Clip.V;";
+            var methods = pureFirst ? $"{pureMethod}\n    {syntheticMethod}" : $"{syntheticMethod}\n    {pureMethod}";
+            var consumer = shared + "\npublic struct OverTrackConsumer : ITrack<OverTrack, OverClip>\n{\n    public static void Fold(in Frame<OverTrack, OverClip> frame, out float v) => v = frame.Clip.V;\n    " + methods + "\n}\n";
+            var driver = NewDriver();
+            var (run, trees) = Step(ref driver, Compile(("Over.cs", consumer)));
+            var info = Assert.Single(run.Diagnostics);
+            Assert.Equal("TLGEN115", info.Id);
+            Assert.Contains("Kind 'KindB'", info.GetMessage());
+            Assert.Contains("SpanValues<float, KindSpans_0>", string.Join("\n", trees));
+            Assert.DoesNotContain("KindSpans_1", string.Join("\n", trees));
+        }
+    }
+
+    [Fact]
+    public void FlagReadOfIgnoresZeroParameterFoldHelpersAndPartialFoldEditsWithoutThrowing()
+    {
+        const string feeder = "using System;\nusing Tl;\nnamespace Portable;\npublic struct Lift { public float Y; }\npublic struct LiftClip { public float Y; }\npublic struct LiftTrack : IBlend<LiftClip> { public void Blend(in LiftClip first, in LiftClip second, float factor, out LiftClip result) => result = first; }\n[TimelineSystem] public ref partial struct LiftSystem { public Span<Lift> Lift; }\n[TimelineKind(Associative = true)] public struct LiftKind { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref Lift lift) => lift.Y += total; }\npublic partial struct Jump : ITrack<LiftTrack, LiftClip> { [Feeds(typeof(LiftKind))] public static float Rise(in float height) => height; }\n";
+        const string pureWithZeroArgHelper = "using Tl;\nnamespace Portable;\npublic partial struct Jump { static int Fold() => 0; public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Clip.Y; }\n";
+        const string zeroParamFold = "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold() { } }\n";
+        var driver = NewDriver();
+        var (run, trees) = Step(ref driver, Compile(("Jump.cs", feeder), ("Fold.cs", pureWithZeroArgHelper)));
+        Assert.Empty(run.Diagnostics);
+        Assert.Contains(trees, static tree => tree.Contains("SpanValues<float, KindSpans_0>", StringComparison.Ordinal));
+        var validFold = Compile(("Jump.cs", feeder), ("Fold.cs", "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Clip.Y; }\n"));
+        var inc = NewDriver();
+        Step(ref inc, validFold);
+        var edited = validFold.ReplaceSyntaxTree(validFold.SyntaxTrees.Single(static t => t.FilePath == "Fold.cs"), CSharpSyntaxTree.ParseText(zeroParamFold, Parse, "Fold.cs"));
+        var (editedRun, _) = Step(ref inc, edited);
+        Assert.DoesNotContain(editedRun.Diagnostics, static d => d.Id == "TLGEN115");
+    }
+
+    [Fact]
     public void EditingARelevantTypeModifiesItsStepAndReassigns()
     {
         var driver = NewDriver();

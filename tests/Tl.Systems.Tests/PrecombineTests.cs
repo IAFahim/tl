@@ -174,6 +174,7 @@ public sealed class PrecombineTests
                         h.Int(pre[e].Glow);
                         h.Int((int)(pre[e].Tally >> 96));
                         h.Int((int)(pre[e].Tally >> 64));
+                        h.Int((int)(pre[e].Tally >> 32));
                         h.Int((int)pre[e].Tally);
                         h.Slots(players.View.RunOf(e), players.View.CountOf(e));
                         var listed = 0;
