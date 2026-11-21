@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Tl.Fuzz")]
 [assembly: InternalsVisibleTo("Tl.Bake.Tests")]
 [assembly: InternalsVisibleTo("Tl.Gen.Tlb")]
-[assembly: InternalsVisibleTo("Tl.Unity")]
 [assembly: InternalsVisibleTo("Tl.Unity.Bake")]
 [assembly: InternalsVisibleTo("Tl.Tlb.Tests")]
 [assembly: InternalsVisibleTo("Tl.Bake.Oracle")]

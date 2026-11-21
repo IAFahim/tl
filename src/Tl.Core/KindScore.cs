@@ -252,10 +252,10 @@ public unsafe struct KindPulseValues
 {
     public int* Start;
     public byte* Data;
-    internal int Stride;
-    internal int Cells;
+    public int Stride;
+    public int Cells;
     internal int Part;
-    internal long Bytes;
+    public long Bytes;
 
     internal static KindPulseValues Build<T, TEval, TSteps>(in KindTables t, int kind, int part, ushort* routes, ref TEval eval, ref TSteps steps)
         where T : unmanaged where TEval : struct, IKindSpanValues<T> where TSteps : struct, IKindSteps

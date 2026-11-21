@@ -675,7 +675,7 @@ public sealed unsafe class KindStore : IDisposable
                 var e = baseE + bit;
                 var inline = slots + (nuint)e * stride;
                 var run = (spilled[w] >> bit & 1) == 0 ? inline : _players.RawView.Blocks + *(int*)inline;
-                if (!KindRules.TickEntityCore(in _t, run, counts[e], ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << bit);
+                if (!KindRules.TickEntity(in _t, run, counts[e], ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << bit);
             }
         }
     }

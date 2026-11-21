@@ -74,6 +74,10 @@ type Tl.IBlend`1
 type Tl.IHostedConsumer
 type Tl.IKindFill
   Method Void Add(Tl.KindBuild ByRef)
+type Tl.IKindPulseSink
+  Property Boolean Active
+  Method Void Push(Tl.KindTables ByRef, Int32, Int32, Int32)
+  Method Void Rewind(Tl.KindTables ByRef, Int32, Int32)
 type Tl.IKindRows
   Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
   Method Void Purge(Int32, Byte, UInt16)
@@ -229,8 +233,11 @@ type Tl.KindPulseHit
   Field Int32 Cell
   Field Int32 Entity
 type Tl.KindPulseValues
+  Field Int64 Bytes
+  Field Int32 Cells
   Field Byte* Data
   Field Int32* Start
+  Field Int32 Stride
 type Tl.KindPulses`1
   Method Void To(Int32, T)
 type Tl.KindPulses`2
@@ -242,6 +249,7 @@ type Tl.KindRules
   Field Int32 MaxSampleSlots
   Method Boolean Rebind[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
   Method Boolean TickEntity[TRows](Tl.KindTables ByRef, Tl.Playback*, Int32, TRows ByRef, Int32, Int32)
+  Method Boolean TickEntity[TRows,TPulse](Tl.KindTables ByRef, Tl.Playback*, Int32, TRows ByRef, Int32, Int32, TPulse ByRef)
   Method Boolean TickSlot[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Int32, Tl.Playback*, Int32)
 type Tl.KindScore
   Method Tl.KindScore Build[TSteps](Tl.KindTables ByRef, TSteps ByRef)
@@ -339,11 +347,16 @@ type Tl.KindTable
   Field Int32 Words
 type Tl.KindTables
   Field UInt64* Closure
+  Field UInt64 FastPulseMask
   Field Int32 KindCount
   Field Int32* PairStart
   Field UInt32* Pairs
+  Field Int32* PulseBase
+  Field Byte* PulseBits
+  Field UInt64* PulseMasks
   Method Boolean Reaches(UInt16, UInt64)
   Field Tl.KindSectionView Sec
+  Field UInt32* SpanMeta
   Field Int32 TimelineCount
   Field Tl.LibraryTimeline* Timelines
 type Tl.KindValues
