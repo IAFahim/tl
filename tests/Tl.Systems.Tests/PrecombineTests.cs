@@ -505,7 +505,7 @@ public sealed class PrecombineTests
         Assert.Contains(pre.Fast.Diagnostics, static d => d.StartsWith("TLGEN115: Kind 'Glow' declares Associative but keeps the per-span path in system 'global::PreGame.PreSystem': feeder 'PreGame.Mark.Shine' reads FrameFlags.Synthetic.", StringComparison.Ordinal));
         Assert.Contains(pre.Fast.Diagnostics, static d => d.StartsWith("TLGEN115: Kind 'Seen' declares Associative but keeps the per-span path in system 'global::PreGame.PreSystem': feeder 'PreGame.Rise.Spot' reads FrameFlags.Synthetic.", StringComparison.Ordinal));
         Assert.Contains("SpanValues<int, KindSpans_", pre.Fast.Generated);
-        Assert.Contains("SpanValues<global::System.Int128, KindSpans_", pre.Fast.Generated);
+        Assert.Contains("SpanValues<System.Int128, KindSpans_", pre.Fast.Generated);
         var peak = Peak.Value;
         Assert.Contains("SpanValues<float, KindSpans_0>", peak.Fast.Generated);
         Assert.Empty(peak.Fast.Diagnostics);

@@ -5,8 +5,10 @@ namespace Tl.Core.Tests;
 
 public sealed unsafe class KindValuesLayoutTests
 {
+    [StructLayout(LayoutKind.Sequential)]
     struct ThreeFloats { public float X, Y, Z; }
 
+    [StructLayout(LayoutKind.Sequential)]
     struct LongThenInt128 { public long Lead; public Int128 Value; }
 
     [StructLayout(LayoutKind.Sequential)]
