@@ -89,9 +89,13 @@ if (world is null) throw new System.ArgumentNullException(nameof(world)); if (pl
 var __ks = players.Kinds;
 if (__ks != null)
 {
-Kind_0(world, players, __ks, forward, __c0, __n, 0, 2147483647);
-Kind_1(world, players, __ks, forward, __c0, __n, 0, 2147483647);
+Kinds(world, players, __ks, forward, __c0, __n, 0, 2147483647);
 }
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::IdleGame.Screen* __c0, int __n, int __firstWord, int __endWord)
+{
+Kind_0(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
+Kind_1(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::IdleGame.Screen* __c0, int __n, int __firstWord, int __endWord)
 {
@@ -395,10 +399,7 @@ public global::IdleGame.Screen* __c0;
 public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
-var __ks = players.Kinds; if (__ks != null) {
-TlSystems.TlSystem_Idle_global__IdleGame_Stage.Kind_0(world, players, __ks, forward, __s->__c0, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Idle_global__IdleGame_Stage.Kind_1(world, players, __ks, forward, __s->__c0, __s->__n, __fw, __ew);
-}
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Idle_global__IdleGame_Stage.Kinds(world, players, __ks, forward, __s->__c0, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {

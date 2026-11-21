@@ -82,6 +82,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __n); RunLegacyRange(world, players, forward, __c0, __c1, __n, 0, 2147483647);
 }
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
+{
+}
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n)
 {
 var __view = world.View; var __pview = players.View;

@@ -1126,70 +1126,75 @@ if (world is null) throw new System.ArgumentNullException(nameof(world)); if (pl
 var __ks = players.Kinds;
 if (__ks != null)
 {
-Kind_0(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_1(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_2(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_3(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_4(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_5(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_6(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_7(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_8(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_9(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_10(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_11(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_12(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_13(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_14(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_15(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_16(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_17(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_18(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_19(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_20(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_21(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_22(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_23(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_24(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_25(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_26(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_27(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_28(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_29(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_30(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_31(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_32(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_33(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_34(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_35(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_36(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_37(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_38(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_39(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_40(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_41(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_42(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_43(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_44(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_45(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_46(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_47(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_48(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_49(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_50(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_51(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_52(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_53(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_54(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_55(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_56(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_57(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_58(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_59(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_60(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_61(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
-Kind_62(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
+Kinds(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
+__ks.ClearPulseHits(__ks.IndexOf("KindBench.Dmg"), __n);
 }
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
+{
+Kind_0(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_1(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_2(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_3(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_4(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_5(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_6(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_7(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_8(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_9(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_10(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_11(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_12(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_13(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_14(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_15(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_16(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_17(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_18(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_19(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_20(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_21(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_22(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_23(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_24(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_25(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_26(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_27(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_28(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_29(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_30(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_31(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_32(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_33(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_34(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_35(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_36(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_37(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_38(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_39(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_40(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_41(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_42(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_43(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_44(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_45(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_46(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_47(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_48(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_49(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_50(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_51(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_52(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_53(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_54(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_55(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_56(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_57(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_58(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_59(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_60(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_61(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
+Kind_62(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
@@ -1206,6 +1211,89 @@ if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
 var __lst = __ks.ListedOf(__kid);
+var __kpe = default(KindPulses_0); var __kpv = __ks.PulseValues<int, KindPulses_0>(__kid, __me, ref __kpe);
+if (__kpv != null)
+{
+var __ph = __ks.PulseHitsOf(__kid);
+var __lo = __firstWord == 0 ? 0 : __ph->LowerBound(__firstWord << 6);
+var __hi = __endWord >= __kt->Words ? __ph->Count : __ph->LowerBound(__endWord << 6);
+var __hits = __ph->Items; var __ps = __kpv->Start; var __pv = (int*)__kpv->Data; var __ken = __kt->Enabled; var __kac = __kt->Active;
+for (var __idx = __lo; __idx < __hi; )
+{
+var __e = __hits[__idx].Entity;
+if (__e >= __n) break;
+var __ew = __e >> 6; var __eb = 1ul << (__e & 63);
+if ((__ken[__ew] & __eb) == 0) { while (__idx < __hi && __hits[__idx].Entity == __e) __idx++; continue; }
+int __total = default; var __has = false;
+do
+{
+var __cell = __hits[__idx++].Cell;
+for (var __p = __ps[__cell]; __p < __ps[__cell + 1]; __p++)
+if (__has) global::KindBench.Dmg.Combine(ref __total, in __pv[__p]); else { __total = __pv[__p]; __has = true; }
+} while (__idx < __hi && __hits[__idx].Entity == __e);
+if ((__kac[__ew] & __eb) != 0)
+{
+var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __run, __cnt)) continue;
+int __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+switch (__r & 0xff)
+{
+case 0:
+{
+var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
+if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row62 = (byte*)__def->FrameRow;
+byte* __first62 = __row62 + sizeof(global::KindBench.HitTrack);
+byte* __second62 = __def->FactorSpan == 0 ? null : __first62 + sizeof(global::KindBench.HitClip);
+float __blend62 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len62 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within62 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir62 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_62(__row62, __first62, __second62, __blend62, __tick, __len62, __within62, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir62, __kflags, out var __t62, out var __cc62, out var __f62);
+__v = global::KindBench.Hit.Start(in __f62);
+__ok = true;
+break;
+}
+}
+if (!__ok) continue;
+}
+}
+if (__has) global::KindBench.Dmg.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+if (__len != 0) __kt->Clear(__row);
+}
+if (__has) global::KindBench.Dmg.Apply(in __total, ref __c1[__e]);
+}
+}
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
 var __kb = __kt->Enabled[__kw] & __kt->Active[__kw];
@@ -1290,6 +1378,39 @@ if (__len != 0) __kt->Clear(__row);
 }
 }
 }
+}
+internal struct KindPulses_0 : Tl.IKindSpanValues<int>
+{
+public bool Evaluate(int __r, Tl.LibraryStep* __def, Tl.LibraryTimeline* __tl, ushort __tick, bool __backward, out int __v)
+{
+__v = default;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) return false;
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+switch (__r & 0xff)
+{
+case 0:
+{
+byte* __row62 = (byte*)__def->FrameRow;
+byte* __first62 = __row62 + sizeof(global::KindBench.HitTrack);
+byte* __second62 = __def->FactorSpan == 0 ? null : __first62 + sizeof(global::KindBench.HitClip);
+float __blend62 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len62 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within62 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir62 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_62(__row62, __first62, __second62, __blend62, __tick, __len62, __within62, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir62, __kflags, out var __t62, out var __cc62, out var __f62);
+__v = global::KindBench.Hit.Start(in __f62);
+__ok = true;
+break;
+}
+}
+if (!__ok) return false;
+return true;
+}
+public void Combine(ref int total, in int next) { }
 }
 internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
@@ -9628,6 +9749,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __n); RunLegacyRange(world, players, forward, __c0, __n, 0, 2147483647);
 }
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int __n, int __firstWord, int __endWord)
+{
+}
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int __n)
 {
 var __view = world.View; var __pview = players.View;
@@ -9858,71 +9982,7 @@ public int* __c1;
 public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
-var __ks = players.Kinds; if (__ks != null) {
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_0(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_1(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_2(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_3(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_4(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_5(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_6(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_7(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_8(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_9(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_10(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_11(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_12(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_13(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_14(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_15(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_16(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_17(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_18(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_19(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_20(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_21(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_22(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_23(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_24(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_25(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_26(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_27(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_28(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_29(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_30(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_31(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_32(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_33(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_34(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_35(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_36(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_37(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_38(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_39(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_40(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_41(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_42(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_43(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_44(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_45(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_46(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_47(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_48(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_49(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_50(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_51(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_52(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_53(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_54(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_55(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_56(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_57(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_58(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_59(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_60(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_61(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kind_62(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
-}
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_KindBench_global__KindBench_KSys.Kinds(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
@@ -9939,6 +9999,10 @@ if (workers.WorkerCount == 1) { TlSystems.TlSystem_KindBench_global__KindBench_K
 var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __c1 = __p1, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
+if (players.Kinds != null)
+{
+players.Kinds.ClearPulseHits(players.Kinds.IndexOf("KindBench.Dmg"), __len);
+}
 }
 }
 }

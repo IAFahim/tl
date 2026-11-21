@@ -170,12 +170,16 @@ RunClose(world, players, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n); RunL
 var __ks = players.Kinds;
 if (__ks != null)
 {
-Kind_0(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_1(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_2(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_3(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
-Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
+Kinds(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
 }
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+{
+Kind_0(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_1(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_2(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_3(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
@@ -1037,8 +1041,13 @@ if (world is null) throw new System.ArgumentNullException(nameof(world)); if (pl
 var __ks = players.Kinds;
 if (__ks != null)
 {
-Kind_0(world, players, __ks, forward, __c0, __n, 0, 2147483647);
+Kinds(world, players, __ks, forward, __c0, __n, 0, 2147483647);
+__ks.ClearPulseHits(__ks.IndexOf("KindGame.Damage"), __n);
 }
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
+{
+Kind_0(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
 {
@@ -1055,6 +1064,89 @@ if (__endWord > __kt->Words) __endWord = __kt->Words;
 if (__firstWord > __endWord) __firstWord = __endWord;
 var __stride = __kt->Stride;
 var __lst = __ks.ListedOf(__kid);
+var __kpe = default(KindPulses_0); var __kpv = __ks.PulseValues<int, KindPulses_0>(__kid, __me, ref __kpe);
+if (__kpv != null)
+{
+var __ph = __ks.PulseHitsOf(__kid);
+var __lo = __firstWord == 0 ? 0 : __ph->LowerBound(__firstWord << 6);
+var __hi = __endWord >= __kt->Words ? __ph->Count : __ph->LowerBound(__endWord << 6);
+var __hits = __ph->Items; var __ps = __kpv->Start; var __pv = (int*)__kpv->Data; var __ken = __kt->Enabled; var __kac = __kt->Active;
+for (var __idx = __lo; __idx < __hi; )
+{
+var __e = __hits[__idx].Entity;
+if (__e >= __n) break;
+var __ew = __e >> 6; var __eb = 1ul << (__e & 63);
+if ((__ken[__ew] & __eb) == 0) { while (__idx < __hi && __hits[__idx].Entity == __e) __idx++; continue; }
+int __total = default; var __has = false;
+do
+{
+var __cell = __hits[__idx++].Cell;
+for (var __p = __ps[__cell]; __p < __ps[__cell + 1]; __p++)
+if (__has) global::KindGame.Damage.Combine(ref __total, in __pv[__p]); else { __total = __pv[__p]; __has = true; }
+} while (__idx < __hi && __hits[__idx].Entity == __e);
+if ((__kac[__ew] & __eb) != 0)
+{
+var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;
+for (var __j = 0; __j < __len; __j++)
+{
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __run, __cnt)) continue;
+int __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
+else
+{
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
+{
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<int>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
+{
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
+var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+switch (__r & 0xff)
+{
+case 0:
+{
+var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);
+if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row0 = (byte*)__def->FrameRow;
+byte* __first0 = __row0 + sizeof(global::KindGame.HitTrack);
+byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::KindGame.HitClip);
+float __blend0 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within0 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __kflags, out var __t0, out var __cc0, out var __f0);
+__v = global::KindGame.Hit.Start(in __f0);
+__ok = true;
+break;
+}
+}
+if (!__ok) continue;
+}
+}
+if (__has) global::KindGame.Damage.Combine(ref __total, in __v);
+else { __total = __v; __has = true; }
+}
+if (__len != 0) __kt->Clear(__row);
+}
+if (__has) global::KindGame.Damage.Apply(in __total, ref __c0[__e]);
+}
+}
 for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
 var __kb = __kt->Enabled[__kw] & __kt->Active[__kw];
@@ -1140,6 +1232,39 @@ if (__len != 0) __kt->Clear(__row);
 }
 }
 }
+internal struct KindPulses_0 : Tl.IKindSpanValues<int>
+{
+public bool Evaluate(int __r, Tl.LibraryStep* __def, Tl.LibraryTimeline* __tl, ushort __tick, bool __backward, out int __v)
+{
+__v = default;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) return false;
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+switch (__r & 0xff)
+{
+case 0:
+{
+byte* __row0 = (byte*)__def->FrameRow;
+byte* __first0 = __row0 + sizeof(global::KindGame.HitTrack);
+byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::KindGame.HitClip);
+float __blend0 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within0 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __kflags, out var __t0, out var __cc0, out var __f0);
+__v = global::KindGame.Hit.Start(in __f0);
+__ok = true;
+break;
+}
+}
+if (!__ok) return false;
+return true;
+}
+public void Combine(ref int total, in int next) { }
+}
 }
 }
 namespace KindGame
@@ -1189,13 +1314,7 @@ public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
 TlSystems.TlSystem_Kinds_global__KindGame_Movement.RunLegacyRange(world, players, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-var __ks = players.Kinds; if (__ks != null) {
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_0(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_1(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_2(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_3(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kind_4(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-}
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kinds(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
@@ -1255,9 +1374,7 @@ public global::KindGame.Health* __c0;
 public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
-var __ks = players.Kinds; if (__ks != null) {
-TlSystems.TlSystem_Kinds_global__KindGame_Vitals.Kind_0(world, players, __ks, forward, __s->__c0, __s->__n, __fw, __ew);
-}
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__KindGame_Vitals.Kinds(world, players, __ks, forward, __s->__c0, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
@@ -1271,6 +1388,10 @@ if (workers.WorkerCount == 1) { TlSystems.TlSystem_Kinds_global__KindGame_Vitals
 var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
+if (players.Kinds != null)
+{
+players.Kinds.ClearPulseHits(players.Kinds.IndexOf("KindGame.Damage"), __len);
+}
 }
 }
 }

@@ -21,6 +21,7 @@ unsafe
     var domain = Arg("--domain", "entity");
     if (domain is not ("entity" or "pure")) throw new ArgumentException("--domain is entity or pure.");
     var pure = domain == "pure";
+    var split = args.Contains("--split");
     var space = pure ? "KindPure" : "KindGame";
     var kindNames = typeof(KindGame.WalkTrack).Assembly.GetTypes().Where(t => t.Namespace == space && t.IsDefined(typeof(TimelineKindAttribute), false)).Select(static t => t.FullName!).OrderBy(static n => n, StringComparer.Ordinal).ToArray();
 
@@ -195,6 +196,26 @@ unsafe
                 h.Slots(players.View.RunOf(e), players.View.CountOf(e));
             }
             hash = h.Value;
+            if (split && pure)
+            {
+                var parts = new double[3][];
+                for (var p = 0; p < 3; p++) parts[p] = new double[measure];
+                for (var i = 0; i < measure; i++)
+                {
+                    var t0 = Stopwatch.GetTimestamp();
+                    world.Tick(players, true);
+                    var t1 = Stopwatch.GetTimestamp();
+                    new KindPure.Movement { Motion = pureMotion, WalkStat = pureStat, JumpPower = purePower, Stamina = pureStamina }.Run(world, players, true);
+                    var t2 = Stopwatch.GetTimestamp();
+                    new KindPure.Vitals { Health = pureHealth }.Run(world, players, true);
+                    var t3 = Stopwatch.GetTimestamp();
+                    parts[0][i] = Stopwatch.GetElapsedTime(t0, t1).TotalMilliseconds;
+                    parts[1][i] = Stopwatch.GetElapsedTime(t1, t2).TotalMilliseconds;
+                    parts[2][i] = Stopwatch.GetElapsedTime(t2, t3).TotalMilliseconds;
+                }
+                foreach (var part in parts) Array.Sort(part);
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "split rows={0} active={1} tickMs={2:F3} movementMs={3:F3} vitalsMs={4:F3}", rows, active, parts[0][measure / 2], parts[1][measure / 2], parts[2][measure / 2]));
+            }
             kindBytes = 0;
             for (var k = 0; k < store.KindCount; k++) kindBytes += store.GetStats(k).BytesPerRow;
             playerBytes = players.View.SlotsPerEntity * 8L + 4;

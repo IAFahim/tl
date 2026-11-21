@@ -151,6 +151,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __c2, __c3, __n, __req0, __ev0); RunLegacyRange(world, players, forward, __c0, __c1, __c2, __c3, __n, 0, 2147483647, __req0, __ev0);
 }
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, int __n, int __firstWord, int __endWord)
+{
+}
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, int __n, Tl.Requests __req0, Tl.Events<global::Game.Cue> __ev0)
 {
 var __view = world.View; var __pview = players.View;
@@ -578,6 +581,9 @@ internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool 
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 RunClose(world, players, forward, __c0, __c1, __n, __ev0); RunLegacyRange(world, players, forward, __c0, __c1, __n, 0, 2147483647, __ev0);
+}
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::Game.Position* __c0, global::Game.HeadIndex* __c1, int __n, int __firstWord, int __endWord)
+{
 }
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::Game.Position* __c0, global::Game.HeadIndex* __c1, int __n, Tl.Events<global::Game.StompHit> __ev0)
 {
