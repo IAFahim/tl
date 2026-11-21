@@ -49,7 +49,7 @@ internal static class SystemDigest
         static void Add(StringBuilder b, string v) => b.Append('\0').Append(v);
         static string OfDiag(DeclarationDiagnostic d) => $"{d.File}\0{d.Line}\0{d.Column}\0{d.Code}\0{d.Message}\0{d.SpanStart}\0{d.SpanLength}\0{d.EndLine}\0{d.EndColumn}";
         static string OfField(SystemField f) => $"{f.Name}\0{f.TypeName}\0{(byte)f.Kind}\0{f.ElementTypeName}";
-        static string OfParam(ConsumerParam p) => $"{p.Name}\0{p.TypeName}\0{p.Modifier}\0{(byte)p.Kind}\0{p.FoldIndex}";
+        static string OfParam(ConsumerParam p) => $"{p.Name}\0{p.TypeName}\0{p.Modifier}\0{(byte)p.Kind}\0{p.FoldIndex}\0{(p.ByValue ? 1 : 0)}";
         static string OfLane(DirectLane d) => $"{d.Eligible}\0{d.Op}\0{d.WrittenType}\0{d.WrittenMember}" + string.Join("\0", d.FoldOffsets.Select(x => x.ToString())) + "|" + string.Join("\0", d.ReadTypes);
         static string OfMethod(ConsumerMethod m) => $"{(byte)m.Kind}" + (m.Direct == DirectLane.None ? "" : OfLane(m.Direct)) + string.Join("\0", m.Params.Select(OfParam)) + "|" + string.Join("\0", m.FoldTypes) + "|" + string.Join("\0", m.FoldSizes.Select(x => x.ToString()));
         static string OfFeeder(FeederDecl f) => $"{f.KindName}\0{(byte)f.Trigger}\0{f.MethodName}\0{f.ConsumerMetadata}\0{f.ValueTypeName}\0{f.FlagRead}\0{OfMethod(f.Method)}";

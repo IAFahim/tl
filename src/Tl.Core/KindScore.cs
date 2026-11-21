@@ -152,7 +152,7 @@ public unsafe struct KindBuild
             return;
         }
         if ((Kinds >> kind & 1) != 0 || Shift > 27) return;
-        var align = Math.Min(64, sizeof(T) & -sizeof(T));
+        var align = Math.Min(64, sizeof(AlignmentProbe<T>) - sizeof(T));
         var at = (Stride + align - 1) / align * align;
         *v = new KindValues { Front = at, Back = at + sizeof(T), Shift = Shift, Part = part };
         Stride = at + 2 * sizeof(T);
@@ -167,6 +167,13 @@ public unsafe struct KindBuild
             if ((Kinds >> k & 1) != 0) Views[k].Data = data;
         Filling = true;
         fill.Add(ref this);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct AlignmentProbe<T> where T : unmanaged
+    {
+        byte _lead;
+        T _value;
     }
 }
 

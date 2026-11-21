@@ -407,17 +407,31 @@ internal static class SystemEmitter
         var values = new List<int>();
         for (var i = 0; i < assignment.Kinds.Count && values.Count < 10; i++)
             if (assignment.Kinds[i].Precombined) values.Add(i);
-        var fused = values.FindAll(i => assignment.Kinds[i].Group.Length == 0 && assignment.Kinds[i].IdleParams is null && !ApplyTail(shape, assignment.Kinds[i]).Contains("__ctx"));
-        if (fused.Count < 2 || fused[fused.Count - 1] - fused[0] != fused.Count - 1) fused.Clear();
+        var runs = new List<List<int>>();
+        var run = new List<int>();
+        for (var i = 0; i < assignment.Kinds.Count; i++)
+        {
+            var kind = assignment.Kinds[i];
+            if (values.Contains(i) && kind.Group.Length == 0 && kind.IdleParams is null && !ApplyTail(shape, kind).Contains("__ctx"))
+                run.Add(i);
+            else
+            {
+                if (run.Count >= 2) runs.Add(run);
+                run = new List<int>();
+            }
+        }
+        if (run.Count >= 2) runs.Add(run);
         var head = $"(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, global::Tl.KindStore __ks, bool forward{KindArgs(shape, true)})";
         W(writer, "internal static void Kinds" + head);
         W(writer, "{");
+        var rAt = 0;
         for (var i = 0; i < assignment.Kinds.Count; i++)
         {
-            if (fused.Count > 0 && i == fused[0]) W(writer, $"if (!Fused(world, players, __ks, forward{KindArgs(shape, false, "__firstWord, __endWord")}))");
-            if (fused.Count > 0 && i == fused[0]) W(writer, "{");
+            var cur = rAt < runs.Count ? runs[rAt] : null;
+            var name = runs.Count == 1 ? "Fused" : $"Fused_{rAt}";
+            if (cur != null && i == cur[0]) W(writer, $"if (!{name}(world, players, __ks, forward{KindArgs(shape, false, "__firstWord, __endWord")}))\n{{");
             W(writer, $"Kind_{i}(world, players, __ks, forward{KindArgs(shape, false, "__firstWord, __endWord")});");
-            if (fused.Count > 0 && i == fused[fused.Count - 1]) W(writer, "}");
+            if (cur != null && i == cur[cur.Count - 1]) { W(writer, "}"); rAt++; }
         }
         W(writer, "}");
         for (var i = 0; i < assignment.Kinds.Count; i++)
@@ -443,7 +457,7 @@ internal static class SystemEmitter
         }
         W(writer, "}");
         W(writer, "}");
-        if (fused.Count > 0) EmitFused(writer, assignment, shape, fused, head);
+        for (var r = 0; r < runs.Count; r++) EmitFused(writer, assignment, shape, runs[r], head, runs.Count == 1 ? "Fused" : $"Fused_{r}");
     }
 
     static string ApplyTail(KernelShape shape, KindDecl kind)
@@ -459,10 +473,10 @@ internal static class SystemEmitter
         return string.Join("\\n", parts);
     }
 
-    static void EmitFused(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<int> fused, string head)
+    static void EmitFused(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<int> fused, string head, string name)
     {
         var f0 = fused[0];
-        W(writer, "internal static bool Fused" + head + "\n{\nvar __view = world.View; var __pview = players.View; var __kfill = new KindFill { Store = __ks }; var __pl = __ks.Playing;");
+        W(writer, $"internal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.View; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
         foreach (var i in fused)
         {
             var kind = assignment.Kinds[i];

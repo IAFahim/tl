@@ -3,6 +3,7 @@ using Tl;
 using Xunit;
 using Tl.Systems.Tests;
 
+[Collection(AllocationCollection.Name)]
 public sealed unsafe class RuntimeTests : IDisposable
 {
     readonly ViewScope _scope = new();
