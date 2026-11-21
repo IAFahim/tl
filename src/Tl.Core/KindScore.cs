@@ -121,7 +121,7 @@ public unsafe struct KindValues
 
     public static KindValues Layout<T>(in KindScore score, LibraryTimeline* timelines, int kind, int part, int* row) where T : unmanaged
     {
-        var head = sizeof(T) >= 8 ? 8 : 4;
+        var head = Math.Max(sizeof(T) >= 8 ? 8 : 4, sizeof(AlignmentProbe<T>) - sizeof(T));
         var v = new KindValues { Row = row, Front = head, Back = head + sizeof(T), Stride = (2 * head + 2 * sizeof(T) - 1) / head * head, TimelineCount = score.TimelineCount, Part = part };
         for (var t = 0; t < v.TimelineCount; t++)
         {
@@ -168,5 +168,12 @@ public unsafe struct KindValues
         NativeMemory.AlignedFree(Row);
         NativeMemory.AlignedFree(Data);
         this = default;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct AlignmentProbe<T> where T : unmanaged
+    {
+        byte _lead;
+        T _value;
     }
 }

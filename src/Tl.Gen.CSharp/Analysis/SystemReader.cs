@@ -394,12 +394,19 @@ internal static partial class SystemReader
                 if (!derived.ContainsKey(kindName)) derived[kindName] = (decl, where);
             }
             else if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
-            var flagRead = trigger != FeederTrigger.Span ? "" : FlagRead(method, parameters.Count > 0 && parameters[0].Kind == ConsumerParamKind.Frame, compilation);
-            if (flagRead.Length == 0 && trigger == FeederTrigger.Span && parameters.Exists(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
-                flagRead = "takes a fold whose Fold " + folded;
-            result.Add(new(kindName, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])) { FlagRead = flagRead });
+            var feeder = new FeederDecl(kindName, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], []));
+            result.Add(feeder with { FlagRead = FlagReadOf(type, method, feeder, compilation) });
         }
         return result;
+    }
+
+    internal static string FlagReadOf(INamedTypeSymbol type, IMethodSymbol method, FeederDecl feeder, Compilation compilation)
+    {
+        if (feeder.Trigger != FeederTrigger.Span) return "";
+        var read = FlagRead(method, feeder.Method.Params.Count > 0 && feeder.Method.Params[0].Kind == ConsumerParamKind.Frame, compilation);
+        if (read.Length == 0 && feeder.Method.Params.Any(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
+            read = "takes a fold whose Fold " + folded;
+        return read;
     }
 
     static string FlagRead(IMethodSymbol method, bool framed, Compilation compilation)

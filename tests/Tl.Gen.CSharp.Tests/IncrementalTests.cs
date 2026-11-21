@@ -99,6 +99,42 @@ public sealed class IncrementalTests
     }
 
     [Fact]
+    public void EditingOnlyThePartialFileThatHoldsAFeedersFoldMovesItsKindOnAndOffThePrecombinedPath()
+    {
+        const string feeder = "using System;\nusing Tl;\nnamespace Portable;\npublic struct Lift { public float Y; }\npublic struct LiftClip { public float Y; }\npublic struct LiftTrack : IBlend<LiftClip> { public void Blend(in LiftClip first, in LiftClip second, float factor, out LiftClip result) => result = first; }\n[TimelineSystem] public ref partial struct LiftSystem { public Span<Lift> Lift; }\n[TimelineKind(Associative = true)] public struct LiftKind { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref Lift lift) => lift.Y += total; }\npublic partial struct Jump : ITrack<LiftTrack, LiftClip> { [Feeds(typeof(LiftKind))] public static float Rise(in float height) => height; }\n";
+        const string pureFold = "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Clip.Y; }\n";
+        const string syntheticFold = "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Has(FrameFlags.Synthetic) ? 0f : frame.Clip.Y; }\n";
+        static string[] Codes(GeneratorDriverRunResult run) => run.Diagnostics.Select(static d => d.Id + ": " + d.GetMessage()).ToArray();
+        static (string[] Codes, string[] Trees) Fresh(Compilation compilation)
+        {
+            var driver = NewDriver();
+            var (run, trees) = Step(ref driver, compilation);
+            return (Codes(run), trees);
+        }
+        var parse = (string text) => CSharpSyntaxTree.ParseText(text, Parse, "Fold.cs");
+        var pure = Compile(("Jump.cs", feeder), ("Fold.cs", pureFold));
+        var foldTree = pure.SyntaxTrees.Single(static tree => tree.FilePath == "Fold.cs");
+        var incremental = NewDriver();
+        var (run, precombined) = Step(ref incremental, pure);
+        Assert.Empty(Codes(run));
+        Assert.Contains(precombined, static tree => tree.Contains("SpanValues<float, KindSpans_0>", StringComparison.Ordinal));
+        Assert.Equal(Fresh(pure).Trees, precombined);
+        var synthetic = pure.ReplaceSyntaxTree(foldTree, parse(syntheticFold));
+        Assert.Same(pure.SyntaxTrees.Single(static tree => tree.FilePath == "Jump.cs"), synthetic.SyntaxTrees.Single(static tree => tree.FilePath == "Jump.cs"));
+        (run, var walked) = Step(ref incremental, synthetic);
+        var info = Assert.Single(Codes(run));
+        Assert.StartsWith("TLGEN115: Kind 'LiftKind' declares Associative but keeps the per-span path in system 'global::Portable.LiftSystem': feeder 'Portable.Jump.Rise' takes a fold whose Fold reads FrameFlags.Synthetic.", info);
+        Assert.DoesNotContain(walked, static tree => tree.Contains("SpanValues<", StringComparison.Ordinal));
+        var fresh = Fresh(synthetic);
+        Assert.Equal(fresh.Codes, Codes(run));
+        Assert.Equal(fresh.Trees, walked);
+        var back = synthetic.ReplaceSyntaxTree(synthetic.SyntaxTrees.Single(static tree => tree.FilePath == "Fold.cs"), parse(pureFold));
+        (run, var again) = Step(ref incremental, back);
+        Assert.Empty(Codes(run));
+        Assert.Equal(precombined, again);
+    }
+
+    [Fact]
     public void EditingARelevantTypeModifiesItsStepAndReassigns()
     {
         var driver = NewDriver();

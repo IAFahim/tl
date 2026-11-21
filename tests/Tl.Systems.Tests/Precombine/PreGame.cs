@@ -13,6 +13,9 @@ public struct Pre
     public int Shown;
     public int Seen;
     public int Applied;
+    public int Flare;
+    public int Glow;
+    public Int128 Tally;
 }
 
 public struct Pick { public float Value; public int Priority; }
@@ -79,8 +82,38 @@ public struct Seen
     public static void Apply(in int total, ref Pre pre) => pre.Seen += total;
 }
 
+[TimelineKind(Group = "Fire", Accepts = KindEntries.Both, Associative = true)]
+public struct Flare
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref Pre pre) => pre.Flare = pre.Flare * 3 + total;
+}
+
+[TimelineKind(Group = "Fire", Accepts = KindEntries.Both, Associative = true)]
+public struct Glow
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref Pre pre) => pre.Glow = pre.Glow * 5 + total;
+}
+
+[TimelineKind(Associative = true)]
+public struct Tally
+{
+    public static void Combine(ref Int128 total, in Int128 next) => total += next;
+    public static void Apply(in Int128 total, ref Pre pre) => pre.Tally = pre.Tally * 7 + total;
+}
+
 public struct Rise : ITrack<RiseTrack, RiseClip>
 {
+    [Feeds(typeof(Tally))]
+    public static Int128 Weigh(in Frame<RiseTrack, RiseClip> f) => ((Int128)(f.Direction * f.Clip.Count) << 70) + f.Tick;
+
+    [Feeds(typeof(Flare))]
+    public static int Burn(in Frame<RiseTrack, RiseClip> f) => f.Direction * (f.Clip.Priority + 1) * (f.Tick + 2);
+
+    [Pulse(typeof(Glow), On = ClipEvent.Start)]
+    public static int Kindle(in Frame<RiseTrack, RiseClip> f) => 7 * f.Direction;
+
     public static void Fold(in Frame<RiseTrack, RiseClip> f, out float rise) => rise = f.Direction * f.Clip.Rise * f.Track.Scale + f.WithinClip * 0.125f;
 
     [Feeds(typeof(Lift))]
@@ -106,6 +139,15 @@ public struct Mark : ITrack<MarkTrack, MarkClip>
 
     [Feeds(typeof(Lift))]
     public static float Nudge(in Frame<MarkTrack, MarkClip> f) => f.Clip.Line * 0.3f * f.Direction;
+
+    [Feeds(typeof(Flare))]
+    public static int Spark(in Frame<MarkTrack, MarkClip> f) => f.Clip.Line * f.Direction;
+
+    [Pulse(typeof(Flare), On = ClipEvent.End)]
+    public static int Fade(in Frame<MarkTrack, MarkClip> f) => -10 * f.Clip.Line;
+
+    [Feeds(typeof(Glow))]
+    public static int Shine(in Frame<MarkTrack, MarkClip> f) => f.Has(FrameFlags.Synthetic) ? 100 : f.Clip.Line + f.Tick;
 }
 
 [TimelineSystem]

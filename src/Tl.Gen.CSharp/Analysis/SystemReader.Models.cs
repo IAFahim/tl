@@ -138,11 +138,27 @@ internal static partial class SystemReader
                 foreach (var reference in type.DeclaringSyntaxReferences)
                     if (trees.TryGetValue(reference.SyntaxTree, out var index)) key = Math.Min(key, ((long)index << 32) | (uint)reference.Span.Start);
                 if (model.Consumer is { } consumer && consumer.ClipBlendable != ClipBlends(type, contracts)) model = Stamp(model with { Consumer = consumer with { ClipBlendable = !consumer.ClipBlendable } });
+                if (model.Feeders is { } feeders && FlagReadsOf(type, feeders, compilation) is { } reread) model = Stamp(model with { Feeders = reread });
             }
             keyed.Add((model, key));
         }
         return keyed.OrderBy(static pair => pair.Key).ThenBy(static pair => pair.Model.TypeName, StringComparer.Ordinal)
             .ThenBy(static pair => (byte)pair.Model.Kind).ThenBy(static pair => pair.Model.Ordinal).Select(static pair => pair.Model).ToImmutableArray();
+    }
+
+    static List<FeederDecl>? FlagReadsOf(INamedTypeSymbol type, IReadOnlyList<FeederDecl> feeders, Compilation compilation)
+    {
+        List<FeederDecl>? reread = null;
+        for (var i = 0; i < feeders.Count; i++)
+        {
+            var feeder = feeders[i];
+            if (feeder.Trigger != FeederTrigger.Span || type.GetMembers(feeder.MethodName).OfType<IMethodSymbol>().FirstOrDefault(m => m.Parameters.Length == feeder.Method.Params.Count) is not { } method) continue;
+            var read = FlagReadOf(type, method, feeder, compilation);
+            if (read == feeder.FlagRead) continue;
+            reread ??= [.. feeders];
+            reread[i] = feeder with { FlagRead = read };
+        }
+        return reread;
     }
 
     internal static (IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics, string AutoSource) AssignModels(IReadOnlyList<SystemTypeModel> models, string id)
