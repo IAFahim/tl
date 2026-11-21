@@ -1,0 +1,12 @@
+today-8B-two-pass    10000 40 stepMs=4.696 nsPerSlot=11.740
+4B-fused             10000 40 stepMs=3.618 nsPerSlot=9.046
+2B-lean-simd         10000 40 stepMs=0.512 nsPerSlot=1.280
+2B-read-only-floor   10000 40 stepMs=0.260 nsPerSlot=0.650
+today-8B-two-pass    50000 100 stepMs=57.723 nsPerSlot=11.545
+4B-fused             50000 100 stepMs=44.237 nsPerSlot=8.847
+2B-lean-simd         50000 100 stepMs=6.036 nsPerSlot=1.207
+2B-read-only-floor   50000 100 stepMs=3.220 nsPerSlot=0.644
+today-8B-two-pass    1000000 2 stepMs=25.393 nsPerSlot=12.696
+4B-fused             1000000 2 stepMs=20.448 nsPerSlot=10.224
+2B-lean-simd         1000000 2 stepMs=7.156 nsPerSlot=3.578
+2B-read-only-floor   1000000 2 stepMs=3.201 nsPerSlot=1.601

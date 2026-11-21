@@ -14,6 +14,7 @@ Each owns a README that carries its verdict and cites its receipt directories un
 
 - `KindSystems` — K2 gates K-A to K-F through the generated path against plan 1's kernel, with a NativeAOT twin `KindSystems.Aot` (`KindSystems/README.md`).
 - `KindShape` — owner-shape kinds (500 timelines × 16 tracks, 40-150 active per entity) through the generated path, hash-comparable across builds (`KindShape/README.md`, issue #652).
+- `RowOrigins` — C model of playback layouts (8 B slots to 2-byte time-relative origins) and a bit-exact control oracle for origins (#673).
 - `Kinds` — K0 prototype of per-tick work grouped by kind (#553): oracle, gates K-A to K-F against plan 1's kernel, Unity buffer and chunk numbers (`Kinds/README.md`).
 - `Glide` — lazy slot ticks A/B on the kind-free `TimelineWorld.Advance` path against eager stepping, oracle-checked and hash-equal arms (`Glide/README.md`, `docs/PERF-GLIDE.md`).
 - `ConsumerFusion` — consumer fusion inlining verdict, JIT/NativeAOT proof, and measurements.
