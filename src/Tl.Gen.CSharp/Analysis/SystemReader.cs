@@ -394,12 +394,19 @@ internal static partial class SystemReader
                 if (!derived.ContainsKey(kindName)) derived[kindName] = (decl, where);
             }
             else if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
-            var flagRead = trigger != FeederTrigger.Span ? "" : FlagRead(method, parameters.Count > 0 && parameters[0].Kind == ConsumerParamKind.Frame, compilation);
-            if (flagRead.Length == 0 && trigger == FeederTrigger.Span && parameters.Exists(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
-                flagRead = "takes a fold whose Fold " + folded;
-            result.Add(new(kindName, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])) { FlagRead = flagRead });
+            var feeder = new FeederDecl(kindName, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], []));
+            result.Add(feeder with { FlagRead = FlagReadOf(type, method, feeder, compilation) });
         }
         return result;
+    }
+
+    internal static string FlagReadOf(INamedTypeSymbol type, IMethodSymbol method, FeederDecl feeder, Compilation compilation)
+    {
+        if (feeder.Trigger != FeederTrigger.Span) return "";
+        var read = FlagRead(method, feeder.Method.Params.Count > 0 && feeder.Method.Params[0].Kind == ConsumerParamKind.Frame, compilation);
+        if (read.Length == 0 && feeder.Method.Params.Any(static p => p.Kind == ConsumerParamKind.FoldFeed) && type.GetMembers("Fold").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0 && m.Parameters.Length > 0) is { } fold && FlagRead(fold, true, compilation) is { Length: > 0 } folded)
+            read = "takes a fold whose Fold " + folded;
+        return read;
     }
 
     static string FlagRead(IMethodSymbol method, bool framed, Compilation compilation)
@@ -409,7 +416,7 @@ internal static partial class SystemReader
         var ids = body.DescendantNodes().OfType<IdentifierNameSyntax>().ToList();
         foreach (var id in ids)
             if (model.GetSymbolInfo(id).Symbol is IFieldSymbol { Name: "Synthetic" or "Interrupted", ContainingType: { Name: "FrameFlags", ContainingNamespace.Name: "Tl" } } flag) return "reads FrameFlags." + flag.Name;
-        var frame = framed ? method.Parameters[0] : null;
+        var frame = framed && method.Parameters.Length > 0 ? method.Parameters[0] : null;
         foreach (var id in ids)
         {
             if (frame is null || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(id).Symbol, frame)) continue;
@@ -939,7 +946,7 @@ internal static partial class SystemReader
             return false;
         }
         var kind = parameter.RefKind == RefKind.Ref ? ConsumerParamKind.Column : ConsumerParamKind.ColumnReadOnly;
-        bound = new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Ref ? "ref " : "in ", kind, -1);
+        bound = new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.Ref ? "ref " : "in ", kind, -1) { ByValue = parameter.RefKind == RefKind.None };
         return true;
     }
 

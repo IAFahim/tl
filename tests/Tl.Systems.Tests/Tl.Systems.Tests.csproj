@@ -49,6 +49,7 @@
     <EmbeddedResource Include="BenchDomain\BenchS64Base.cs" />
     <EmbeddedResource Include="BenchDomain\BenchS64Consumers.cs" />
     <EmbeddedResource Include="..\..\benchmarks\KindSystems\Domain.cs" Link="KindBenchDomain\Domain.cs" />
+    <EmbeddedResource Include="..\..\benchmarks\KindShape\PureDomain.cs" Link="KindShapeBench\PureDomain.cs" />
   </ItemGroup>
 
 </Project>

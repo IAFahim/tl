@@ -138,11 +138,50 @@ internal static partial class SystemReader
                 foreach (var reference in type.DeclaringSyntaxReferences)
                     if (trees.TryGetValue(reference.SyntaxTree, out var index)) key = Math.Min(key, ((long)index << 32) | (uint)reference.Span.Start);
                 if (model.Consumer is { } consumer && consumer.ClipBlendable != ClipBlends(type, contracts)) model = Stamp(model with { Consumer = consumer with { ClipBlendable = !consumer.ClipBlendable } });
+                if (model.Feeders is { } feeders && FlagReadsOf(type, feeders, compilation) is { } reread) model = Stamp(model with { Feeders = reread });
             }
             keyed.Add((model, key));
         }
         return keyed.OrderBy(static pair => pair.Key).ThenBy(static pair => pair.Model.TypeName, StringComparer.Ordinal)
             .ThenBy(static pair => (byte)pair.Model.Kind).ThenBy(static pair => pair.Model.Ordinal).Select(static pair => pair.Model).ToImmutableArray();
+    }
+
+    static List<FeederDecl>? FlagReadsOf(INamedTypeSymbol type, IReadOnlyList<FeederDecl> feeders, Compilation compilation)
+    {
+        List<FeederDecl>? reread = null;
+        for (var i = 0; i < feeders.Count; i++)
+        {
+            var feeder = feeders[i];
+            if (feeder.Trigger != FeederTrigger.Span || FeederMethod(type, feeder) is not { } method) continue;
+            var read = FlagReadOf(type, method, feeder, compilation);
+            if (read == feeder.FlagRead) continue;
+            reread ??= [.. feeders];
+            reread[i] = feeder with { FlagRead = read };
+        }
+        return reread;
+    }
+
+    static IMethodSymbol? FeederMethod(INamedTypeSymbol type, FeederDecl feeder)
+    {
+        foreach (var method in type.GetMembers(feeder.MethodName).OfType<IMethodSymbol>())
+        {
+            if (!method.IsStatic || method.ReturnsVoid || method.Arity != 0 || method.Parameters.Length != feeder.Method.Params.Count) continue;
+            if (!method.GetAttributes().Any(static a => a.AttributeClass is { Name: "FeedsAttribute", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } })) continue;
+            var matched = true;
+            for (var p = 0; p < feeder.Method.Params.Count; p++)
+            {
+                var expected = feeder.Method.Params[p];
+                var actual = method.Parameters[p];
+                var refMatch = expected.Modifier == "ref " ? actual.RefKind == RefKind.Ref : expected.ByValue ? actual.RefKind == RefKind.None : actual.RefKind is not (RefKind.None or RefKind.Ref or RefKind.Out);
+                if (!refMatch || !string.Equals(Symbols.Name(actual.Type), expected.TypeName, StringComparison.Ordinal))
+                {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) return method;
+        }
+        return null;
     }
 
     internal static (IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics, string AutoSource) AssignModels(IReadOnlyList<SystemTypeModel> models, string id)

@@ -99,6 +99,119 @@ public sealed class IncrementalTests
     }
 
     [Fact]
+    public void EditingOnlyThePartialFileThatHoldsAFeedersFoldMovesItsKindOnAndOffThePrecombinedPath()
+    {
+        const string feeder = "using System;\nusing Tl;\nnamespace Portable;\npublic struct Lift { public float Y; }\npublic struct LiftClip { public float Y; }\npublic struct LiftTrack : IBlend<LiftClip> { public void Blend(in LiftClip first, in LiftClip second, float factor, out LiftClip result) => result = first; }\n[TimelineSystem] public ref partial struct LiftSystem { public Span<Lift> Lift; }\n[TimelineKind(Associative = true)] public struct LiftKind { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref Lift lift) => lift.Y += total; }\npublic partial struct Jump : ITrack<LiftTrack, LiftClip> { [Feeds(typeof(LiftKind))] public static float Rise(in float height) => height; }\n";
+        const string pureFold = "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Clip.Y; }\n";
+        const string syntheticFold = "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Has(FrameFlags.Synthetic) ? 0f : frame.Clip.Y; }\n";
+        static string[] Codes(GeneratorDriverRunResult run) => run.Diagnostics.Select(static d => d.Id + ": " + d.GetMessage()).ToArray();
+        static (string[] Codes, string[] Trees) Fresh(Compilation compilation)
+        {
+            var driver = NewDriver();
+            var (run, trees) = Step(ref driver, compilation);
+            return (Codes(run), trees);
+        }
+        var parse = (string text) => CSharpSyntaxTree.ParseText(text, Parse, "Fold.cs");
+        var pure = Compile(("Jump.cs", feeder), ("Fold.cs", pureFold));
+        var foldTree = pure.SyntaxTrees.Single(static tree => tree.FilePath == "Fold.cs");
+        var incremental = NewDriver();
+        var (run, precombined) = Step(ref incremental, pure);
+        Assert.Empty(Codes(run));
+        Assert.Contains(precombined, static tree => tree.Contains("SpanValues<float, KindSpans_0>", StringComparison.Ordinal));
+        Assert.Equal(Fresh(pure).Trees, precombined);
+        var synthetic = pure.ReplaceSyntaxTree(foldTree, parse(syntheticFold));
+        Assert.Same(pure.SyntaxTrees.Single(static tree => tree.FilePath == "Jump.cs"), synthetic.SyntaxTrees.Single(static tree => tree.FilePath == "Jump.cs"));
+        (run, var walked) = Step(ref incremental, synthetic);
+        var info = Assert.Single(Codes(run));
+        Assert.StartsWith("TLGEN115: Kind 'LiftKind' declares Associative but keeps the per-span path in system 'global::Portable.LiftSystem': feeder 'Portable.Jump.Rise' takes a fold whose Fold reads FrameFlags.Synthetic.", info);
+        Assert.DoesNotContain(walked, static tree => tree.Contains("SpanValues<", StringComparison.Ordinal));
+        var fresh = Fresh(synthetic);
+        Assert.Equal(fresh.Codes, Codes(run));
+        Assert.Equal(fresh.Trees, walked);
+        var back = synthetic.ReplaceSyntaxTree(synthetic.SyntaxTrees.Single(static tree => tree.FilePath == "Fold.cs"), parse(pureFold));
+        (run, var again) = Step(ref incremental, back);
+        Assert.Empty(Codes(run));
+        Assert.Equal(precombined, again);
+    }
+
+    [Fact]
+    public void FlagReadsOfMatchesExactOverloadWhenFeederNameAndParameterCountCollide()
+    {
+        foreach (var pureFirst in new[] { true, false })
+        {
+            const string shared = """
+                using System;
+                using Tl;
+                namespace Portable;
+                public struct OverState { public float A; public float B; }
+                public struct OverClip { public float V; }
+                public struct OverTrack : IBlend<OverClip> { public void Blend(in OverClip first, in OverClip second, float factor, out OverClip result) => result = first; }
+                [TimelineSystem] public ref partial struct OverSystem { public Span<OverState> State; }
+                [TimelineKind(Associative = true)] public struct KindA { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref OverState state) => state.A += total; }
+                [TimelineKind(Associative = true)] public struct KindB { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref OverState state) => state.B += total; }
+                """;
+            const string pureMethod = "[Feeds(typeof(KindA))] public static float Eval(in float v) => v;";
+            const string syntheticMethod = "[Feeds(typeof(KindB))] public static float Eval(in Frame<OverTrack, OverClip> f) => f.Has(FrameFlags.Synthetic) ? 0f : f.Clip.V;";
+            var methods = pureFirst ? $"{pureMethod}\n    {syntheticMethod}" : $"{syntheticMethod}\n    {pureMethod}";
+            var consumer = shared + "\npublic struct OverTrackConsumer : ITrack<OverTrack, OverClip>\n{\n    public static void Fold(in Frame<OverTrack, OverClip> frame, out float v) => v = frame.Clip.V;\n    " + methods + "\n}\n";
+            var driver = NewDriver();
+            var (run, trees) = Step(ref driver, Compile(("Over.cs", consumer)));
+            var info = Assert.Single(run.Diagnostics);
+            Assert.Equal("TLGEN115", info.Id);
+            Assert.Contains("Kind 'KindB'", info.GetMessage());
+            Assert.Contains("SpanValues<float, KindSpans_0>", string.Join("\n", trees));
+            Assert.DoesNotContain("KindSpans_1", string.Join("\n", trees));
+        }
+    }
+
+    [Fact]
+    public void FlagReadOfIgnoresZeroParameterFoldHelpersAndPartialFoldEditsWithoutThrowing()
+    {
+        const string feeder = "using System;\nusing Tl;\nnamespace Portable;\npublic struct Lift { public float Y; }\npublic struct LiftClip { public float Y; }\npublic struct LiftTrack : IBlend<LiftClip> { public void Blend(in LiftClip first, in LiftClip second, float factor, out LiftClip result) => result = first; }\n[TimelineSystem] public ref partial struct LiftSystem { public Span<Lift> Lift; }\n[TimelineKind(Associative = true)] public struct LiftKind { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref Lift lift) => lift.Y += total; }\npublic partial struct Jump : ITrack<LiftTrack, LiftClip> { [Feeds(typeof(LiftKind))] public static float Rise(in float height) => height; }\n";
+        const string pureWithZeroArgHelper = "using Tl;\nnamespace Portable;\npublic partial struct Jump { static int Fold() => 0; public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Clip.Y; }\n";
+        const string zeroParamFold = "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold() { } }\n";
+        var driver = NewDriver();
+        var (run, trees) = Step(ref driver, Compile(("Jump.cs", feeder), ("Fold.cs", pureWithZeroArgHelper)));
+        Assert.Empty(run.Diagnostics);
+        Assert.Contains(trees, static tree => tree.Contains("SpanValues<float, KindSpans_0>", StringComparison.Ordinal));
+        var validFold = Compile(("Jump.cs", feeder), ("Fold.cs", "using Tl;\nnamespace Portable;\npublic partial struct Jump { public static void Fold(in Frame<LiftTrack, LiftClip> frame, out float height) => height = frame.Clip.Y; }\n"));
+        var inc = NewDriver();
+        Step(ref inc, validFold);
+        var edited = validFold.ReplaceSyntaxTree(validFold.SyntaxTrees.Single(static t => t.FilePath == "Fold.cs"), CSharpSyntaxTree.ParseText(zeroParamFold, Parse, "Fold.cs"));
+        var (editedRun, _) = Step(ref inc, edited);
+        Assert.DoesNotContain(editedRun.Diagnostics, static d => d.Id == "TLGEN115");
+    }
+
+    [Fact]
+    public void FeederMethodDistinguishesByValueAndInParametersWithSameNameAndType()
+    {
+        foreach (var byValFirst in new[] { true, false })
+        {
+            const string shared = """
+                using System;
+                using Tl;
+                namespace Portable;
+                public struct ValState { public float A; public float B; }
+                public struct ValClip { public float V; }
+                public struct ValTrack : IBlend<ValClip> { public void Blend(in ValClip first, in ValClip second, float factor, out ValClip result) => result = first; }
+                [TimelineSystem] public ref partial struct ValSystem { public Span<ValState> State; public ReadOnlySpan<float> Gain; }
+                [TimelineKind(Associative = true)] public struct KindA { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref ValState state) => state.A += total; }
+                [TimelineKind(Associative = true)] public struct KindB { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref ValState state) => state.B += total; }
+                """;
+            const string byVal = "[Feeds(typeof(KindA))] public static float Eval(float gain) => gain;";
+            const string byIn = "[Feeds(typeof(KindB))] public static float Eval(in float v) => v + (int)FrameFlags.Synthetic;";
+            var methods = byValFirst ? $"{byVal}\n    {byIn}" : $"{byIn}\n    {byVal}";
+            var consumer = shared + "\npublic struct ValConsumer : ITrack<ValTrack, ValClip>\n{\n    public static void Fold(in Frame<ValTrack, ValClip> frame, out float v) => v = frame.Clip.V;\n    " + methods + "\n}\n";
+            var driver = NewDriver();
+            var (run, trees) = Step(ref driver, Compile(("Val.cs", consumer)));
+            Assert.Equal(2, run.Diagnostics.Length);
+            Assert.Contains(run.Diagnostics, static d => d.Id == "TLGEN115" && d.GetMessage().Contains("Kind 'KindA'") && d.GetMessage().Contains("takes 'float'"));
+            Assert.Contains(run.Diagnostics, static d => d.Id == "TLGEN115" && d.GetMessage().Contains("Kind 'KindB'") && d.GetMessage().Contains("reads FrameFlags.Synthetic"));
+            Assert.DoesNotContain("SpanValues<", string.Join("\n", trees));
+        }
+    }
+
+    [Fact]
     public void EditingARelevantTypeModifiesItsStepAndReassigns()
     {
         var driver = NewDriver();

@@ -11,6 +11,7 @@ namespace Tl.Systems.Tests;
 public sealed class PrecombineTests
 {
     const int SingleSteps = 100, ManySteps = 240, PeakSteps = 400;
+    const int PrecombinedKinds = 6, FlareBytes = 4, TallyBytes = 5, SeenBytes = 6, GlowBytes = 7, Extra = 8, FireShared = 9, FirePulsesSent = 10;
 
     const string PreHostSource = """
         using System;
@@ -20,7 +21,7 @@ public sealed class PrecombineTests
         public static unsafe class PreHost
         {
             const ushort Hop = 1, Stand = 2, Walk = 3;
-            static readonly string[] Kinds = { "PreGame.Lift", "PreGame.Count", "PreGame.Choice", "PreGame.Shown", "PreGame.Seen" };
+            static readonly string[] Kinds = { "PreGame.Lift", "PreGame.Count", "PreGame.Choice", "PreGame.Shown", "PreGame.Flare", "PreGame.Tally", "PreGame.Seen", "PreGame.Glow" };
 
             static uint Next(ref uint state)
             {
@@ -30,11 +31,27 @@ public sealed class PrecombineTests
                 return state;
             }
 
-            static ulong[] Tail(KindStore kinds, ulong[] hashes, int steps, long extra)
+            static ulong[] Tail(KindStore kinds, ulong[] hashes, int steps, long extra, long firePulses)
             {
                 for (var k = 0; k < Kinds.Length; k++) hashes[steps + k] = (ulong)kinds.SpanValueBytes(kinds.IndexOf(Kinds[k]));
                 hashes[steps + Kinds.Length] = (ulong)extra;
+                var flare = kinds.Table(kinds.IndexOf("PreGame.Flare"));
+                hashes[steps + Kinds.Length + 1] = flare != null && flare->Grouped && flare == kinds.Table(kinds.IndexOf("PreGame.Glow")) ? 1UL : 0UL;
+                hashes[steps + Kinds.Length + 2] = (ulong)firePulses;
                 return hashes;
+            }
+
+            static long FirePulses(KindStore kinds, int step, int rows)
+            {
+                if (step % 9 != 4) return 0;
+                var sent = 0L;
+                for (var e = step % 3; e < rows; e += 3)
+                {
+                    kinds.Pulses<int>("PreGame.Flare").To(e, 2 + e % 4);
+                    kinds.Pulses<int>("PreGame.Glow").To(e, 3 - e % 5);
+                    sent += 2;
+                }
+                return sent;
             }
 
             public static ulong[] Single(byte[] first, byte[] second, int steps)
@@ -44,7 +61,8 @@ public sealed class PrecombineTests
                 using var players = new PlaybackTable(rows);
                 using var kinds = new KindStore(world, players);
                 var pre = new Pre[rows];
-                var hashes = new ulong[steps + Kinds.Length + 1];
+                var hashes = new ulong[steps + Kinds.Length + 3];
+                var fire = 0L;
                 for (var step = 0; step < steps; step++)
                 {
                     if (step == 0)
@@ -76,6 +94,7 @@ public sealed class PrecombineTests
                     if (step == 12) players.Start(8, Hop);
                     if (step == 16) players.Reverse(3, Walk, false);
                     if (step == 70) world.Reload(second);
+                    fire += FirePulses(kinds, step, rows);
                     var forward = !(step >= 40 && step < 52);
                     world.Tick(players, forward);
                     new PreSystem { Pre = pre }.Run(world, players, forward);
@@ -89,7 +108,7 @@ public sealed class PrecombineTests
                 }
                 var seen = 0L;
                 for (var e = 0; e < rows; e++) seen += pre[e].Seen;
-                return Tail(kinds, hashes, steps, seen);
+                return Tail(kinds, hashes, steps, seen, fire);
             }
 
             public static ulong[] Many(byte[] first, byte[] second, int steps, int rows, int workerCount)
@@ -99,9 +118,10 @@ public sealed class PrecombineTests
                 using var kinds = new KindStore(world, players);
                 using var workers = workerCount > 0 ? new TlWorkers(workerCount) : null;
                 var pre = new Pre[rows];
-                var hashes = new ulong[steps + Kinds.Length + 1];
+                var hashes = new ulong[steps + Kinds.Length + 3];
                 var rng = 0x2545F491u;
                 var most = 0;
+                var fire = 0L;
                 for (var step = 0; step < steps; step++)
                 {
                     for (var e = 0; e < rows; e++)
@@ -136,6 +156,7 @@ public sealed class PrecombineTests
                         }
                     }
                     if (step == 150) world.Reload(second);
+                    fire += FirePulses(kinds, step, rows);
                     var forward = !(step >= 100 && step < 120);
                     world.Tick(players, forward);
                     if (workers != null) new PreSystem { Pre = pre }.Run(world, players, forward, workers);
@@ -149,6 +170,12 @@ public sealed class PrecombineTests
                         h.Int(pre[e].Shown);
                         h.Int(pre[e].Seen);
                         h.Int(pre[e].Applied);
+                        h.Int(pre[e].Flare);
+                        h.Int(pre[e].Glow);
+                        h.Int((int)(pre[e].Tally >> 96));
+                        h.Int((int)(pre[e].Tally >> 64));
+                        h.Int((int)(pre[e].Tally >> 32));
+                        h.Int((int)pre[e].Tally);
                         h.Slots(players.View.RunOf(e), players.View.CountOf(e));
                         var listed = 0;
                         for (var s = 0; s < players.View.CountOf(e); s++) if (players.View.RunOf(e)[s].Timeline != 0 && KindScore.Listed(players.View.RunOf(e)[s].Flags)) listed++;
@@ -156,7 +183,7 @@ public sealed class PrecombineTests
                     }
                     hashes[step] = h.Value;
                 }
-                return Tail(kinds, hashes, steps, most);
+                return Tail(kinds, hashes, steps, most, fire);
             }
         }
         """;
@@ -397,13 +424,14 @@ public sealed class PrecombineTests
         var fast = Play(pair.Fast, "Single", pair.First, pair.Second, SingleSteps);
         var plain = Play(pair.Plain, "Single", pair.First, pair.Second, SingleSteps);
         Same(plain, fast, SingleSteps);
-        for (var k = 0; k < 4; k++)
+        for (var k = 0; k < PrecombinedKinds; k++)
         {
             Assert.True(fast[SingleSteps + k] > 0, $"kind {k} did not build precombined values.");
             Assert.Equal(0UL, plain[SingleSteps + k]);
         }
-        Assert.Equal(0UL, fast[SingleSteps + 4]);
-        Assert.True(fast[SingleSteps + 5] > 0, "the Synthetic-reading feeder never saw a synthetic span.");
+        Assert.Equal(0UL, fast[SingleSteps + SeenBytes]);
+        Assert.Equal(0UL, fast[SingleSteps + GlowBytes]);
+        Assert.True(fast[SingleSteps + Extra] > 0, "the Synthetic-reading feeder never saw a synthetic span.");
     }
 
     [Fact]
@@ -414,7 +442,7 @@ public sealed class PrecombineTests
         var plain = Play(pair.Plain, "Many", pair.First, pair.Second, ManySteps, 16, 0);
         Same(plain, fast, ManySteps);
         Assert.True(fast[ManySteps] > 0 && fast[ManySteps + 2] > 0, "the precombined path was not taken.");
-        Assert.True(fast[ManySteps + 5] >= 3, $"the script kept at most {fast[ManySteps + 5]} listed playbacks per entity.");
+        Assert.True(fast[ManySteps + Extra] >= 3, $"the script kept at most {fast[ManySteps + Extra]} listed playbacks per entity.");
     }
 
     [Fact]
@@ -425,6 +453,35 @@ public sealed class PrecombineTests
         var plain = Play(pair.Plain, "Many", pair.First, pair.Second, ManySteps, 640, 0);
         Same(plain, fast, ManySteps);
         Assert.True(fast[ManySteps] > 0 && fast[ManySteps + 2] > 0, "the precombined path was not taken.");
+    }
+
+    [Fact]
+    public void AGroupWhoseFirstMemberIsPrecombinedAndSecondIsNotSharesOneTableAndMatchesTheSpanWalk()
+    {
+        var pair = Pre.Value;
+        foreach (var (rows, workers) in new[] { (16, 0), (640, 4) })
+        {
+            var fast = Play(pair.Fast, "Many", pair.First, pair.Second, ManySteps, rows, workers);
+            var plain = Play(pair.Plain, "Many", pair.First, pair.Second, ManySteps, rows, 0);
+            Same(plain, fast, ManySteps);
+            Assert.True(fast[ManySteps + FlareBytes] > 0, "the grouped Flare kind did not read precombined values.");
+            Assert.Equal(0UL, plain[ManySteps + FlareBytes]);
+            Assert.Equal(0UL, fast[ManySteps + GlowBytes]);
+            Assert.Equal(1UL, fast[ManySteps + FireShared]);
+            Assert.Equal(1UL, plain[ManySteps + FireShared]);
+            Assert.True(fast[ManySteps + FirePulsesSent] > 0, "no game pulse reached the shared Fire rows.");
+        }
+    }
+
+    [Fact]
+    public void AnInt128KindReadsItsPrecombinedValuesAndMatchesTheSpanWalk()
+    {
+        var pair = Pre.Value;
+        var fast = Play(pair.Fast, "Many", pair.First, pair.Second, ManySteps, 16, 0);
+        var plain = Play(pair.Plain, "Many", pair.First, pair.Second, ManySteps, 16, 0);
+        Same(plain, fast, ManySteps);
+        Assert.True(fast[ManySteps + TallyBytes] > 0, "the Int128 Tally kind did not read precombined values.");
+        Assert.Equal(0UL, plain[ManySteps + TallyBytes]);
     }
 
     [Fact]
@@ -445,8 +502,11 @@ public sealed class PrecombineTests
         Assert.Contains("SpanValues<float, KindSpans_", pre.Fast.Generated);
         Assert.DoesNotContain("SpanValues<", pre.Plain.Generated);
         Assert.Empty(pre.Plain.Diagnostics);
-        var info = Assert.Single(pre.Fast.Diagnostics);
-        Assert.StartsWith("TLGEN115: Kind 'Seen' declares Associative but keeps the per-span path in system 'global::PreGame.PreSystem': feeder 'PreGame.Rise.Spot' reads FrameFlags.Synthetic.", info);
+        Assert.Equal(2, pre.Fast.Diagnostics.Count);
+        Assert.Contains(pre.Fast.Diagnostics, static d => d.StartsWith("TLGEN115: Kind 'Glow' declares Associative but keeps the per-span path in system 'global::PreGame.PreSystem': feeder 'PreGame.Mark.Shine' reads FrameFlags.Synthetic.", StringComparison.Ordinal));
+        Assert.Contains(pre.Fast.Diagnostics, static d => d.StartsWith("TLGEN115: Kind 'Seen' declares Associative but keeps the per-span path in system 'global::PreGame.PreSystem': feeder 'PreGame.Rise.Spot' reads FrameFlags.Synthetic.", StringComparison.Ordinal));
+        Assert.Contains("SpanValues<int, KindSpans_", pre.Fast.Generated);
+        Assert.Contains("SpanValues<System.Int128, KindSpans_", pre.Fast.Generated);
         var peak = Peak.Value;
         Assert.Contains("SpanValues<float, KindSpans_0>", peak.Fast.Generated);
         Assert.Empty(peak.Fast.Diagnostics);
