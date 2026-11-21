@@ -5,6 +5,7 @@ Two C experiments for IAFahim/tl#673. They measure how fast the kind step can ge
 ```bash
 gcc -O3 -march=native -ffp-contract=off -fno-fast-math -fopenmp -o layouts layouts.c
 gcc -O2 -ffp-contract=off -o controls controls.c
+dotnet run -c Release --project net -- -e 50000 -a 100 -t 1
 ./layouts -e 50000 -a 100 -t 12
 taskset -c 4 ./layouts -e 50000 -a 100 -t 1
 ./controls 3000 5000
@@ -48,6 +49,16 @@ The model is calibrated: `today-8B-two-pass` at 12 threads lands near the real U
 | 10k × 40 | 219.8 | 3.159 | **0.512** | 0.260 |
 | 50k × 100 | 2462.7 | 22.03 | **6.036** | 3.220 |
 | 1M × 2 | 936.3 | 14.47 | **7.156** | 3.201 |
+
+### The same kernel in C# (`net/`, `Vector256`, .NET 10 JIT, one Zen4 core)
+
+`net/Program.cs` ports `2B-lean-simd` to C# with `Vector256`. It reproduces the C state hashes exactly, and the same hash at 1 and 12 threads.
+
+| Cell | .NET at start | .NET main now | C# 2 B lean | x over start | C# / C |
+|---|---:|---:|---:|---:|---:|
+| 10k × 40 | 219.8 | 3.159 | **0.690** | 319x | 1.35 |
+| 50k × 100 | 2462.7 | 22.03 | **8.308** | 296x | 1.38 |
+| 1M × 2 | 936.3 | 14.47 | **10.19** | 92x | 1.42 |
 
 The single-core today's-layout kernel is branchier than .NET main (57.7 ms vs 22.0 ms at 50k × 100), so it is not calibrated for .NET. Use only the 2 B rows there.
 
