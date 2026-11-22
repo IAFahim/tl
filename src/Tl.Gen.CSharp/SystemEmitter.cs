@@ -768,14 +768,15 @@ internal static class SystemEmitter
             if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __pv[__p]{tail});");
             else W(writer, Acc(kind, "__pv[__p]", sep: " "));
             W(writer, "} while (__idx < __hi && __hits[__idx].Entity == __e);");
-            W(writer, "if ((__kac[__ew] & __eb) != 0)");
-            W(writer, "{");
-            W(writer, "var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;");
-            EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
-            W(writer, "if (__len != 0) __kt->Clear(__row);");
+            EmitHitEntries(writer, assignment, shape, kind, feeders, value, valueAt, tail);
             W(writer, "}");
-            if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
-            W(writer, "}");
+            if (Totals(kind))
+            {
+                W(writer, $"var __tt = __ks.PulseTotals(__kid, {kind.Monoid + (kind.LaneFields[0].Type is "sbyte" or "short" or "int" or "long" ? 8 : 0)});");
+                W(writer, $"for (var __kw = __firstWord; __tt != null && __kw < __endWord; __kw++)\nfor (var __tb = __tt->Has[__kw] & __ken[__kw]; __tb != 0; __tb &= __tb - 1)\n{{\nvar __e = (__kw << 6) + Tl.KindStore.TrailingZeros(__tb);\nif (__e >= __n) break;\nvar __ew = __kw; var __eb = 1ul << (__e & 63);\n{value} __total = (({value}*)__tt->Values)[__e]; var __has = true;");
+                EmitHitEntries(writer, assignment, shape, kind, feeders, value, valueAt, tail);
+                W(writer, "}");
+            }
             W(writer, "}");
         }
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
@@ -843,6 +844,19 @@ internal static class SystemEmitter
         if (kind.IdleParams is not null) EmitIdle(writer, shape, kind);
         W(writer, "}");
         W(writer, "}");
+    }
+
+    static bool Totals(KindDecl k) => k.PrecombinedPulses && !k.Each && k.Monoid is > 0 and < 5 && k.LaneFields.Count == 1 && k.LaneFields[0].Path.Length == 0 && k.LaneFields[0].Type is not ("float" or "double");
+
+    static void EmitHitEntries(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, string value, int valueAt, string tail)
+    {
+        W(writer, "if ((__kac[__ew] & __eb) != 0)");
+        W(writer, "{");
+        W(writer, "var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;");
+        EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
+        W(writer, "if (__len != 0) __kt->Clear(__row);");
+        W(writer, "}");
+        if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
     }
 
     static void EmitDrop(StringBuilder writer, string drop)

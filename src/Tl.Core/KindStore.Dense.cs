@@ -232,12 +232,13 @@ public sealed unsafe partial class KindStore
             var record = records[h];
             if ((ushort)record == 0 || (kindsOf[(byte)(record >> 48)] & ~fast) != 0) return false;
         }
-        var buffers = _pulseHits;
         for (var h = 0; h < held; h++)
         {
             var record = records[h];
             var kinds = kindsOf[(byte)(record >> 48)];
-            for (var cell = (int)(ushort)(record >> 32); kinds != 0; kinds &= kinds - 1) buffers[Tz(kinds)].Push(entity, cell);
+            for (var cell = (int)(ushort)(record >> 32); kinds != 0; kinds &= kinds - 1)
+                if ((_totalKinds >> Tz(kinds) & 1) != 0) _pulseTotals[Tz(kinds)].Add(entity, cell);
+                else _pulseHits[Tz(kinds)].Push(entity, cell);
             var at = due[h];
             var origin = (ushort)(origins[at] + (ushort)(record >> 16));
             if (origins[at] != origin) origins[at] = origin;
@@ -262,6 +263,8 @@ public sealed unsafe partial class KindStore
         var leave = _leave + (stepDir > 0 ? 0 : 1 + 2 * _rowHalf);
         var kindsOf = _leaveKinds;
         var buffers = _pulseHits;
+        var totals = _pulseTotals;
+        var totalKinds = _totalKinds;
         var ep = _t.EntryPulse;
         var fastPulse = _t.FastPulseMask;
         var recs = _scratch;
@@ -299,7 +302,7 @@ public sealed unsafe partial class KindStore
                 }
             for (var h = 0; h < held;)
             {
-                for (var k = fastPulse; k != 0; k &= k - 1) buffers[Tz(k)].Room(held - h);
+                for (var k = fastPulse & ~totalKinds; k != 0; k &= k - 1) buffers[Tz(k)].Room(held - h);
                 var stop = rest | bad;
                 for (; h < held; h++)
                 {
@@ -309,7 +312,13 @@ public sealed unsafe partial class KindStore
                     var e = baseE + el;
                     for (var kinds = pulses[h]; kinds != 0; kinds &= kinds - 1)
                     {
-                        var buffer = buffers + Tz(kinds);
+                        var k = Tz(kinds);
+                        if ((totalKinds >> k & 1) != 0)
+                        {
+                            totals[k].Add(e, (ushort)(record >> 32));
+                            continue;
+                        }
+                        var buffer = buffers + k;
                         buffer->Items[buffer->Count++] = new KindPulseHit { Entity = e, Cell = (ushort)(record >> 32) };
                     }
                     var at = ats[h];

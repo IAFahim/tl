@@ -61,7 +61,11 @@ public struct Lift
     public static void Apply(in float total, in JumpPower power, ref Motion motion) => motion.Y += total * power.Value;
 }
 
+#if TL_BASELINE
 [TimelineKind(Accepts = KindEntries.Pulses)]
+#else
+[TimelineKind(Accepts = KindEntries.Pulses, Combine = KindCombine.Sum)]
+#endif
 public struct Damage
 {
     public static void Combine(ref int total, in int next) => total += next;

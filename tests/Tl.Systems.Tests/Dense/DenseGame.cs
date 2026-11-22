@@ -27,6 +27,7 @@ public struct Body
     public int DriftY;
     public int Blend;
     public int Pings;
+    public int Hurt;
 }
 
 public struct PingClip { public int Value; }
@@ -43,11 +44,24 @@ public struct Ping
     public static void Apply(in int total, ref Body body) => body.Pings = body.Pings * 13 + total;
 }
 
+[TimelineKind(Accepts = KindEntries.Pulses, Combine = KindCombine.Sum)]
+public struct Hurt
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref Body body) => body.Hurt = body.Hurt * 31 + total;
+}
+
 [TimelineSystemMember(typeof(PingSystem))]
 public struct Pinger : ITrack<PingTrack, PingClip>
 {
     [Pulse(typeof(Ping), On = ClipEvent.Start)]
     public static int Hit(in Frame<PingTrack, PingClip> f) => f.Clip.Value + 7 * f.Tick;
+
+    [Pulse(typeof(Hurt), On = ClipEvent.Start)]
+    public static int Sting(in Frame<PingTrack, PingClip> f) => f.Direction * (f.Clip.Value + 11 * f.Tick) + 3;
+
+    [Pulse(typeof(Hurt), On = ClipEvent.End)]
+    public static int Burn(in Frame<PingTrack, PingClip> f) => 100 * f.Clip.Value - f.Direction * f.Tick;
 }
 
 [TimelineSystem]
