@@ -602,16 +602,16 @@ internal static class SystemEmitter
         W(writer, $"static ulong {name}Small{sig}");
         foreach (var i in fused) W(writer, $"var __vm{i} = 1u << __vb{i}; var __vd{i} = __vdata + __vf{i};");
         W(writer, $"var __hot = __bits & __apply & ~__spw & {string.Join(" & ", fused.ConvertAll(static i => $"__kb{i}"))}; __bits &= ~__hot;");
-        W(writer, "for (; __hot != 0; __hot &= __hot - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__hot); var __e = __base + __bit; var __cnt = __pcounts[__e];\nif ((uint)(__cnt - 1) > 3u)\n{\n__bits |= 1ul << __bit;\ncontinue;\n}\nvar __org = __porg + (nuint)__e * __pspe;");
+        W(writer, "for (; __hot != 0; __hot &= __hot - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__hot); var __e = __base + __bit; var __org = __porg + (nuint)__e * __pspe;");
         DenseTotals(writer, assignment, fused, lanes);
-        W(writer, "switch (__cnt)\n{");
+        W(writer, "switch (__pcounts[__e])\n{");
         for (var c = 1; c <= 4; c++)
         {
             W(writer, $"case {c}:");
             for (var s = 0; s < c; s++) DenseSlot(writer, assignment, fused, lanes, s.ToString());
             W(writer, "break;");
         }
-        W(writer, "}");
+        W(writer, "default:\n__bits |= 1ul << __bit;\ncontinue;\n}");
         DenseHas(writer, assignment, fused);
         foreach (var i in fused) W(writer, $"if (__fh{i}) {assignment.Kinds[i].TypeName}.Apply(in __ft{i}{ApplyTail(shape, assignment.Kinds[i])});");
         W(writer, "}\nreturn __bits;\n}");
