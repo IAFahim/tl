@@ -661,40 +661,26 @@ public sealed unsafe partial class KindStore : IDisposable
     {
         var playing = _players.PlayingBits;
         if (firstWord < 0) firstWord = 0; if (endWord > _players.PlayingWords) endWord = _players.PlayingWords;
+        if (_denseReady) { DenseRange(stepDir, firstWord, endWord); return; }
         var p = _players.RawView;
         var slots = p.Slots;
         var counts = p.Counts;
         var spilled = p.Spilled;
         var stride = (nuint)p.SlotsPerEntity;
         var pulse = default(BufferPulseSink);
-        var dense = _denseReady ? _players.DenseBits : null;
-        var dueBase = dense == null ? null : _players.InlineDues;
-        var from = _players.DenseClock;
-        var to = (ushort)(from + stepDir);
-        var due = stackalloc byte[PlaybackTable.MaxSlots];
-        var scratch = stackalloc ulong[PlaybackTable.MaxSlots];
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
             if (bits == 0) continue;
             var baseE = w << 6;
-            var dw = dense == null ? 0ul : dense[w];
             while (bits != 0)
             {
                 var bit = Tz(bits);
                 bits &= bits - 1;
                 var e = baseE + bit;
-                if ((dw >> bit & 1) != 0)
-                {
-                    var dues = (spilled[w] >> bit & 1) == 0 ? dueBase + (nuint)e * stride : _players.DuesOf(e);
-                    var held = DueSlots(dues, counts[e], to, due);
-                    if (held == 0 || DenseStep(e, stepDir, from, to, due, held, dues, scratch)) continue;
-                    Undense(e);
-                }
                 var inline = slots + (nuint)e * stride;
                 var run = (spilled[w] >> bit & 1) == 0 ? inline : _players.RawView.Blocks + *(int*)inline;
                 if (!KindRules.TickEntity(in _t, run, counts[e], ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << bit);
-                else if (dense != null) Densify(e, to, stepDir);
             }
         }
     }

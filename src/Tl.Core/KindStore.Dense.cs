@@ -14,6 +14,7 @@ public sealed unsafe partial class KindStore
     ushort* _gap;
     ulong* _leave;
     ulong* _leaveKinds;
+    ulong* _scratch;
     byte* _eligible;
     int _denseEpoch;
     int _eligibleEpoch = -1;
@@ -29,7 +30,11 @@ public sealed unsafe partial class KindStore
         _eligible = (byte*)Zeroed((nuint)count);
         _rowHalf = KindBuild.RowSpace(_tls, _timelineCount, _rowBase);
         _eligibleEpoch = -1;
-        if (_rowHalf < 0) return;
+    }
+
+    void BuildLeave()
+    {
+        _scratch = (ulong*)Zeroed(PlaybackTable.MaxSlots * 9);
         _gap = (ushort*)Zeroed((nuint)Math.Max(1, 2 * _rowHalf) * 2);
         for (var t = 0; t < _timelineCount; t++)
         {
@@ -88,8 +93,9 @@ public sealed unsafe partial class KindStore
     void ReleaseRows()
     {
         Free4(_rowBase, _gap, _eligible, _leave);
-        NativeMemory.AlignedFree(_leaveKinds);
+        Free4(_leaveKinds, _scratch, null, null);
         _leaveKinds = null;
+        _scratch = null;
         _rowBase = null;
         _gap = null;
         _leave = null;
@@ -117,6 +123,7 @@ public sealed unsafe partial class KindStore
                 _eligible[t] = ok ? (byte)1 : (byte)0;
             }
         }
+        if (DenseEnabled && _rowHalf > 0 && _denseValues && _leave == null) BuildLeave();
         _denseReady = DenseEnabled && _rowHalf > 0 && _denseValues;
         if (!_denseReady || step != _denseDir) UndenseAll();
         if (_denseReady) _players.EnsureDense();
@@ -241,6 +248,48 @@ public sealed unsafe partial class KindStore
     undo:
         for (; pushed != 0; pushed &= pushed - 1) _pulseHits[Tz(pushed)].Rewind(entity);
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    void DenseRange(int stepDir, int firstWord, int endWord)
+    {
+        var playing = _players.PlayingBits;
+        var p = _players.RawView;
+        var slots = p.Slots;
+        var counts = p.Counts;
+        var spilled = p.Spilled;
+        var stride = (nuint)p.SlotsPerEntity;
+        var pulse = default(BufferPulseSink);
+        var dense = _players.DenseBits;
+        var dueBase = _players.InlineDues;
+        var from = _players.DenseClock;
+        var to = (ushort)(from + stepDir);
+        var scratch = _scratch;
+        var due = (byte*)(scratch + PlaybackTable.MaxSlots);
+        for (var w = firstWord; w < endWord; w++)
+        {
+            var bits = playing[w];
+            if (bits == 0) continue;
+            var baseE = w << 6;
+            var dw = dense[w];
+            while (bits != 0)
+            {
+                var bit = Tz(bits);
+                bits &= bits - 1;
+                var e = baseE + bit;
+                if ((dw >> bit & 1) != 0)
+                {
+                    var dues = (spilled[w] >> bit & 1) == 0 ? dueBase + (nuint)e * stride : _players.DuesOf(e);
+                    var held = DueSlots(dues, counts[e], to, due);
+                    if (held == 0 || DenseStep(e, stepDir, from, to, due, held, dues, scratch)) continue;
+                    Undense(e);
+                }
+                var inline = slots + (nuint)e * stride;
+                var run = (spilled[w] >> bit & 1) == 0 ? inline : _players.RawView.Blocks + *(int*)inline;
+                if (!KindRules.TickEntity(in _t, run, counts[e], ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << bit);
+                else Densify(e, to, stepDir);
+            }
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
