@@ -9,6 +9,7 @@ namespace Tl;
 
 public sealed unsafe partial class KindStore
 {
+    const MethodImplOptions Optimized = (MethodImplOptions)512;
     int* _rowBase;
     int _rowHalf = -1;
     ushort* _gap;
@@ -152,7 +153,7 @@ public sealed unsafe partial class KindStore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     ushort GapOf(int t, int direction, int tick) => _gap[(direction > 0 ? 0 : _rowHalf) + _rowBase[t] - 1 + tick];
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(Optimized)]
     internal void Settle(int entity)
     {
         var slots = _players.SlotsOf(entity);
@@ -180,7 +181,7 @@ public sealed unsafe partial class KindStore
             for (var bits = dense[w]; bits != 0; bits &= bits - 1) Undense((w << 6) + Tz(bits));
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(Optimized)]
     void Densify(int entity, ushort clock, int step)
     {
         if (_samples[entity] != 0) return;
@@ -214,7 +215,7 @@ public sealed unsafe partial class KindStore
         _players.SetDense(entity, true);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(Optimized)]
     bool DenseStep(int entity, int step, ushort from, ushort to, byte* due, int held, ushort* dues, ulong* records)
     {
         var origins = _players.OriginsOf(entity);
@@ -250,7 +251,7 @@ public sealed unsafe partial class KindStore
         return false;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(Optimized)]
     void DenseRange(int stepDir, int firstWord, int endWord)
     {
         var playing = _players.PlayingBits;

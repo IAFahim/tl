@@ -184,7 +184,7 @@ Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, _
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Burn", sizeof(float), "@Effects\nKindGame.Flame.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Burn");
@@ -210,6 +210,7 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -331,7 +332,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Chill", sizeof(int), "@Effects\nKindGame.Frost.Start:1", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Chill");
@@ -354,6 +355,7 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -444,7 +446,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 internal static void Kind_2(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Lift", sizeof(float), "KindGame.Jump.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Lift");
@@ -470,6 +472,7 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -588,7 +591,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_3(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Locomotion", sizeof(global::KindGame.Speed), "KindGame.Walk.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Locomotion");
@@ -614,6 +617,7 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -722,7 +726,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_4(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.StatChange", sizeof(int), "KindGame.ChangeStat.Start:1\nKindGame.Steps.OnStep:3", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.StatChange");
@@ -745,6 +749,7 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -1052,7 +1057,7 @@ Kind_0(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Damage", sizeof(int), "KindGame.Hit.Start:1", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Damage");
@@ -1086,6 +1091,7 @@ if (__has) global::KindGame.Damage.Combine(ref __total, in __pv[__p]); else { __
 } while (__idx < __hi && __hits[__idx].Entity == __e);
 if ((__kac[__ew] & __eb) != 0)
 {
+if (__pview.IsDense(__e)) players.Settle(__e);
 var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;
 for (var __j = 0; __j < __len; __j++)
 {
@@ -1158,6 +1164,7 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
+if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
