@@ -67,57 +67,6 @@ public unsafe struct KindPulseBuffer
     }
 }
 
-public unsafe struct KindPulseTotals
-{
-    public byte* Values;
-    public ulong* Has;
-    internal byte* Cells;
-    internal int* Start;
-    internal int Width;
-    internal int Op;
-    internal int Live;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Add(int entity, int cell)
-    {
-        if (Start[cell] == Start[cell + 1]) return;
-        var total = Values + (nuint)entity * (nuint)Width;
-        var next = Cells + (nuint)cell * (nuint)Width;
-        ref var has = ref Has[entity >> 6];
-        var bit = 1ul << (entity & 63);
-        if ((has & bit) != 0)
-        {
-            Fold(total, next, Op, Width);
-            return;
-        }
-        has |= bit;
-        Live++;
-        Buffer.MemoryCopy(next, total, Width, Width);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Fold(byte* total, byte* next, int op, int width)
-    {
-        var signed = (op & 8) != 0;
-        long a = Read(total, width, signed), b = Read(next, width, signed);
-        var less = signed ? a < b : (ulong)a < (ulong)b;
-        var r = (op & 7) switch { 1 => a + b, 2 => less ? b : a, 3 => less ? a : b, _ => a | b };
-        if (width == 1) *total = (byte)r;
-        else if (width == 2) *(short*)total = (short)r;
-        else if (width == 4) *(int*)total = (int)r;
-        else *(long*)total = r;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static long Read(byte* at, int width, bool signed) => width switch
-    {
-        1 => signed ? *(sbyte*)at : *at,
-        2 => signed ? *(short*)at : *(ushort*)at,
-        4 => signed ? *(int*)at : *(uint*)at,
-        _ => *(long*)at,
-    };
-}
-
 public unsafe struct KindTables
 {
     public LibraryTimeline* Timelines;

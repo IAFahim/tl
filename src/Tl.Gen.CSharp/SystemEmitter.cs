@@ -602,16 +602,16 @@ internal static class SystemEmitter
         W(writer, $"static ulong {name}Small{sig}");
         foreach (var i in fused) W(writer, $"var __vm{i} = 1u << __vb{i}; var __vd{i} = __vdata + __vf{i};");
         W(writer, $"var __hot = __bits & __apply & ~__spw & {string.Join(" & ", fused.ConvertAll(static i => $"__kb{i}"))}; __bits &= ~__hot;");
-        W(writer, "for (; __hot != 0; __hot &= __hot - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__hot); var __e = __base + __bit; var __org = __porg + (nuint)__e * __pspe;");
+        W(writer, "for (; __hot != 0; __hot &= __hot - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__hot); var __e = __base + __bit; var __cnt = __pcounts[__e];\nif ((uint)(__cnt - 1) > 3u)\n{\n__bits |= 1ul << __bit;\ncontinue;\n}\nvar __org = __porg + (nuint)__e * __pspe;");
         DenseTotals(writer, assignment, fused, lanes);
-        W(writer, "switch (__pcounts[__e])\n{");
+        W(writer, "switch (__cnt)\n{");
         for (var c = 1; c <= 4; c++)
         {
             W(writer, $"case {c}:");
             for (var s = 0; s < c; s++) DenseSlot(writer, assignment, fused, lanes, s.ToString());
             W(writer, "break;");
         }
-        W(writer, "default:\n__bits |= 1ul << __bit;\ncontinue;\n}");
+        W(writer, "}");
         DenseHas(writer, assignment, fused);
         foreach (var i in fused) W(writer, $"if (__fh{i}) {assignment.Kinds[i].TypeName}.Apply(in __ft{i}{ApplyTail(shape, assignment.Kinds[i])});");
         W(writer, "}\nreturn __bits;\n}");
@@ -768,15 +768,14 @@ internal static class SystemEmitter
             if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __pv[__p]{tail});");
             else W(writer, Acc(kind, "__pv[__p]", sep: " "));
             W(writer, "} while (__idx < __hi && __hits[__idx].Entity == __e);");
-            EmitHitEntries(writer, assignment, shape, kind, feeders, value, valueAt, tail);
+            W(writer, "if ((__kac[__ew] & __eb) != 0)");
+            W(writer, "{");
+            W(writer, "var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;");
+            EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
+            W(writer, "if (__len != 0) __kt->Clear(__row);");
             W(writer, "}");
-            if (Totals(kind))
-            {
-                W(writer, $"var __tt = __ks.PulseTotals(__kid, {kind.Monoid + (kind.LaneFields[0].Type is "sbyte" or "short" or "int" or "long" ? 8 : 0)});");
-                W(writer, $"for (var __kw = __firstWord; __tt != null && __kw < __endWord; __kw++)\nfor (var __tb = __tt->Has[__kw] & __ken[__kw]; __tb != 0; __tb &= __tb - 1)\n{{\nvar __e = (__kw << 6) + Tl.KindStore.TrailingZeros(__tb);\nif (__e >= __n) break;\nvar __ew = __kw; var __eb = 1ul << (__e & 63);\n{value} __total = (({value}*)__tt->Values)[__e]; var __has = true;");
-                EmitHitEntries(writer, assignment, shape, kind, feeders, value, valueAt, tail);
-                W(writer, "}");
-            }
+            if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
+            W(writer, "}");
             W(writer, "}");
         }
         W(writer, "for (var __kw = __firstWord; __kw < __endWord; __kw++)");
@@ -844,19 +843,6 @@ internal static class SystemEmitter
         if (kind.IdleParams is not null) EmitIdle(writer, shape, kind);
         W(writer, "}");
         W(writer, "}");
-    }
-
-    static bool Totals(KindDecl k) => k.PrecombinedPulses && !k.Each && k.Monoid is > 0 and < 5 && k.LaneFields.Count == 1 && k.LaneFields[0].Path.Length == 0 && k.LaneFields[0].Type is not ("float" or "double");
-
-    static void EmitHitEntries(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, List<(int consumer, FeederDecl feeder)> feeders, string value, int valueAt, string tail)
-    {
-        W(writer, "if ((__kac[__ew] & __eb) != 0)");
-        W(writer, "{");
-        W(writer, "var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;");
-        EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
-        W(writer, "if (__len != 0) __kt->Clear(__row);");
-        W(writer, "}");
-        if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
     }
 
     static void EmitDrop(StringBuilder writer, string drop)

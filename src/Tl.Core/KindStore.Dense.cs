@@ -10,6 +10,7 @@ namespace Tl;
 public sealed unsafe partial class KindStore
 {
     const MethodImplOptions Optimized = (MethodImplOptions)512;
+    const int WordSlots = 4096, ExactAt = WordSlots * 2 + WordSlots / 64 + WordSlots * 3 / 8;
     int* _rowBase;
     int _rowHalf = -1;
     ushort* _gap;
@@ -35,7 +36,7 @@ public sealed unsafe partial class KindStore
 
     void BuildLeave()
     {
-        _scratch = (ulong*)Zeroed((2448 + PlaybackTable.MaxSlots) * 8 + PlaybackTable.MaxSlots);
+        _scratch = (ulong*)Zeroed((ExactAt + PlaybackTable.MaxSlots) * 8 + PlaybackTable.MaxSlots);
         _gap = (ushort*)Zeroed((nuint)Math.Max(1, 2 * _rowHalf) * 2);
         for (var t = 0; t < _timelineCount; t++)
         {
@@ -237,22 +238,20 @@ public sealed unsafe partial class KindStore
         var leave = _leave + (stepDir > 0 ? 0 : 1 + 2 * _rowHalf);
         var kindsOf = _leaveKinds;
         var buffers = _pulseHits;
-        var totals = _pulseTotals;
-        var totalKinds = _totalKinds;
         var ep = _t.EntryPulse;
         var fastPulse = _t.FastPulseMask;
         var recs = _scratch;
-        var map = recs + 1024;
-        var pulses = map + 16;
-        var ents = (byte*)(pulses + 1024);
-        var ats = (ushort*)(ents + 1024);
+        var map = recs + WordSlots;
+        var pulses = map + WordSlots / 64;
+        var ents = (byte*)(pulses + WordSlots);
+        var ats = (ushort*)(ents + WordSlots);
         var magic = (ulong)uint.MaxValue / (ulong)stride + 1;
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
             if (bits == 0) continue;
             var baseE = w << 6;
-            var fast = stride > 16 ? 0 : dense[w] & bits & ~spilled[w];
+            var fast = stride > WordSlots / 64 ? 0 : dense[w] & bits & ~spilled[w];
             var rest = bits & ~fast;
             var held = 0;
             var bad = 0ul;
@@ -276,7 +275,7 @@ public sealed unsafe partial class KindStore
                 }
             for (var h = 0; h < held;)
             {
-                for (var k = fastPulse & ~totalKinds; k != 0; k &= k - 1) buffers[Tz(k)].Room(held - h);
+                for (var k = fastPulse; k != 0; k &= k - 1) buffers[Tz(k)].Room(held - h);
                 var stop = rest | bad;
                 for (; h < held; h++)
                 {
@@ -286,13 +285,7 @@ public sealed unsafe partial class KindStore
                     var e = baseE + el;
                     for (var kinds = pulses[h]; kinds != 0; kinds &= kinds - 1)
                     {
-                        var k = Tz(kinds);
-                        if ((totalKinds >> k & 1) != 0)
-                        {
-                            totals[k].Add(e, (ushort)(record >> 32));
-                            continue;
-                        }
-                        var buffer = buffers + k;
+                        var buffer = buffers + Tz(kinds);
                         buffer->Items[buffer->Count++] = new KindPulseHit { Entity = e, Cell = (ushort)(record >> 32) };
                     }
                     var at = ats[h];
@@ -320,7 +313,7 @@ public sealed unsafe partial class KindStore
         if ((dense >> e & 1) != 0)
         {
             var dues = (spilled >> e & 1) == 0 ? dueBase + (nuint)e * (nuint)stride : _players.DuesOf(e);
-            var records = _scratch + 2448;
+            var records = _scratch + ExactAt;
             var due = (byte*)(records + PlaybackTable.MaxSlots);
             var held = DueSlots(dues, counts[e], to, due);
             var origins = _players.OriginsOf(e);
@@ -338,9 +331,7 @@ public sealed unsafe partial class KindStore
                 {
                     var record = records[h];
                     var kinds = _leaveKinds[(byte)(record >> 48)];
-                    for (var cell = (int)(ushort)(record >> 32); kinds != 0; kinds &= kinds - 1)
-                        if ((_totalKinds >> Tz(kinds) & 1) != 0) _pulseTotals[Tz(kinds)].Add(e, cell);
-                        else _pulseHits[Tz(kinds)].Push(e, cell);
+                    for (var cell = (int)(ushort)(record >> 32); kinds != 0; kinds &= kinds - 1) _pulseHits[Tz(kinds)].Push(e, cell);
                     var at = due[h];
                     var origin = (ushort)(origins[at] + (ushort)(record >> 16));
                     if (origins[at] != origin) origins[at] = origin;

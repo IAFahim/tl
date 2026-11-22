@@ -241,9 +241,6 @@ type Tl.KindPulseBuffer
 type Tl.KindPulseHit
   Field Int32 Cell
   Field Int32 Entity
-type Tl.KindPulseTotals
-  Field UInt64* Has
-  Field Byte* Values
 type Tl.KindPulseValues
   Field Int64 Bytes
   Field Int32 Cells
@@ -321,7 +318,6 @@ type Tl.KindStore
   Method System.String NameOf(Int32)
   Property UInt64* Playing
   Method Tl.KindPulseBuffer* PulseHitsOf(Int32)
-  Method Tl.KindPulseTotals* PulseTotals(Int32, Int32)
   Method Int64 PulseValueBytes(Int32)
   Method Tl.KindPulseValues* PulseValues[T,TEval](Int32, Int32, TEval ByRef)
   Method Tl.KindPulses`1[T] Pulses[T](System.String)
