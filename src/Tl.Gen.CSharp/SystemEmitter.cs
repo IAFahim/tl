@@ -481,7 +481,7 @@ internal static class SystemEmitter
     static void EmitFused(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<int> fused, string head, string name)
     {
         var f0 = fused[0];
-        W(writer, $"internal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.SystemView; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
+        W(writer, $"[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]\ninternal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.SystemView; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
         foreach (var i in fused)
         {
             var kind = assignment.Kinds[i];
@@ -491,7 +491,8 @@ internal static class SystemEmitter
         }
         W(writer, $"var __vrow = __kv{f0}->Row; var __vdata = __kv{f0}->Data; var __vstride = (nuint)__kv{f0}->Stride; var __vtc = (uint)__kv{f0}->TimelineCount;");
         W(writer, "var __pslots = __pview.Slots; var __pcounts = __pview.Counts; var __pspilled = __pview.Spilled; var __pblocks = __pview.Blocks; var __pspe = (nuint)__pview.SlotsPerEntity; var __hasSamples = __ks.HasSamples;");
-        W(writer, "var __pdn = __pview.Dense; var __porg = __pview.Origins; var __pborg = __pview.BlockOrigins; var __clk = __pview.Clock;");
+        W(writer, $"var __pdn = __pview.Dense; var __porg = __pview.Origins; var __pborg = __pview.BlockOrigins; var __clk = __pview.Clock; var __dh = stackalloc ulong[{fused.Count}];");
+        foreach (var i in fused) W(writer, $"var __dt{i} = stackalloc {assignment.Kinds[i].ValueTypeName}[64];");
         foreach (var i in fused)
             W(writer, $"var __vsh{i} = __kv{i}->Shift; var __vfr{i} = __kv{i}->Front; var __vbk{i} = __kv{i}->Back; var __vf{i} = forward ? __vfr{i} : __vbk{i}; var __vm{i} = 1u << (__vsh{i} + (forward ? 1 : 2));");
         W(writer, $"for (var __kw = __firstWord < 0 ? 0 : __firstWord; __kw < __endWord && __kw < __kt{f0}->Words; __kw++)\n{{");
@@ -499,19 +500,14 @@ internal static class SystemEmitter
         foreach (var i in fused) W(writer, $"var __ka{i} = __kt{i}->Active[__kw]; var __kb{i} = __kt{i}->Enabled[__kw] & (__ka{i} | __plw);");
         W(writer, $"var __kba = {string.Join(" | ", fused.ConvertAll(static i => $"__kb{i}"))};");
         W(writer, "if (__kba == 0) continue;");
-        W(writer, "var __spw = __pspilled[__kw]; var __dnw = __pdn == null ? 0ul : __pdn[__kw];");
+        W(writer, "var __spw = __pspilled[__kw]; var __dnw = __pdn == null ? 0ul : __pdn[__kw] & __kba;");
+        W(writer, $"if (__dnw != 0) {{ System.Runtime.CompilerServices.Unsafe.InitBlock(__dh, 0, {fused.Count * 8}); {name}Dense(__dnw, __kw << 6, __porg, __pborg, __pslots, __pcounts, __spw, __pspe, __clk, __vdata, __vstride, {string.Join(", ", fused.ConvertAll(static i => $"__vm{i}, __vf{i}, __dt{i}"))}, __dh); }}");
         W(writer, "for (var __kb = __kba; __kb != 0; __kb &= __kb - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__kb); var __row = (__kw << 6) + __bit; var __e = __row;\nif (__e >= __n) break;");
         W(writer, "var __inline = __pslots + (nuint)__e * __pspe; var __run = (__spw >> __bit & 1) == 0 ? __inline : __pblocks + *(int*)__inline; var __cnt = __pcounts[__e]; var __smp = __hasSamples ? __ks.SamplesOf(__e) : 0; var __sampled = __smp != 0; var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;");
         foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
         W(writer, "if ((__dnw >> __bit & 1) != 0)");
         W(writer, "{");
-        W(writer, "var __org = (__spw >> __bit & 1) == 0 ? __porg + (nuint)__e * __pspe : __pborg + *(int*)__inline;");
-        W(writer, "for (var __i = 0; __i < __cnt; __i++)");
-        W(writer, "{");
-        W(writer, "var __at = __vdata + (nuint)(ushort)(__org[__i] + __clk) * __vstride; var __m = *(uint*)__at;");
-        foreach (var i in fused)
-            W(writer, $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)(__at + __vf{i}); {Acc(assignment.Kinds[i], "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
-        W(writer, "}");
+        for (var j = 0; j < fused.Count; j++) W(writer, $"__ft{fused[j]} = __dt{fused[j]}[__bit]; __fh{fused[j]} = (__dh[{j}] >> __bit & 1) != 0;");
         W(writer, "}");
         W(writer, "else if (!__sampled)");
         W(writer, "{");
@@ -549,6 +545,18 @@ internal static class SystemEmitter
             W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});\n}}\nif (__len != 0) __kt->Clear(__row);\n}}\n}}");
         }
         W(writer, "}\n}\nreturn true;\n}");
+        W(writer, "[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]");
+        W(writer, $"static void {name}Dense(ulong __bits, int __base, ushort* __porg, ushort* __pborg, Tl.Playback* __pslots, int* __pcounts, ulong __spw, nuint __pspe, ushort __clk, byte* __vdata, nuint __vstride, {string.Join(", ", fused.ConvertAll(i => $"uint __vm{i}, int __vf{i}, {assignment.Kinds[i].ValueTypeName}* __dt{i}"))}, ulong* __dh)");
+        W(writer, "{\nfor (; __bits != 0; __bits &= __bits - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__bits); var __e = __base + __bit;");
+        W(writer, "var __org = (__spw >> __bit & 1) == 0 ? __porg + (nuint)__e * __pspe : __pborg + *(int*)(__pslots + (nuint)__e * __pspe);");
+        foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
+        W(writer, "for (int __i = 0, __cnt = __pcounts[__e]; __i < __cnt; __i++)\n{");
+        W(writer, "var __at = __vdata + (nuint)(ushort)(__org[__i] + __clk) * __vstride; var __m = *(uint*)__at;");
+        foreach (var i in fused)
+            W(writer, $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)(__at + __vf{i}); {Acc(assignment.Kinds[i], "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
+        W(writer, "}");
+        for (var j = 0; j < fused.Count; j++) W(writer, $"__dt{fused[j]}[__bit] = __ft{fused[j]}; if (__fh{fused[j]}) __dh[{j}] |= 1ul << __bit;");
+        W(writer, "}\n}");
     }
 
     static List<(int consumer, FeederDecl feeder)> FeedersOf(SystemAssignment assignment, KindDecl kind)

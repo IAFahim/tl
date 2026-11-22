@@ -11,6 +11,7 @@ public sealed unsafe partial class KindStore
     int* _rowBase;
     int _rowHalf = -1;
     ushort* _gap;
+    ushort* _rowTimeline;
     byte* _eligible;
     int _denseEpoch;
     int _eligibleEpoch = -1;
@@ -28,10 +29,12 @@ public sealed unsafe partial class KindStore
         _eligibleEpoch = -1;
         if (_rowHalf < 0) return;
         _gap = (ushort*)Zeroed((nuint)Math.Max(1, 2 * _rowHalf) * 2);
+        _rowTimeline = (ushort*)Zeroed((nuint)(1 + 2 * _rowHalf) * 2);
         for (var t = 0; t < _timelineCount; t++)
         {
             var dur = (int)(_spanMeta[t] & 0x3FFF_FFFFu);
             var pb = _pulseBase[t];
+            for (var k = 0; k < dur; k++) _rowTimeline[_rowBase[t] + k] = _rowTimeline[_rowBase[t] + _rowHalf + k] = (ushort)t;
             for (var d = 0; d < 2; d++)
             {
                 var dir = d == 0 ? 1 : -1;
@@ -49,9 +52,10 @@ public sealed unsafe partial class KindStore
 
     void ReleaseRows()
     {
-        Free4(_rowBase, _gap, _eligible, null);
+        Free4(_rowBase, _gap, _eligible, _rowTimeline);
         _rowBase = null;
         _gap = null;
+        _rowTimeline = null;
         _eligible = null;
         _rowHalf = -1;
         _denseReady = _denseValues = false;
@@ -104,6 +108,7 @@ public sealed unsafe partial class KindStore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     ushort GapOf(int t, int direction, int tick) => _gap[(direction > 0 ? 0 : _rowHalf) + _rowBase[t] - 1 + tick];
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal void Settle(int entity)
     {
         var slots = _players.SlotsOf(entity);
@@ -131,6 +136,7 @@ public sealed unsafe partial class KindStore
             for (var bits = dense[w]; bits != 0; bits &= bits - 1) Undense((w << 6) + Tz(bits));
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     void Densify(int entity, ushort clock, int step)
     {
         if (_samples[entity] != 0) return;
@@ -164,58 +170,59 @@ public sealed unsafe partial class KindStore
         _players.SetDense(entity, true);
     }
 
-    bool DenseStep(int entity, int step, ushort from, ushort to, byte* due, int held)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    int Arrival(int row, int step, out int t, out int dir)
     {
-        var dues = _players.DuesOf(entity);
-        var slots = _players.SlotsOf(entity);
+        t = _rowTimeline[row];
+        var reverse = row > _rowHalf;
+        dir = reverse ? -step : step;
+        var dur = Duration(t);
+        var j = row - _rowBase[t] - (reverse ? _rowHalf : 0);
+        var tick = (reverse ? dur - 1 - j : j) + dir;
+        if ((uint)tick < (uint)dur) return tick;
+        return (_spanMeta[t] & 0x8000_0000u) == 0 ? -1 : tick < 0 ? dur - 1 : 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    bool DenseStep(int entity, int step, ushort from, ushort to, byte* due, int held, ushort* dues, ushort* scratch)
+    {
         var origins = _players.OriginsOf(entity);
         var ep = _t.EntryPulse;
         var fast = ep != null && (ep[entity >> 6] >> (entity & 63) & 1) != 0 ? 0ul : _t.FastPulseMask;
+        var pushed = 0ul;
         for (var h = 0; h < held; h++)
         {
-            var s = slots + due[h];
-            if (s->Timeline == 0) continue;
-            var t = s->Timeline - 1;
-            var dir = s->Flags != 0 ? -step : step;
-            var tick = TickAt(t, s->Flags != 0, (ushort)(origins[due[h]] + from)) + dir;
-            if ((uint)tick >= (uint)Duration(t))
+            var row = (ushort)(origins[due[h]] + from);
+            if (row == 0)
             {
-                if ((_spanMeta[t] & 0x8000_0000u) == 0) return false;
-                tick = tick < 0 ? Duration(t) - 1 : 0;
-            }
-            var pb = _pulseBase[t];
-            var d = dir > 0 ? 0 : 1;
-            if (pb >= 0 && (_pulseBits[pb + tick] & (1 << d)) != 0 && (_pulseMasks[((pb + tick) << 1) + d] & ~fast) != 0) return false;
-        }
-        for (var h = 0; h < held; h++)
-        {
-            var i = due[h];
-            var s = slots + i;
-            if (s->Timeline == 0)
-            {
-                origins[i] = (ushort)(0 - to);
-                dues[i] = (ushort)(to + step);
+                scratch[2 * h] = (ushort)(0 - to);
+                scratch[2 * h + 1] = (ushort)(to + step);
                 continue;
             }
-            var t = s->Timeline - 1;
-            var reverse = s->Flags != 0;
-            var dir = reverse ? -step : step;
-            var tick = TickAt(t, reverse, (ushort)(origins[i] + from)) + dir;
-            if ((uint)tick >= (uint)Duration(t))
-            {
-                tick = tick < 0 ? Duration(t) - 1 : 0;
-                origins[i] = (ushort)(RowOf(t, reverse, tick) - to);
-            }
+            var tick = Arrival(row, step, out var t, out var dir);
+            if (tick < 0) goto undo;
             var pb = _pulseBase[t];
             var d = dir > 0 ? 0 : 1;
             if (pb >= 0 && (_pulseBits[pb + tick] & (1 << d)) != 0)
             {
                 var cell = ((pb + tick) << 1) + d;
-                for (var m = _pulseMasks[cell] & fast; m != 0; m &= m - 1) _pulseHits[Tz(m)].Push(entity, cell);
+                var kinds = _pulseMasks[cell];
+                if ((kinds & ~fast) != 0) goto undo;
+                pushed |= kinds;
+                for (; kinds != 0; kinds &= kinds - 1) _pulseHits[Tz(kinds)].Push(entity, cell);
             }
-            dues[i] = (ushort)(to + step * GapOf(t, dir, tick));
+            scratch[2 * h] = (ushort)(RowOf(t, dir != step, tick) - to);
+            scratch[2 * h + 1] = (ushort)(to + step * GapOf(t, dir, tick));
+        }
+        for (var h = 0; h < held; h++)
+        {
+            if (origins[due[h]] != scratch[2 * h]) origins[due[h]] = scratch[2 * h];
+            dues[due[h]] = scratch[2 * h + 1];
         }
         return true;
+    undo:
+        for (; pushed != 0; pushed &= pushed - 1) _pulseHits[Tz(pushed)].Rewind(entity);
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

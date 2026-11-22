@@ -672,6 +672,7 @@ public sealed unsafe partial class KindStore : IDisposable
         var from = _players.DenseClock;
         var to = (ushort)(from + stepDir);
         var due = stackalloc byte[PlaybackTable.MaxSlots];
+        var scratch = stackalloc ushort[2 * PlaybackTable.MaxSlots];
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
@@ -685,8 +686,9 @@ public sealed unsafe partial class KindStore : IDisposable
                 var e = baseE + bit;
                 if ((dw >> bit & 1) != 0)
                 {
-                    var held = DueSlots((spilled[w] >> bit & 1) == 0 ? dueBase + (nuint)e * stride : _players.DuesOf(e), counts[e], to, due);
-                    if (held == 0 || DenseStep(e, stepDir, from, to, due, held)) continue;
+                    var dues = (spilled[w] >> bit & 1) == 0 ? dueBase + (nuint)e * stride : _players.DuesOf(e);
+                    var held = DueSlots(dues, counts[e], to, due);
+                    if (held == 0 || DenseStep(e, stepDir, from, to, due, held, dues, scratch)) continue;
                     Undense(e);
                 }
                 var inline = slots + (nuint)e * stride;

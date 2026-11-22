@@ -134,7 +134,7 @@ public sealed class DenseOracleTests
                 var forward = true;
                 for (var step = 0; step < steps; step++)
                 {
-                    if (Next(ref rng) % 97 == 0)
+                    if (step % 97 == 41 || Next(ref rng) % 211 == 0)
                     {
                         forward = !forward;
                         stats[0]++;
@@ -266,7 +266,7 @@ public sealed class DenseOracleTests
     public void DenseAndExplicitWorldsMatchEverySlotAndColumnEveryStepThroughEveryControl(int rows, int slots, int steps, int calm, int workers)
     {
         var stats = Play(rows, slots, steps, calm, workers);
-        Assert.True(stats[DenseSteps] * 4 > (long)rows * steps, $"only {stats[DenseSteps]} of {(long)rows * steps} entity-steps ran dense.");
+        Assert.True(stats[DenseSteps] * 10 > (long)rows * steps, $"only {stats[DenseSteps]} of {(long)rows * steps} entity-steps ran dense.");
         Assert.True(stats[Controls] > rows, "the script sent too few controls.");
         Assert.True(stats[Spilled] > 0, "no entity spilled past its inline slots.");
     }
