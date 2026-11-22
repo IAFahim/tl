@@ -476,7 +476,7 @@ internal static partial class SystemReader
         if (!Flatten(value, "", lanes)) return $"'{Symbols.Name(value)}' is not a primitive or a struct of public writable primitive fields";
         foreach (var lane in lanes)
             if (lane.Type == "bool" ? monoid != 4 : (lane.Type is "float" or "double") && monoid != 1)
-                return $"field '{(lane.Path.Length == 0 ? Symbols.Name(value) : lane.Path.Replace("@", ""))}' is {lane.Type}";
+                return lane.Path.Length == 0 ? $"its value is {lane.Type}" : $"field '{lane.Path.Replace("@", "")}' is {lane.Type}";
         return "";
     }
 
