@@ -224,10 +224,10 @@ public struct Tally : ITrack<TallyTrack, TallyClip>
     public static int Begin(in Frame<TallyTrack, TallyClip> f) => 1000 * f.Direction;
 
     [Pulse(typeof(Hits), On = ClipEvent.Start)]
-    public static int Strike(in Frame<TallyTrack, TallyClip> f) => f.Direction * f.Clip.Hit;
+    public static int Strike(in Frame<TallyTrack, TallyClip> f) => f.Direction * f.Clip.Hit + 3 * f.Tick;
 
     [Pulse(typeof(Marks), On = ClipEvent.End)]
-    public static int Close(in Frame<TallyTrack, TallyClip> f) => f.Clip.Hit + 2 * f.Direction;
+    public static int Close(in Frame<TallyTrack, TallyClip> f) => f.Clip.Hit + 2 * f.Direction + 5 * f.Tick;
 }
 
 [TimelineSystemMember(typeof(LaneSystem))]

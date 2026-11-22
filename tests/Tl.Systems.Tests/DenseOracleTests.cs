@@ -165,7 +165,7 @@ public sealed class DenseOracleTests
                             b.Kinds.Pulses<int>("DenseGame.Hits").To(e, 1 + e % 3);
                             stats[5]++;
                         }
-                    var tally = step % 13 != 7 && step % 29 != 11;
+                    var tally = step % 23 is not (5 or 6 or 7);
                     if (!tally) stats[7]++;
                     a.Step(forward, workers, tally);
                     b.Step(forward, null, tally);
@@ -353,7 +353,7 @@ public sealed class DenseOracleTests
     [InlineData(48, 3, 1200, 8, 0)]
     [InlineData(64, 4, 1500, 48, 0)]
     [InlineData(256, 5, 400, 24, 3)]
-    [InlineData(40, 24, 300, 16, 0)]
+    [InlineData(40, 24, 300, 4, 0)]
     public void DenseAndExplicitWorldsMatchEverySlotAndColumnEveryStepThroughEveryControl(int rows, int slots, int steps, int calm, int workers)
     {
         var stats = Play(rows, slots, steps, calm, workers);
