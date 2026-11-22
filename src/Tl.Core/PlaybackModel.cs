@@ -74,12 +74,6 @@ public readonly unsafe struct PlaybackView
     public bool IsDense(int entity) => Dense != null && (Dense[entity >> 6] >> (entity & 63) & 1) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ushort* OriginsOf(int entity)
-        => (Spilled[entity >> 6] & (1ul << (entity & 63))) == 0
-            ? Origins + (nuint)entity * (nuint)SlotsPerEntity
-            : BlockOrigins + *(int*)(Slots + (nuint)entity * (nuint)SlotsPerEntity);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Playback* RunOf(int entity)
         => (Spilled[entity >> 6] & (1ul << (entity & 63))) == 0
             ? Slots + (nuint)entity * (nuint)SlotsPerEntity

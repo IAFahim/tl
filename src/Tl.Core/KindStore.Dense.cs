@@ -119,7 +119,7 @@ public sealed unsafe partial class KindStore
                 for (var p = _pairStart[t]; ok && p < _pairStart[t + 1]; p++)
                 {
                     var feeder = _sec.Feeders + (_pairs[p] & 0xffff);
-                    if (feeder->Trigger == 0 && _values[feeder->Kind].Data == null) ok = false;
+                    if (feeder->Trigger == 0 && (_values[feeder->Kind].Data == null || _parts[feeder->Kind]?.Count > 1 || _feeding.Contains(_kindNames[feeder->Kind]))) ok = false;
                 }
                 _eligible[t] = ok ? (byte)1 : (byte)0;
             }
@@ -196,6 +196,12 @@ public sealed unsafe partial class KindStore
             live = true;
         }
         if (!live) return;
+        for (var kinds = _mask[entity]; kinds != 0; kinds &= kinds - 1)
+        {
+            var table = _tables[Tz(kinds)];
+            var row = RowOf(entity, Tz(kinds));
+            if (table != null && (table->Active[row >> 6] >> (row & 63) & 1) != 0) return;
+        }
         var origins = _players.OriginsOf(entity);
         var dues = _players.DuesOf(entity);
         for (var i = 0; i < n; i++)

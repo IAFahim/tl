@@ -670,7 +670,6 @@ internal static class SystemEmitter
             W(writer, "} while (__idx < __hi && __hits[__idx].Entity == __e);");
             W(writer, "if ((__kac[__ew] & __eb) != 0)");
             W(writer, "{");
-            W(writer, "if (__pview.IsDense(__e)) players.Settle(__e);");
             W(writer, "var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;");
             EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
             W(writer, "if (__len != 0) __kt->Clear(__row);");
@@ -690,7 +689,7 @@ internal static class SystemEmitter
         W(writer, "if (__e >= __n) continue;");
         W(writer, "var __len = (int)__kt->Length[__row];");
         W(writer, "byte* __data = __kt->Data(__row);");
-        W(writer, "if (__pview.IsDense(__e)) players.Settle(__e);");
+        if (values || feed) W(writer, "if (__pview.IsDense(__e)) players.Settle(__e);");
         W(writer, "var __run = __pview.RunOf(__e);");
         W(writer, "var __cnt = __pview.CountOf(__e);");
         W(writer, "var __smp = __ks.SamplesOf(__e);");

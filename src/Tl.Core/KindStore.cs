@@ -428,6 +428,7 @@ public sealed unsafe partial class KindStore : IDisposable
             parts.Add(key);
             for (var i = 0; i < lines.Count; i++) routes[ordinals[at[i]]] = (ushort)((part << 8) | i);
             if (key != 0) { _feeding.Add(kind); _tablePulses &= ~(1ul << k); }
+            _denseEpoch++;
             _joined[(kind, key)] = ((nint)routes, part);
             return routes;
         }

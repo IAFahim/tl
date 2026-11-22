@@ -597,7 +597,6 @@ type Tl.PlaybackView
   Field Int32 EntityCount
   Method Boolean IsDense(Int32)
   Field UInt16* Origins
-  Method UInt16* OriginsOf(Int32)
   Method Tl.Playback* RunOf(Int32)
   Method Tl.Playback* SlotOf(Int32, Int32)
   Field Tl.Playback* Slots

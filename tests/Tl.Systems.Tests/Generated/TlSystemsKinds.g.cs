@@ -210,7 +210,6 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
-if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -355,7 +354,6 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
-if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -472,7 +470,6 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
-if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -617,7 +614,6 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
-if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -749,7 +745,6 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
-if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
@@ -1091,7 +1086,6 @@ if (__has) global::KindGame.Damage.Combine(ref __total, in __pv[__p]); else { __
 } while (__idx < __hi && __hits[__idx].Entity == __e);
 if ((__kac[__ew] & __eb) != 0)
 {
-if (__pview.IsDense(__e)) players.Settle(__e);
 var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;
 for (var __j = 0; __j < __len; __j++)
 {
@@ -1164,7 +1158,6 @@ var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
 var __len = (int)__kt->Length[__row];
 byte* __data = __kt->Data(__row);
-if (__pview.IsDense(__e)) players.Settle(__e);
 var __run = __pview.RunOf(__e);
 var __cnt = __pview.CountOf(__e);
 var __smp = __ks.SamplesOf(__e);
