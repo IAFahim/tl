@@ -26,6 +26,34 @@ public struct Body
     public float DriftX;
     public int DriftY;
     public int Blend;
+    public int Pings;
+}
+
+public struct PingClip { public int Value; }
+public struct PingTrack : IBlend<PingClip>
+{
+    public float Scale;
+    public void Blend(in PingClip first, in PingClip second, float factor, out PingClip result) => result = first;
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses)]
+public struct Ping
+{
+    public static void Combine(ref int total, in int next) => total = total * 7 + next;
+    public static void Apply(in int total, ref Body body) => body.Pings = body.Pings * 13 + total;
+}
+
+[TimelineSystemMember(typeof(PingSystem))]
+public struct Pinger : ITrack<PingTrack, PingClip>
+{
+    [Pulse(typeof(Ping), On = ClipEvent.Start)]
+    public static int Hit(in Frame<PingTrack, PingClip> f) => f.Clip.Value + 7 * f.Tick;
+}
+
+[TimelineSystem]
+public ref partial struct PingSystem
+{
+    public Span<Body> Body;
 }
 
 public struct Choice { public int Value; public short Priority; }
