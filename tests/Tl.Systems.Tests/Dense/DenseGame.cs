@@ -15,6 +15,101 @@ public struct Body
     public int Hits;
     public int Marks;
     public int Applied;
+    public float FSum;
+    public int FBits;
+    public int ISum;
+    public int Top;
+    public int Low;
+    public uint Mask;
+    public int Chosen;
+    public int ChosenPriority;
+    public float DriftX;
+    public int DriftY;
+    public int Blend;
+}
+
+public struct Choice { public int Value; public short Priority; }
+
+public struct Mix { public float X; public int Y; }
+
+public struct LaneClip { public float F; public int I; public int Hi; public int Lo; public int Bits; public int Value; public int Priority; public float X; public int Y; }
+public struct LaneTrack : IBlend<LaneClip>
+{
+    public float Scale;
+    public void Blend(in LaneClip first, in LaneClip second, float factor, out LaneClip result) => result = factor < 0.5f ? first : second;
+}
+
+[TimelineKind(Combine = KindCombine.Sum)]
+public struct FSum
+{
+    public static void Combine(ref float total, in float next) => total += next;
+    public static void Apply(in float total, ref Body body)
+    {
+        body.FSum = total;
+        body.FBits = body.FBits * 31 + BitConverter.SingleToInt32Bits(total);
+    }
+}
+
+[TimelineKind(Combine = KindCombine.Sum)]
+public struct ISum
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref Body body) => body.ISum = body.ISum * 7 + total;
+}
+
+[TimelineKind(Combine = KindCombine.Max)]
+public struct Top
+{
+    public static void Combine(ref int total, in int next) => total = Math.Max(total, next);
+    public static void Apply(in int total, ref Body body) => body.Top = body.Top * 3 + total;
+}
+
+[TimelineKind(Combine = KindCombine.Min)]
+public struct Low
+{
+    public static void Combine(ref int total, in int next) { if (next < total) total = next; }
+    public static void Apply(in int total, ref Body body) => body.Low = body.Low * 5 + total;
+}
+
+[TimelineKind(Combine = KindCombine.Or)]
+public struct Mask
+{
+    public static void Combine(ref uint total, in uint next) => total |= next;
+    public static void Apply(in uint total, ref Body body) => body.Mask = body.Mask * 33 + total;
+}
+
+[TimelineKind(Combine = KindCombine.Pick, Priority = nameof(Choice.Priority))]
+public struct Choose
+{
+    public static void Combine(ref Choice total, in Choice next) { if (next.Priority >= total.Priority) total = next; }
+    public static void Apply(in Choice total, ref Body body)
+    {
+        body.Chosen = body.Chosen * 9 + total.Value;
+        body.ChosenPriority = total.Priority;
+    }
+}
+
+[TimelineKind(Combine = KindCombine.Sum)]
+public struct Drift
+{
+    public static void Combine(ref Mix total, in Mix next)
+    {
+        total.X += next.X;
+        total.Y += next.Y;
+    }
+
+    public static void Apply(in Mix total, ref Body body)
+    {
+        body.DriftX = total.X;
+        body.DriftY = body.DriftY * 3 + total.Y;
+    }
+}
+
+[TimelineKind(Associative = true)]
+public struct Blend
+{
+    public static void Combine(ref int total, in int next) => total = total * 3 + next;
+    public static void Apply(in int total, ref Body body) => body.Blend = body.Blend * 11 + total;
 }
 
 public struct Pick { public int Value; public int Priority; }
@@ -133,6 +228,40 @@ public struct Tally : ITrack<TallyTrack, TallyClip>
 
     [Pulse(typeof(Marks), On = ClipEvent.End)]
     public static int Close(in Frame<TallyTrack, TallyClip> f) => f.Clip.Hit + 2 * f.Direction;
+}
+
+[TimelineSystemMember(typeof(LaneSystem))]
+public struct Lane : ITrack<LaneTrack, LaneClip>
+{
+    [Feeds(typeof(FSum))]
+    public static float F(in Frame<LaneTrack, LaneClip> f) => f.Clip.F;
+
+    [Feeds(typeof(ISum))]
+    public static int I(in Frame<LaneTrack, LaneClip> f) => f.Clip.I + f.Direction * f.WithinClip;
+
+    [Feeds(typeof(Top))]
+    public static int Hi(in Frame<LaneTrack, LaneClip> f) => f.Clip.Hi;
+
+    [Feeds(typeof(Low))]
+    public static int Lo(in Frame<LaneTrack, LaneClip> f) => f.Clip.Lo;
+
+    [Feeds(typeof(Mask))]
+    public static uint Bits(in Frame<LaneTrack, LaneClip> f) => (uint)f.Clip.Bits << (f.WithinClip & 3);
+
+    [Feeds(typeof(Choose))]
+    public static Choice Pick(in Frame<LaneTrack, LaneClip> f) => new Choice { Value = f.Clip.Value + f.Tick, Priority = (short)f.Clip.Priority };
+
+    [Feeds(typeof(Drift))]
+    public static Mix Move(in Frame<LaneTrack, LaneClip> f) => new Mix { X = f.Clip.X * f.Direction, Y = f.Clip.Y };
+
+    [Feeds(typeof(Blend))]
+    public static int Mixed(in Frame<LaneTrack, LaneClip> f) => f.Clip.I - f.Tick;
+}
+
+[TimelineSystem]
+public ref partial struct LaneSystem
+{
+    public Span<Body> Body;
 }
 
 [TimelineSystem]

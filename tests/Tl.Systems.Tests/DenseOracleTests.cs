@@ -52,11 +52,13 @@ public sealed class DenseOracleTests
                         new MoveSystem { Body = Bodies }.Run(World, Players, forward);
                         new PushSystem { Body = Bodies }.Run(World, Players, forward);
                         new TallySystem { Body = Bodies }.Run(World, Players, forward);
+                        new LaneSystem { Body = Bodies }.Run(World, Players, forward);
                         return;
                     }
                     new MoveSystem { Body = Bodies }.Run(World, Players, forward, workers);
                     new PushSystem { Body = Bodies }.Run(World, Players, forward, workers);
                     new TallySystem { Body = Bodies }.Run(World, Players, forward, workers);
+                    new LaneSystem { Body = Bodies }.Run(World, Players, forward, workers);
                 }
 
                 public void Dispose()
@@ -227,14 +229,15 @@ public sealed class DenseOracleTests
         TypedTrack Step(params (uint Start, uint End, int Speed, int Priority, float Rise)[] clips) => Track("StepTrack", "StepClip", clips.Select(c => new object[] { c.Start, c.End, c.Speed + bump, c.Priority, c.Rise }));
         TypedTrack Push(params (uint Start, uint End, int Gain)[] clips) => Track("PushTrack", "PushClip", clips.Select(c => new object[] { c.Start, c.End, c.Gain + bump }));
         TypedTrack Tally(params (uint Start, uint End, int Count, int Hit)[] clips) => Track("TallyTrack", "TallyClip", clips.Select(c => new object[] { c.Start, c.End, c.Count, c.Hit + bump }));
+        TypedTrack Lane(params (uint Start, uint End, float F, int I, int Hi, int Lo, int Bits, int Value, int Priority, float X, int Y)[] clips) => Track("LaneTrack", "LaneClip", clips.Select(c => new object[] { c.Start, c.End, c.F, c.I, c.Hi, c.Lo, c.Bits, c.Value + bump, c.Priority, c.X, c.Y }));
         var timelines = new List<TypedTimeline>
         {
-            new() { Name = "a-loop", Duration = 20 + shift, Loops = true, Tracks = { Step((0, 9, 3, 1, 1.5f), (6, 15, 5, 2, 2.25f)), Step((4, 18, 2, 1, 0.7f)), Push((2, 12, 4), (12, 19, 6)), Tally((1, 6, 2, 3), (10, 17, 4, 5)) } },
-            new() { Name = "b-head", Duration = 9, Next = "c-tail", Tracks = { Step((0, 9, 1, 0, 0.4f)), Push((3, 8, 2)), Tally((2, 5, 1, 2)) } },
-            new() { Name = "c-tail", Duration = 13, Hold = true, Tracks = { Step((5, 11, 7, 2, 1.1f)), Push((0, 13, 3)), Tally((4, 9, 3, 1)) } },
-            new() { Name = "d-once", Duration = 7, Tracks = { Step((0, 7, 4, 1, 0.9f)), Tally((0, 3, 2, 4)) } },
-            new() { Name = "e-spin", Duration = 5, Loops = true, Tracks = { Step((0, 5, 2, 2, 0.3f)), Push((1, 4, 1)), Tally((2, 4, 1, 1)) } },
-            new() { Name = "f-long", Duration = 31 + 2 * shift, Loops = true, Tracks = { Step((3, 20, 6, 1, 1.25f), (15, 28, 2, 1, 0.5f)), Push((0, 31, 2)), Tally((5, 12, 2, 2), (20, 26, 3, 3)) } },
+            new() { Name = "a-loop", Duration = 20 + shift, Loops = true, Tracks = { Step((0, 9, 3, 1, 1.5f), (6, 15, 5, 2, 2.25f)), Step((4, 18, 2, 1, 0.7f)), Push((2, 12, 4), (12, 19, 6)), Tally((1, 6, 2, 3), (10, 17, 4, 5)), Lane((0, 8, -0f, 2, int.MaxValue, 7, 0, 10, 1, 0f, 1), (5, 14, 0f, -1, -4, int.MinValue, 1, 20, 1, -0f, 2), (12, 20, 1.5f, 3, int.MinValue, int.MaxValue, 6, 30, 2, 1.25f, -1)), Lane((2, 10, -0f, 0, 3, 3, 4, 40, 1, -0f, 0)) } },
+            new() { Name = "b-head", Duration = 9, Next = "c-tail", Tracks = { Step((0, 9, 1, 0, 0.4f)), Push((3, 8, 2)), Tally((2, 5, 1, 2)), Lane((0, 9, -0f, 1, 9, -9, 2, 5, 0, -0f, 3)) } },
+            new() { Name = "c-tail", Duration = 13, Hold = true, Tracks = { Step((5, 11, 7, 2, 1.1f)), Push((0, 13, 3)), Tally((4, 9, 3, 1)), Lane((2, 11, 0f, 4, -7, 7, 8, 6, 3, 0.5f, 1)) } },
+            new() { Name = "d-once", Duration = 7, Tracks = { Step((0, 7, 4, 1, 0.9f)), Tally((0, 3, 2, 4)), Lane((0, 7, -2.25f, 2, 1, 1, 0, 8, 1, -0f, 0)) } },
+            new() { Name = "e-spin", Duration = 5, Loops = true, Tracks = { Step((0, 5, 2, 2, 0.3f)), Push((1, 4, 1)), Tally((2, 4, 1, 1)), Lane((0, 5, -0f, 1, int.MaxValue, int.MinValue, 16, 9, 1, 0f, 1)) } },
+            new() { Name = "f-long", Duration = 31 + 2 * shift, Loops = true, Tracks = { Step((3, 20, 6, 1, 1.25f), (15, 28, 2, 1, 0.5f)), Push((0, 31, 2)), Tally((5, 12, 2, 2), (20, 26, 3, 3)), Lane((3, 20, 0.75f, -2, 11, -11, 3, 12, 2, -0.5f, 2), (15, 28, -0f, 5, int.MinValue, int.MaxValue, 0, 13, 2, 0f, -3)), Lane((10, 25, 0f, 1, 2, -2, 1, 14, 2, -0f, 1)) } },
         };
         var manifest = LibraryBake.Manifest(timelines.Select(static t => t.Name!).ToList(), [], 60);
         var kinds = LibraryBake.Kinds([domain]);
@@ -263,11 +266,12 @@ public sealed class DenseOracleTests
     [InlineData(48, 3, 1200, 8, 0)]
     [InlineData(64, 4, 1500, 48, 0)]
     [InlineData(256, 5, 400, 24, 3)]
+    [InlineData(40, 24, 300, 16, 0)]
     public void DenseAndExplicitWorldsMatchEverySlotAndColumnEveryStepThroughEveryControl(int rows, int slots, int steps, int calm, int workers)
     {
         var stats = Play(rows, slots, steps, calm, workers);
         Assert.True(stats[DenseSteps] * 10 > (long)rows * steps, $"only {stats[DenseSteps]} of {(long)rows * steps} entity-steps ran dense.");
         Assert.True(stats[Controls] > rows, "the script sent too few controls.");
-        Assert.True(stats[Spilled] > 0, "no entity spilled past its inline slots.");
+        Assert.True(stats[Spilled] > 0 || slots > 16, "no entity spilled past its inline slots.");
     }
 }
