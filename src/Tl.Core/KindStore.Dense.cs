@@ -35,7 +35,7 @@ public sealed unsafe partial class KindStore
 
     void BuildLeave()
     {
-        _scratch = (ulong*)Zeroed(PlaybackTable.MaxSlots * 9);
+        _scratch = (ulong*)Zeroed(PlaybackTable.MaxSlots * 17);
         _gap = (ushort*)Zeroed((nuint)Math.Max(1, 2 * _rowHalf) * 2);
         for (var t = 0; t < _timelineCount; t++)
         {
@@ -262,41 +262,89 @@ public sealed unsafe partial class KindStore
     {
         var playing = _players.PlayingBits;
         var p = _players.RawView;
-        var slots = p.Slots;
         var counts = p.Counts;
         var spilled = p.Spilled;
-        var stride = (nuint)p.SlotsPerEntity;
-        var pulse = default(BufferPulseSink);
+        var stride = p.SlotsPerEntity;
         var dense = _players.DenseBits;
         var dueBase = _players.InlineDues;
         var from = _players.DenseClock;
         var to = (ushort)(from + stepDir);
         var scratch = _scratch;
         var due = (byte*)(scratch + PlaybackTable.MaxSlots);
+        var map = scratch + PlaybackTable.MaxSlots + PlaybackTable.MaxSlots / 8;
+        var magic = (ulong)uint.MaxValue / (ulong)stride + 1;
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
             if (bits == 0) continue;
             var baseE = w << 6;
-            var dw = dense[w];
-            while (bits != 0)
-            {
-                var bit = Tz(bits);
-                bits &= bits - 1;
-                var e = baseE + bit;
-                if ((dw >> bit & 1) != 0)
+            var fast = stride > 16 ? 0 : dense[w] & bits & ~spilled[w];
+            var rest = bits & ~fast;
+            var words = fast == 0 ? 0 : DueMap(dueBase + (nuint)baseE * (nuint)stride, Math.Min(64, p.EntityCount - baseE) * stride, to, map);
+            var cur = -1;
+            var held = 0;
+            for (var m = 0; m < words; m++)
+                for (var hits = map[m]; hits != 0; hits &= hits - 1)
                 {
-                    var dues = (spilled[w] >> bit & 1) == 0 ? dueBase + (nuint)e * stride : _players.DuesOf(e);
-                    var held = DueSlots(dues, counts[e], to, due);
-                    if (held == 0 || DenseStep(e, stepDir, from, to, due, held, dues, scratch)) continue;
-                    Undense(e);
+                    var at = (m << 6) + Tz(hits);
+                    var el = (int)((ulong)(uint)at * magic >> 32);
+                    if (el != cur)
+                    {
+                        if (held != 0) Leave(baseE + cur, stepDir, from, to, due, held, scratch, playing, w);
+                        held = 0;
+                        cur = el;
+                        for (var r = rest & ((1ul << el) - 1); r != 0; r &= r - 1) Exact(baseE + Tz(r), stepDir, from, to, due, scratch, playing, w, dense[w], spilled[w], dueBase, stride, counts);
+                        rest &= ~0ul << el;
+                    }
+                    var slot = at - el * stride;
+                    if ((fast >> el & 1) != 0 && slot < counts[baseE + el]) due[held++] = (byte)slot;
                 }
-                var inline = slots + (nuint)e * stride;
-                var run = (spilled[w] >> bit & 1) == 0 ? inline : _players.RawView.Blocks + *(int*)inline;
-                if (!KindRules.TickEntity(in _t, run, counts[e], ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << bit);
-                else Densify(e, to, stepDir);
-            }
+            if (held != 0) Leave(baseE + cur, stepDir, from, to, due, held, scratch, playing, w);
+            for (; rest != 0; rest &= rest - 1) Exact(baseE + Tz(rest), stepDir, from, to, due, scratch, playing, w, dense[w], spilled[w], dueBase, stride, counts);
         }
+    }
+
+    void Leave(int e, int stepDir, ushort from, ushort to, byte* due, int held, ulong* scratch, ulong* playing, int w)
+    {
+        if (DenseStep(e, stepDir, from, to, due, held, _players.DuesOf(e), scratch)) return;
+        Undense(e);
+        Tick(e, stepDir, to, playing, w);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void Exact(int e, int stepDir, ushort from, ushort to, byte* due, ulong* scratch, ulong* playing, int w, ulong dense, ulong spilled, ushort* dueBase, int stride, int* counts)
+    {
+        if ((dense >> e & 1) != 0)
+        {
+            var dues = (spilled >> e & 1) == 0 ? dueBase + (nuint)e * (nuint)stride : _players.DuesOf(e);
+            var held = DueSlots(dues, counts[e], to, due);
+            if (held == 0 || DenseStep(e, stepDir, from, to, due, held, dues, scratch)) return;
+            Undense(e);
+        }
+        Tick(e, stepDir, to, playing, w);
+    }
+
+    void Tick(int e, int stepDir, ushort to, ulong* playing, int w)
+    {
+        var pulse = default(BufferPulseSink);
+        if (!KindRules.TickEntity(in _t, _players.SlotsOf(e), _players.CountOf(e), ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << (e & 63));
+        else Densify(e, to, stepDir);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static int DueMap(ushort* dues, int n, ushort at, ulong* map)
+    {
+        var words = (n + 63) >> 6;
+        for (var m = 0; m < words; m++) map[m] = 0;
+        var i = 0;
+#if NET
+        if (Vector256.IsHardwareAccelerated)
+            for (var target = Vector256.Create(at); i + 16 <= n; i += 16)
+                map[i >> 6] |= (ulong)Vector256.Equals(Vector256.Load(dues + i), target).ExtractMostSignificantBits() << (i & 63);
+#endif
+        for (; i < n; i++)
+            if (dues[i] == at) map[i >> 6] |= 1ul << (i & 63);
+        return words;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
