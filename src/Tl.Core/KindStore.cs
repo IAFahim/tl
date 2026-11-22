@@ -46,7 +46,7 @@ internal unsafe struct PulseQueue
     public int Stride;
 }
 
-public sealed unsafe class KindStore : IDisposable
+public sealed unsafe partial class KindStore : IDisposable
 {
     readonly TimelineWorld _world;
     readonly PlaybackTable _players;
@@ -273,6 +273,7 @@ public sealed unsafe class KindStore : IDisposable
                                     Volatile.Write(ref *(nint*)&_values[k].Data, (nint)data);
                                 }
                             committed = true;
+                            _denseEpoch++;
                         }
                     }
                     finally
@@ -644,7 +645,9 @@ public sealed unsafe class KindStore : IDisposable
         }
         _tickTablePulses = fast;
         _t.FastPulseMask = fast;
+        DenseBegin(forward ? 1 : -1);
         TickPassRange(forward ? 1 : -1, 0, words);
+        DenseEnd(forward ? 1 : -1);
         if (_hasClosed)
         {
             NativeMemory.Clear(_closedEntity, (nuint)words * 8);
@@ -664,19 +667,32 @@ public sealed unsafe class KindStore : IDisposable
         var spilled = p.Spilled;
         var stride = (nuint)p.SlotsPerEntity;
         var pulse = default(BufferPulseSink);
+        var dense = _denseReady ? _players.DenseBits : null;
+        var dueBase = dense == null ? null : _players.InlineDues;
+        var from = _players.DenseClock;
+        var to = (ushort)(from + stepDir);
+        var due = stackalloc byte[PlaybackTable.MaxSlots];
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];
             if (bits == 0) continue;
             var baseE = w << 6;
+            var dw = dense == null ? 0ul : dense[w];
             while (bits != 0)
             {
                 var bit = Tz(bits);
                 bits &= bits - 1;
                 var e = baseE + bit;
+                if ((dw >> bit & 1) != 0)
+                {
+                    var held = DueSlots((spilled[w] >> bit & 1) == 0 ? dueBase + (nuint)e * stride : _players.DuesOf(e), counts[e], to, due);
+                    if (held == 0 || DenseStep(e, stepDir, from, to, due, held)) continue;
+                    Undense(e);
+                }
                 var inline = slots + (nuint)e * stride;
                 var run = (spilled[w] >> bit & 1) == 0 ? inline : _players.RawView.Blocks + *(int*)inline;
                 if (!KindRules.TickEntity(in _t, run, counts[e], ref _kindRows, e, stepDir, ref pulse)) playing[w] &= ~(1ul << bit);
+                else if (dense != null) Densify(e, to, stepDir);
             }
         }
     }
@@ -922,6 +938,7 @@ public sealed unsafe class KindStore : IDisposable
                 }
             }
         }
+        BuildRows();
         _samples = (byte*)Zeroed((nuint)entities + 1);
         _listed = (ulong**)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(nint));
         for (var k = 0; k < _kindCount; k++) _listed[k] = (ulong*)Zeroed((nuint)(_tables[k] == null ? 1 : _tables[k]->Words) * 8);
@@ -1008,6 +1025,8 @@ public sealed unsafe class KindStore : IDisposable
 
     void Release()
     {
+        UndenseAll();
+        ReleaseRows();
         if (_tables != null)
             for (var k = 0; k < _kindCount; k++) if (_owner[k] == k) KindTable.Free(_tables[k]);
         if (_queues != null)

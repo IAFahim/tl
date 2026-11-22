@@ -432,7 +432,7 @@ internal static class SystemEmitter
             W(writer, $"internal static void Kind_{i}" + head);
             W(writer, "{");
             W(writer, "var __view = world.View;");
-            W(writer, "var __pview = players.View;");
+            W(writer, "var __pview = players.SystemView;");
             EmitKind(writer, assignment, shape, assignment.Kinds[i], feedKey, i, values.Contains(i));
             W(writer, "}");
             if (values.Contains(i)) EmitValuesStruct(writer, assignment, shape, assignment.Kinds[i], i, true);
@@ -481,7 +481,7 @@ internal static class SystemEmitter
     static void EmitFused(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<int> fused, string head, string name)
     {
         var f0 = fused[0];
-        W(writer, $"internal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.View; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
+        W(writer, $"internal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.SystemView; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
         foreach (var i in fused)
         {
             var kind = assignment.Kinds[i];
@@ -491,6 +491,7 @@ internal static class SystemEmitter
         }
         W(writer, $"var __vrow = __kv{f0}->Row; var __vdata = __kv{f0}->Data; var __vstride = (nuint)__kv{f0}->Stride; var __vtc = (uint)__kv{f0}->TimelineCount;");
         W(writer, "var __pslots = __pview.Slots; var __pcounts = __pview.Counts; var __pspilled = __pview.Spilled; var __pblocks = __pview.Blocks; var __pspe = (nuint)__pview.SlotsPerEntity; var __hasSamples = __ks.HasSamples;");
+        W(writer, "var __pdn = __pview.Dense; var __porg = __pview.Origins; var __pborg = __pview.BlockOrigins; var __clk = __pview.Clock;");
         foreach (var i in fused)
             W(writer, $"var __vsh{i} = __kv{i}->Shift; var __vfr{i} = __kv{i}->Front; var __vbk{i} = __kv{i}->Back; var __vf{i} = forward ? __vfr{i} : __vbk{i}; var __vm{i} = 1u << (__vsh{i} + (forward ? 1 : 2));");
         W(writer, $"for (var __kw = __firstWord < 0 ? 0 : __firstWord; __kw < __endWord && __kw < __kt{f0}->Words; __kw++)\n{{");
@@ -498,11 +499,21 @@ internal static class SystemEmitter
         foreach (var i in fused) W(writer, $"var __ka{i} = __kt{i}->Active[__kw]; var __kb{i} = __kt{i}->Enabled[__kw] & (__ka{i} | __plw);");
         W(writer, $"var __kba = {string.Join(" | ", fused.ConvertAll(static i => $"__kb{i}"))};");
         W(writer, "if (__kba == 0) continue;");
-        W(writer, "var __spw = __pspilled[__kw];");
+        W(writer, "var __spw = __pspilled[__kw]; var __dnw = __pdn == null ? 0ul : __pdn[__kw];");
         W(writer, "for (var __kb = __kba; __kb != 0; __kb &= __kb - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__kb); var __row = (__kw << 6) + __bit; var __e = __row;\nif (__e >= __n) break;");
         W(writer, "var __inline = __pslots + (nuint)__e * __pspe; var __run = (__spw >> __bit & 1) == 0 ? __inline : __pblocks + *(int*)__inline; var __cnt = __pcounts[__e]; var __smp = __hasSamples ? __ks.SamplesOf(__e) : 0; var __sampled = __smp != 0; var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;");
         foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
-        W(writer, "if (!__sampled)");
+        W(writer, "if ((__dnw >> __bit & 1) != 0)");
+        W(writer, "{");
+        W(writer, "var __org = (__spw >> __bit & 1) == 0 ? __porg + (nuint)__e * __pspe : __pborg + *(int*)__inline;");
+        W(writer, "for (var __i = 0; __i < __cnt; __i++)");
+        W(writer, "{");
+        W(writer, "var __at = __vdata + (nuint)(ushort)(__org[__i] + __clk) * __vstride; var __m = *(uint*)__at;");
+        foreach (var i in fused)
+            W(writer, $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)(__at + __vf{i}); {Acc(assignment.Kinds[i], "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
+        W(writer, "}");
+        W(writer, "}");
+        W(writer, "else if (!__sampled)");
         W(writer, "{");
         W(writer, "for (var __i = 0; __i < __cnt; __i++)");
         W(writer, "{");
@@ -529,6 +540,7 @@ internal static class SystemEmitter
             W(writer, $"if ((__kb{i} >> __bit & 1) != 0)\n{{");
             W(writer, $"if (!__sampled && (__ka{i} >> __bit & 1) == 0) {{ if (__fh{i}) {kind.TypeName}.Apply(in __ft{i}{tail}); }}");
             W(writer, "else\n{");
+            W(writer, "if ((__dnw >> __bit & 1) != 0) players.Settle(__e);");
             W(writer, $"var __kt = __kt{i}; var __kv = __kv{i}; var __routes = __routes{i}; var __me = __me{i}; var __stride = __kt->Stride; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __pulses = 0;");
             W(writer, $"for (var __sj = 0; __sj < __sk; __sj++)\n{{\nvar __total = __ft{i}; var __has = __fh{i};\nif (__sampled)\n{{");
             EmitValueWalk(writer, kind, false);
@@ -642,6 +654,7 @@ internal static class SystemEmitter
             W(writer, "} while (__idx < __hi && __hits[__idx].Entity == __e);");
             W(writer, "if ((__kac[__ew] & __eb) != 0)");
             W(writer, "{");
+            W(writer, "if (__pview.IsDense(__e)) players.Settle(__e);");
             W(writer, "var __row = __e; var __len = (int)__kt->Length[__row]; byte* __data = __kt->Data(__row); var __run = __pview.RunOf(__e); var __cnt = __pview.CountOf(__e); var __sampled = false; var __sj = 0; var __pulses = 0;");
             EmitEntryWalk(writer, assignment, shape, kind, feeders, value, valueAt, tail);
             W(writer, "if (__len != 0) __kt->Clear(__row);");
@@ -661,6 +674,7 @@ internal static class SystemEmitter
         W(writer, "if (__e >= __n) continue;");
         W(writer, "var __len = (int)__kt->Length[__row];");
         W(writer, "byte* __data = __kt->Data(__row);");
+        W(writer, "if (__pview.IsDense(__e)) players.Settle(__e);");
         W(writer, "var __run = __pview.RunOf(__e);");
         W(writer, "var __cnt = __pview.CountOf(__e);");
         W(writer, "var __smp = __ks.SamplesOf(__e);");

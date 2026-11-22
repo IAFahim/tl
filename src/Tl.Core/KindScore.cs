@@ -121,11 +121,14 @@ public unsafe struct KindBuild
         var b = new KindBuild { Score = score, Timelines = timelines, Views = views, ByFeeder = byFeeder, Stride = 4, Align = 4 };
         fill.Add(ref b);
         b.Stride = (b.Stride + b.Align - 1) / b.Align * b.Align;
-        for (var t = 0; t < score.TimelineCount; t++)
-        {
-            row[t] = (score.Masks[t].KindMask & b.Kinds) == 0 ? -1 : b.Rows;
-            if (row[t] >= 0) b.Rows += (int)timelines[t].Duration;
-        }
+        var half = RowSpace(timelines, score.TimelineCount, row);
+        if (half >= 0) b.Rows = 1 + 2 * half;
+        else
+            for (var t = 0; t < score.TimelineCount; t++)
+            {
+                row[t] = (score.Masks[t].KindMask & b.Kinds) == 0 ? -1 : b.Rows;
+                if (row[t] >= 0) b.Rows += (int)timelines[t].Duration;
+            }
         var owner = 0;
         var rest = (long)Math.Max(1, score.TimelineCount) * 4 + (long)b.Rows * b.Stride;
         for (var k = 0; k < 64; k++)
@@ -135,11 +138,23 @@ public unsafe struct KindBuild
                 views[k].Stride = b.Stride;
                 views[k].TimelineCount = score.TimelineCount;
                 views[k].Rows = b.Rows;
+                views[k].Reversed = half > 0 ? half : 0;
                 if (views[k].Shift == 0) owner = k;
                 else rest -= views[k].Bytes = (long)b.Rows * 2 * (views[k].Back - views[k].Front);
             }
         if (b.Kinds != 0) views[owner].Bytes = rest;
         return b;
+    }
+
+    public static int RowSpace(LibraryTimeline* timelines, int count, int* row)
+    {
+        var at = 1L;
+        for (var t = 0; t < count; t++)
+        {
+            row[t] = (int)at;
+            at += timelines[t].Duration;
+        }
+        return 2 * (at - 1) + 1 <= 65536 ? (int)(at - 1) : -1;
     }
 
     public void Add<T, TSpans>(int kind, int part, ushort* routes, ref TSpans spans) where T : unmanaged where TSpans : struct, IKindSpanValues<T>
@@ -188,6 +203,7 @@ public unsafe struct KindValues
     public int TimelineCount;
     public int Part;
     public int Rows;
+    public int Reversed;
     public long Bytes;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -213,7 +229,12 @@ public unsafe struct KindValues
                 var cell = score.CellOf((ushort)(t + 1), tick, kind);
                 if (cell < 0) break;
                 var at = Data + (nuint)(Row[t] + tick) * (nuint)Stride;
-                if (score.Start[cell] != score.Start[cell + 1]) *(uint*)at |= 1u << Shift;
+                var mirror = Reversed == 0 ? null : Data + (nuint)(Row[t] + Reversed + (int)timelines[t].Duration - 1 - tick) * (nuint)Stride;
+                if (score.Start[cell] != score.Start[cell + 1])
+                {
+                    *(uint*)at |= 1u << Shift;
+                    if (mirror != null) *(uint*)mirror |= 1u << Shift;
+                }
                 for (var d = 0; d < 2; d++)
                 {
                     var has = false;
@@ -233,6 +254,9 @@ public unsafe struct KindValues
                     if (!has) continue;
                     *(uint*)at |= 2u << (Shift + d);
                     *(T*)(at + (d == 0 ? Front : Back)) = total;
+                    if (mirror == null) continue;
+                    *(uint*)mirror |= 2u << (Shift + 1 - d);
+                    *(T*)(mirror + (d == 0 ? Back : Front)) = total;
                 }
             }
     }
