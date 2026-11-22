@@ -672,7 +672,7 @@ public sealed unsafe partial class KindStore : IDisposable
         var from = _players.DenseClock;
         var to = (ushort)(from + stepDir);
         var due = stackalloc byte[PlaybackTable.MaxSlots];
-        var scratch = stackalloc ushort[2 * PlaybackTable.MaxSlots];
+        var scratch = stackalloc ulong[PlaybackTable.MaxSlots];
         for (var w = firstWord; w < endWord; w++)
         {
             var bits = playing[w];

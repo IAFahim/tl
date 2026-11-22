@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 #if NET
 using System.Numerics;
 using System.Runtime.Intrinsics;
@@ -12,6 +13,7 @@ public sealed unsafe partial class KindStore
     int _rowHalf = -1;
     ushort* _gap;
     ulong* _leave;
+    ulong* _leaveKinds;
     byte* _eligible;
     int _denseEpoch;
     int _eligibleEpoch = -1;
@@ -48,6 +50,8 @@ public sealed unsafe partial class KindStore
         }
         var rows = 1 + 2 * _rowHalf;
         _leave = (ulong*)Zeroed((nuint)(2 * rows) * 8);
+        _leaveKinds = (ulong*)Zeroed(256 * 8);
+        var distinct = 1;
         for (var w = 0; w < 2; w++)
         {
             var step = w == 0 ? 1 : -1;
@@ -67,8 +71,16 @@ public sealed unsafe partial class KindStore
                         }
                         var d = dir > 0 ? 0 : 1;
                         var pb = _pulseBase[t];
-                        var cell = pb >= 0 && (_pulseBits[pb + next] & (1 << d)) != 0 ? ((pb + next) << 1) + d : -1;
-                        _leave[w * rows + row] = GapOf(t, dir, next) | (ulong)(ushort)(RowOf(t, reverse != 0, next) - row - step) << 16 | (ulong)(uint)(cell + 1) << 32;
+                        var pulse = pb >= 0 && (_pulseBits[pb + next] & (1 << d)) != 0;
+                        var cell = pulse ? ((pb + next) << 1) + d : 0;
+                        var kinds = 0;
+                        if (pulse)
+                        {
+                            while (kinds < distinct && _leaveKinds[kinds] != _pulseMasks[cell]) kinds++;
+                            if (kinds == 256 || cell > 0xFFFF) { _rowHalf = -1; return; }
+                            if (kinds == distinct) _leaveKinds[distinct++] = _pulseMasks[cell];
+                        }
+                        _leave[w * rows + row] = GapOf(t, dir, next) | (ulong)(ushort)(RowOf(t, reverse != 0, next) - row - step) << 16 | (ulong)(uint)cell << 32 | (ulong)(uint)kinds << 48;
                     }
         }
     }
@@ -76,6 +88,8 @@ public sealed unsafe partial class KindStore
     void ReleaseRows()
     {
         Free4(_rowBase, _gap, _eligible, _leave);
+        NativeMemory.AlignedFree(_leaveKinds);
+        _leaveKinds = null;
         _rowBase = null;
         _gap = null;
         _leave = null;
@@ -194,34 +208,34 @@ public sealed unsafe partial class KindStore
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    bool DenseStep(int entity, int step, ushort from, ushort to, byte* due, int held, ushort* dues, ushort* scratch)
+    bool DenseStep(int entity, int step, ushort from, ushort to, byte* due, int held, ushort* dues, ulong* records)
     {
         var origins = _players.OriginsOf(entity);
         var leave = _leave + (step > 0 ? 0 : 1 + 2 * _rowHalf);
+        for (var h = 0; h < held; h++) records[h] = leave[(ushort)(origins[due[h]] + from)];
         var ep = _t.EntryPulse;
         var fast = ep != null && (ep[entity >> 6] >> (entity & 63) & 1) != 0 ? 0ul : _t.FastPulseMask;
         var pushed = 0ul;
         for (var h = 0; h < held; h++)
         {
-            var origin = origins[due[h]];
-            var record = leave[(ushort)(origin + from)];
+            var record = records[h];
             var gap = (ushort)record;
             if (gap == 0) goto undo;
-            var cell = (int)(record >> 32) - 1;
-            if (cell >= 0)
+            var kinds = _leaveKinds[(byte)(record >> 48)];
+            if (kinds != 0)
             {
-                var kinds = _pulseMasks[cell];
                 if ((kinds & ~fast) != 0) goto undo;
                 pushed |= kinds;
+                var cell = (int)(ushort)(record >> 32);
                 for (; kinds != 0; kinds &= kinds - 1) _pulseHits[Tz(kinds)].Push(entity, cell);
             }
-            scratch[2 * h] = (ushort)(origin + (ushort)(record >> 16));
-            scratch[2 * h + 1] = (ushort)(to + step * gap);
+            records[h] = (ushort)(origins[due[h]] + (ushort)(record >> 16)) | (ulong)(ushort)(to + step * gap) << 16;
         }
         for (var h = 0; h < held; h++)
         {
-            if (origins[due[h]] != scratch[2 * h]) origins[due[h]] = scratch[2 * h];
-            dues[due[h]] = scratch[2 * h + 1];
+            var origin = (ushort)records[h];
+            if (origins[due[h]] != origin) origins[due[h]] = origin;
+            dues[due[h]] = (ushort)(records[h] >> 16);
         }
         return true;
     undo:
