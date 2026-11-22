@@ -262,6 +262,91 @@ public sealed class DenseOracleTests
         return stats;
     }
 
+    const string WrongSource = """
+        using System;
+        using Tl;
+
+        namespace WrongGame
+        {
+        public struct Seen { public int A; public int B; public int C; }
+        public struct Pri { public int Value; public byte Priority; }
+        public struct WrongClip { public int V; public int P; }
+        public struct WrongTrack : IBlend<WrongClip> { public float Scale; public void Blend(in WrongClip first, in WrongClip second, float factor, out WrongClip result) => result = first; }
+
+        [TimelineKind(Combine = KindCombine.Sum)]
+        public struct SumIsMax { public static void Combine(ref int total, in int next) => total = Math.Max(total, next); public static void Apply(in int total, ref Seen seen) => seen.A += total; }
+
+        [TimelineKind(Combine = KindCombine.Pick, Priority = nameof(Pri.Priority))]
+        public struct FirstWins { public static void Combine(ref Pri total, in Pri next) { if (next.Priority > total.Priority) total = next; } public static void Apply(in Pri total, ref Seen seen) => seen.B += total.Value; }
+
+        [TimelineKind(Combine = KindCombine.Or)]
+        public struct OrIsSum { public static void Combine(ref int total, in int next) => total += next; public static void Apply(in int total, ref Seen seen) => seen.C += total; }
+
+        [TimelineSystemMember(typeof(SumSystem))]
+        public struct ToSum : ITrack<WrongTrack, WrongClip> { [Feeds(typeof(SumIsMax))] public static int V(in Frame<WrongTrack, WrongClip> f) => f.Clip.V; }
+
+        [TimelineSystemMember(typeof(PickSystem))]
+        public struct ToPick : ITrack<WrongTrack, WrongClip> { [Feeds(typeof(FirstWins))] public static Pri V(in Frame<WrongTrack, WrongClip> f) => new Pri { Value = f.Clip.V, Priority = (byte)f.Clip.P }; }
+
+        [TimelineSystemMember(typeof(OrSystem))]
+        public struct ToOr : ITrack<WrongTrack, WrongClip> { [Feeds(typeof(OrIsSum))] public static int V(in Frame<WrongTrack, WrongClip> f) => f.Clip.V; }
+
+        [TimelineSystem] public ref partial struct SumSystem { public Span<Seen> Seen; }
+        [TimelineSystem] public ref partial struct PickSystem { public Span<Seen> Seen; }
+        [TimelineSystem] public ref partial struct OrSystem { public Span<Seen> Seen; }
+        }
+        """;
+
+    const string WrongHostSource = """
+        using System;
+        using Tl;
+        using WrongGame;
+
+        public static class WrongHost
+        {
+            public static string Run(byte[] library, int system)
+            {
+                using var world = new TimelineWorld(library);
+                using var players = new PlaybackTable(4, 2);
+                using var kinds = new KindStore(world, players);
+                players.Start(0, 1, 0);
+                var seen = new Seen[4];
+                world.Tick(players, true);
+                try
+                {
+                    if (system == 0) new SumSystem { Seen = seen }.Run(world, players, true);
+                    else if (system == 1) new PickSystem { Seen = seen }.Run(world, players, true);
+                    else new OrSystem { Seen = seen }.Run(world, players, true);
+                }
+                catch (InvalidOperationException caught)
+                {
+                    return caught.Message;
+                }
+                return "";
+            }
+        }
+        """;
+
+    [Fact]
+    public void DeclaredCombineThatDisagreesWithTheKindsCombineThrowsWhenTheTableIsBuilt()
+    {
+        var references = EmissionTests.References().ToList();
+        var domain = Compile("Tl.Dense.WrongGame", WrongSource, references, true);
+        var host = Compile("WrongHost", WrongHostSource, references.Append(MetadataReference.CreateFromImage(domain)), false);
+        var context = new AssemblyLoadContext("WrongGame");
+        var loaded = context.LoadFromStream(new MemoryStream(domain));
+        var run = context.LoadFromStream(new MemoryStream(host)).GetType("WrongHost", true)!.GetMethod("Run")!;
+        var track = new TypedTrack { Type = loaded.GetType("WrongGame.WrongTrack", true)!, Data = TestDomain.Pack(1f) };
+        foreach (var (start, end, value, priority) in new[] { (0u, 10u, 3, 1), (5u, 15u, -4, 1), (12u, 20u, 5, 1) })
+            track.Clips.Add(new TypedClip { Type = loaded.GetType("WrongGame.WrongClip", true)!, Start = start, End = end, Data = TestDomain.Pack(value, priority) });
+        var timeline = new TypedTimeline { Name = "wrong", Duration = 20, Loops = true, Tracks = { track } };
+        var manifest = LibraryBake.Manifest(["wrong"], [], 60);
+        var tlb = LibraryBake.BakeTyped(timeline, manifest);
+        var library = LibraryAssembler.Assemble([new LibraryPart { Name = "wrong", Tlb = tlb, Kinds = LibraryBake.KindPayload("wrong", tlb, LibraryBake.Kinds([loaded])) }], 60, LibrarySettings.Default);
+        foreach (var (system, kind, combine) in new[] { (0, "SumIsMax", "Sum"), (1, "FirstWins", "Pick"), (2, "OrIsSum", "Or") })
+            Assert.Equal($"Tl: kind 'WrongGame.{kind}' declares Combine = {combine}, but WrongGame.{kind}.Combine gives a different result on values from the library; fix Combine or the declaration.", (string)run.Invoke(null, [library, system])!);
+    }
+
     [Theory]
     [InlineData(48, 3, 1200, 8, 0)]
     [InlineData(64, 4, 1500, 48, 0)]
