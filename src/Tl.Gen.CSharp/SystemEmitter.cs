@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Tl.Gen.CSharp.Analysis;
 using Tl.Gen.CSharp.Model;
@@ -447,7 +448,7 @@ internal static class SystemEmitter
         foreach (var i in values)
         {
             var kind = assignment.Kinds[i];
-            W(writer, $"{{ var __r = Store.Join(\"{kind.Id}\", sizeof({kind.ValueTypeName}), \"{Signature(assignment, kind)}\", 0, out var __me); var __s = default(KindSpans_{i}); __b.Add<{kind.ValueTypeName}, KindSpans_{i}>(Store.IndexOf(\"{kind.Id}\"), __me, __r, ref __s); }}");
+            W(writer, $"{{ var __r = Store.Join(\"{kind.Id}\", sizeof({kind.ValueTypeName}), \"{Signature(assignment, kind)}\", 0, out var __me); var __s = default(KindSpans_{i}); {kind.ValueTypeName} __id; {Identity(kind, "__id")}__b.Add<{kind.ValueTypeName}, KindSpans_{i}>(Store.IndexOf(\"{kind.Id}\"), __me, __r, ref __s, __id); }}");
         }
         W(writer, "}");
         W(writer, "}");
@@ -475,6 +476,50 @@ internal static class SystemEmitter
         return string.Join("\\n", parts);
     }
 
+    static string LanePath(string root, string path) => path.Length == 0 ? root : root + "." + path;
+
+    static string Identity(KindDecl k, string target)
+    {
+        var sb = new StringBuilder($"{target} = default; ");
+        if (k.Monoid is > 0 and < 5)
+            foreach (var f in k.LaneFields)
+                sb.Append($"{LanePath(target, f.Path)} = {k.Monoid switch { 1 => f.Type == "float" ? "-0f" : f.Type == "double" ? "-0d" : "0", 2 => f.Type + ".MinValue", 3 => f.Type + ".MaxValue", _ => f.Type == "bool" ? "false" : "0" }}; ");
+        return sb.ToString();
+    }
+
+    static bool Lanes(KindDecl k) => k.Monoid is > 0 and < 5;
+
+    static string LaneOp(KindDecl k, string total, string next)
+    {
+        if (k.Monoid == 5) return $"if ({next}.{k.LaneFields[0].Path} >= {total}.{k.LaneFields[0].Path}) {total} = {next}; ";
+        var sb = new StringBuilder();
+        foreach (var f in k.LaneFields)
+        {
+            var t = LanePath(total, f.Path);
+            var n = LanePath(next, f.Path);
+            sb.Append(k.Monoid switch { 1 => $"{t} += {n}; ", 2 => $"{t} = System.Math.Max({t}, {n}); ", 3 => $"{t} = System.Math.Min({t}, {n}); ", _ => $"{t} |= {n}; " });
+        }
+        return sb.ToString();
+    }
+
+    static void EmitLaw(StringBuilder writer, KindDecl k)
+    {
+        var t = k.ValueTypeName;
+        W(writer, $"{t} __last; bool __seen;");
+        W(writer, $"void __Law(in {t} __v)\n{{\n{t} __a, __b;");
+        if (k.Monoid != 5) W(writer, $"{Identity(k, "__a")}__b = __a; {LaneOp(k, "__a", "__v")}{k.TypeName}.Combine(ref __b, in __v); __Same(__a, __b);");
+        W(writer, $"__a = __v; __b = __v; {LaneOp(k, "__a", "__v")}{k.TypeName}.Combine(ref __b, in __v); __Same(__a, __b);");
+        W(writer, $"if (__seen) {{ __a = __last; __b = __last; {LaneOp(k, "__a", "__v")}{k.TypeName}.Combine(ref __b, in __v); __Same(__a, __b); }}");
+        W(writer, "__last = __v; __seen = true;\n}");
+        var differs = "if (" + string.Join(" || ", k.LaneFields.Skip(k.Monoid == 5 ? 1 : 0).Select(f => f.Type switch
+            {
+                "float" => $"System.BitConverter.SingleToInt32Bits({LanePath("__a", f.Path)}) != System.BitConverter.SingleToInt32Bits({LanePath("__b", f.Path)})",
+                "double" => $"System.BitConverter.DoubleToInt64Bits({LanePath("__a", f.Path)}) != System.BitConverter.DoubleToInt64Bits({LanePath("__b", f.Path)})",
+                _ => $"{LanePath("__a", f.Path)} != {LanePath("__b", f.Path)}",
+            })) + ") ";
+        W(writer, $"static void __Same({t} __a, {t} __b)\n{{\n{differs}throw new System.InvalidOperationException(\"Tl: kind '{k.Id}' declares Combine = {SystemReader.MonoidName(k.Monoid)}, but {k.TypeName.Replace("global::", "")}.Combine gives a different result on values from the library; fix Combine or the declaration.\");\n}}");
+    }
+
     static string Acc(KindDecl k, string item, string total = "__total", string has = "__has", string sep = "\n")
         => $"if ({has}) {k.TypeName}.Combine(ref {total}, in {item});{sep}else {{ {total} = {item}; {has} = true; }}";
 
@@ -489,12 +534,12 @@ internal static class SystemEmitter
             W(writer, $"if (__kt{i} == null || __routes{i} == null || !__ks.RowsAreEntities(__kid{i})) return false;");
             W(writer, $"var __kv{i} = __ks.SpanValues(__kid{i}, __me{i}, ref __kfill); if (__kv{i} == null || __kv{i}->Data != __kv{f0}->Data) return false;");
         }
-        W(writer, $"var __vrow = __kv{f0}->Row; var __vdata = __kv{f0}->Data; var __vstride = (nuint)__kv{f0}->Stride; var __vtc = (uint)__kv{f0}->TimelineCount;");
+        W(writer, $"var __vrow = __kv{f0}->Row; var __vdata = __kv{f0}->Data; var __vstride = (nuint)__kv{f0}->Stride; var __vtc = (uint)__kv{f0}->TimelineCount; var __vhead = __vdata + (forward ? 0 : __kv{f0}->Back - __kv{f0}->Front);");
         W(writer, "var __pslots = __pview.Slots; var __pcounts = __pview.Counts; var __pspilled = __pview.Spilled; var __pblocks = __pview.Blocks; var __pspe = (nuint)__pview.SlotsPerEntity; var __hasSamples = __ks.HasSamples;");
         W(writer, $"var __pdn = __pview.Dense; var __porg = __pview.Origins; var __pborg = __pview.BlockOrigins; var __clk = __pview.Clock; var __dh = stackalloc ulong[{fused.Count}];");
         foreach (var i in fused) W(writer, $"var __dt{i} = stackalloc {assignment.Kinds[i].ValueTypeName}[64];");
         foreach (var i in fused)
-            W(writer, $"var __vsh{i} = __kv{i}->Shift; var __vfr{i} = __kv{i}->Front; var __vbk{i} = __kv{i}->Back; var __vf{i} = forward ? __vfr{i} : __vbk{i}; var __vm{i} = 1u << (__vsh{i} + (forward ? 1 : 2));");
+            W(writer, $"var __vsh{i} = __kv{i}->Shift; var __vfr{i} = __kv{i}->Front; var __vbk{i} = __kv{i}->Back; var __vf{i} = forward ? __vfr{i} : __vbk{i}; var __vb{i} = __vsh{i} + (forward ? 1 : 2); var __vm{i} = 1u << __vb{i};");
         W(writer, $"for (var __kw = __firstWord < 0 ? 0 : __firstWord; __kw < __endWord && __kw < __kt{f0}->Words; __kw++)\n{{");
         W(writer, "var __plw = __pl[__kw];");
         foreach (var i in fused) W(writer, $"var __ka{i} = __kt{i}->Active[__kw]; var __kb{i} = __kt{i}->Enabled[__kw] & (__ka{i} | __plw);");
@@ -504,7 +549,7 @@ internal static class SystemEmitter
         for (var c = 0; c < shape.Columns.Count; c++) if (shape.UsedColumns[c]) columns.Add($"__c{c}");
         W(writer, "var __spw = __pspilled[__kw]; var __dnw = __pdn == null ? 0ul : __pdn[__kw] & __kba; var __lim = __n - (__kw << 6);");
         W(writer, $"var __dna = __dnw & ~({string.Join(" | ", fused.ConvertAll(static i => $"__ka{i}"))}) & (__lim >= 64 ? ~0ul : __lim <= 0 ? 0ul : (1ul << __lim) - 1);");
-        W(writer, $"if (__dnw != 0) {{ System.Runtime.CompilerServices.Unsafe.InitBlock(__dh, 0, {fused.Count * 8}); {name}Dense(__dnw, __dna, __kw << 6, __porg, __pborg, __pslots, __pcounts, __spw, __pspe, __clk, __vdata, __vstride, {string.Join(", ", fused.ConvertAll(static i => $"__kb{i}, __vm{i}, __vf{i}, __dt{i}"))}, __dh{string.Concat(columns.ConvertAll(static c => ", " + c))}); }}");
+        W(writer, $"if (__dnw != 0) {{ System.Runtime.CompilerServices.Unsafe.InitBlock(__dh, 0, {fused.Count * 8}); {name}Dense(__dnw, __dna, __kw << 6, __porg, __pborg, __pslots, __pcounts, __spw, __pspe, __clk, __vdata, __vhead, __vstride, {string.Join(", ", fused.ConvertAll(static i => $"__kb{i}, __vb{i}, __vf{i}, __dt{i}"))}, __dh{string.Concat(columns.ConvertAll(static c => ", " + c))}); }}");
         W(writer, "for (var __kb = __kba & ~__dna; __kb != 0; __kb &= __kb - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__kb); var __row = (__kw << 6) + __bit; var __e = __row;\nif (__e >= __n) break;");
         W(writer, "var __inline = __pslots + (nuint)__e * __pspe; var __run = (__spw >> __bit & 1) == 0 ? __inline : __pblocks + *(int*)__inline; var __cnt = __pcounts[__e]; var __smp = __hasSamples ? __ks.SamplesOf(__e) : 0; var __sampled = __smp != 0; var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;");
         foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
@@ -551,15 +596,29 @@ internal static class SystemEmitter
         W(writer, "[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]");
         var typed = new List<string>();
         for (var c = 0; c < shape.Columns.Count; c++) if (shape.UsedColumns[c]) typed.Add($", {shape.Columns[c].ElementTypeName}* __c{c}");
-        W(writer, $"static void {name}Dense(ulong __bits, ulong __apply, int __base, ushort* __porg, ushort* __pborg, Tl.Playback* __pslots, int* __pcounts, ulong __spw, nuint __pspe, ushort __clk, byte* __vdata, nuint __vstride, {string.Join(", ", fused.ConvertAll(i => $"ulong __kb{i}, uint __vm{i}, int __vf{i}, {assignment.Kinds[i].ValueTypeName}* __dt{i}"))}, ulong* __dh{string.Concat(typed)})");
-        W(writer, "{\nfor (; __bits != 0; __bits &= __bits - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__bits); var __e = __base + __bit;");
+        W(writer, $"static void {name}Dense(ulong __bits, ulong __apply, int __base, ushort* __porg, ushort* __pborg, Tl.Playback* __pslots, int* __pcounts, ulong __spw, nuint __pspe, ushort __clk, byte* __vdata, byte* __vhead, nuint __vstride, {string.Join(", ", fused.ConvertAll(i => $"ulong __kb{i}, int __vb{i}, int __vf{i}, {assignment.Kinds[i].ValueTypeName}* __dt{i}"))}, ulong* __dh{string.Concat(typed)})");
+        W(writer, "{");
+        foreach (var i in fused) W(writer, $"var __vm{i} = 1u << __vb{i}; var __vd{i} = __vdata + __vf{i};");
+        W(writer, "for (; __bits != 0; __bits &= __bits - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__bits); var __e = __base + __bit;");
         W(writer, "var __org = (__spw >> __bit & 1) == 0 ? __porg + (nuint)__e * __pspe : __pborg + *(int*)(__pslots + (nuint)__e * __pspe);");
-        foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
-        W(writer, "for (int __i = 0, __cnt = __pcounts[__e]; __i < __cnt; __i++)\n{");
-        W(writer, "var __at = __vdata + (nuint)(ushort)(__org[__i] + __clk) * __vstride; var __m = *(uint*)__at;");
+        var lanes = fused.Exists(i => Lanes(assignment.Kinds[i]));
         foreach (var i in fused)
-            W(writer, $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)(__at + __vf{i}); {Acc(assignment.Kinds[i], "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
+        {
+            var k = assignment.Kinds[i];
+            W(writer, Lanes(k) ? $"{k.ValueTypeName} __ft{i}; {Identity(k, $"__ft{i}")}" : $"{k.ValueTypeName} __ft{i} = default; var __fh{i} = false;");
+        }
+        if (lanes) W(writer, "var __any = 0u;");
+        W(writer, "for (nint __i = 0, __cnt = __pcounts[__e]; __i < __cnt; __i++)\n{");
+        W(writer, "var __ro = (nuint)(ushort)(__org[__i] + __clk) * __vstride; var __m = *(uint*)(__vhead + __ro);" + (lanes ? " __any |= __m;" : ""));
+        foreach (var i in fused)
+        {
+            var k = assignment.Kinds[i];
+            W(writer, Lanes(k) ? $"{{ var __rv{i} = ({k.ValueTypeName}*)(__vd{i} + __ro); {LaneOp(k, $"__ft{i}", $"(*__rv{i})")}}}"
+                : $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({k.ValueTypeName}*)(__vd{i} + __ro); {Acc(k, "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
+        }
         W(writer, "}");
+        foreach (var i in fused)
+            if (Lanes(assignment.Kinds[i])) W(writer, $"var __fh{i} = (__any & __vm{i}) != 0;");
         W(writer, "if ((__apply >> __bit & 1) != 0)\n{");
         foreach (var i in fused) W(writer, $"if ((__kb{i} >> __bit & 1) != 0 && __fh{i}) {assignment.Kinds[i].TypeName}.Apply(in __ft{i}{ApplyTail(shape, assignment.Kinds[i])});");
         W(writer, "continue;\n}");
@@ -584,9 +643,15 @@ internal static class SystemEmitter
     static void EmitValuesStruct(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind, int index, bool spans)
     {
         var value = kind.ValueTypeName;
+        var law = kind.Monoid != 0;
         W(writer, $"internal struct {(spans ? "KindSpans" : "KindPulses")}_{index} : Tl.IKindSpanValues<{value}>");
         W(writer, "{");
-        W(writer, $"public bool Evaluate(int __r, Tl.LibraryStep* __def, Tl.LibraryTimeline* __tl, ushort __tick, bool __backward, out {value} __v)");
+        if (law)
+        {
+            EmitLaw(writer, kind);
+            W(writer, $"public bool Evaluate(int __r, Tl.LibraryStep* __def, Tl.LibraryTimeline* __tl, ushort __tick, bool __backward, out {value} __v)\n{{\nif (!__Evaluate(__r, __def, __tl, __tick, __backward, out __v)) return false;\n__Law(in __v);\nreturn true;\n}}");
+        }
+        W(writer, $"{(law ? "bool __Evaluate" : "public bool Evaluate")}(int __r, Tl.LibraryStep* __def, Tl.LibraryTimeline* __tl, ushort __tick, bool __backward, out {value} __v)");
         W(writer, "{");
         W(writer, "__v = default;");
         if (!spans) W(writer, "if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) return false;");
@@ -594,7 +659,9 @@ internal static class SystemEmitter
         EmitCases(writer, assignment, shape, FeedersOf(assignment, kind), spans, "return false", !spans);
         W(writer, "return true;");
         W(writer, "}");
-        W(writer, spans
+        W(writer, law
+            ? $"public void Combine(ref {value} total, in {value} next) {{ var __a = total; {LaneOp(kind, "__a", "next")}{kind.TypeName}.Combine(ref total, in next); __Same(__a, total); }}"
+            : spans
             ? $"public void Combine(ref {value} total, in {value} next) => {kind.TypeName}.Combine(ref total, in next);"
             : $"public void Combine(ref {value} total, in {value} next) {{ }}");
         W(writer, "}");

@@ -255,7 +255,7 @@ public sealed unsafe partial class KindStore : IDisposable
                     var committed = false;
                     try
                     {
-                        var b = KindBuild.Of(in _score, _tls, views, row, false, ref fill);
+                        var b = KindBuild.Of(in _score, _tls, views, row, false, ref fill, true);
                         if (b.Kinds != 0)
                         {
                             var valid = _kindCount == 64 ? ~0ul : (1ul << _kindCount) - 1;
@@ -263,8 +263,10 @@ public sealed unsafe partial class KindStore : IDisposable
                             for (var k = 0; k < _kindCount; k++)
                                 if ((b.Kinds >> k & 1) != 0 && _values[k].Data != null)
                                     throw new InvalidOperationException("Tl: overlapping span table.");
-                            data = (byte*)Zeroed((nuint)b.Rows * (nuint)b.Stride);
+                            var half = (nuint)b.Rows * (nuint)b.Stride;
+                            data = (byte*)Zeroed(half * (b.Split ? 2u : 1u) + 64);
                             b.Fill(data, ref fill);
+                            for (var r = 0; b.Split && r < b.Rows; r++) *(uint*)(data + half + (nuint)r * (nuint)b.Stride) = *(uint*)(data + (nuint)r * (nuint)b.Stride);
                             for (var k = 0; k < _kindCount; k++)
                                 if ((b.Kinds >> k & 1) != 0)
                                 {

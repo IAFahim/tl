@@ -115,13 +115,17 @@ public unsafe struct KindBuild
     public int Rows;
     internal bool ByFeeder;
     internal bool Filling;
+    internal bool Split;
 
     public static KindBuild Of<TFill>(in KindScore score, LibraryTimeline* timelines, KindValues* views, int* row, bool byFeeder, ref TFill fill) where TFill : struct, IKindFill
+        => Of(in score, timelines, views, row, byFeeder, ref fill, false);
+
+    internal static KindBuild Of<TFill>(in KindScore score, LibraryTimeline* timelines, KindValues* views, int* row, bool byFeeder, ref TFill fill, bool dense) where TFill : struct, IKindFill
     {
-        var b = new KindBuild { Score = score, Timelines = timelines, Views = views, ByFeeder = byFeeder, Stride = 4, Align = 4 };
+        var half = dense ? RowSpace(timelines, score.TimelineCount, row) : -1;
+        var b = new KindBuild { Score = score, Timelines = timelines, Views = views, ByFeeder = byFeeder, Stride = 4, Align = 4, Split = half >= 0 };
         fill.Add(ref b);
         b.Stride = (b.Stride + b.Align - 1) / b.Align * b.Align;
-        var half = RowSpace(timelines, score.TimelineCount, row);
         if (half >= 0) b.Rows = 1 + 2 * half;
         else
             for (var t = 0; t < score.TimelineCount; t++)
@@ -130,7 +134,7 @@ public unsafe struct KindBuild
                 if (row[t] >= 0) b.Rows += (int)timelines[t].Duration;
             }
         var owner = 0;
-        var rest = (long)Math.Max(1, score.TimelineCount) * 4 + (long)b.Rows * b.Stride;
+        var rest = (long)Math.Max(1, score.TimelineCount) * 4 + (long)b.Rows * b.Stride * (b.Split ? 2 : 1);
         for (var k = 0; k < 64; k++)
             if ((b.Kinds >> k & 1) != 0)
             {
@@ -141,6 +145,7 @@ public unsafe struct KindBuild
                 views[k].Reversed = half > 0 ? half : 0;
                 if (views[k].Shift == 0) owner = k;
                 else rest -= views[k].Bytes = (long)b.Rows * 2 * (views[k].Back - views[k].Front);
+                if (b.Split) views[k].Back = views[k].Front + b.Rows * b.Stride;
             }
         if (b.Kinds != 0) views[owner].Bytes = rest;
         return b;
@@ -157,20 +162,20 @@ public unsafe struct KindBuild
         return 2 * (at - 1) + 1 <= 65536 ? (int)(at - 1) : -1;
     }
 
-    public void Add<T, TSpans>(int kind, int part, ushort* routes, ref TSpans spans) where T : unmanaged where TSpans : struct, IKindSpanValues<T>
+    public void Add<T, TSpans>(int kind, int part, ushort* routes, ref TSpans spans, T identity = default) where T : unmanaged where TSpans : struct, IKindSpanValues<T>
     {
         if ((uint)kind >= 64 || routes == null) return;
         var v = Views + kind;
         if (Filling)
         {
-            if ((Kinds >> kind & 1) != 0) v->Fill<T, TSpans>(in Score, Timelines, kind, routes, ByFeeder, ref spans);
+            if ((Kinds >> kind & 1) != 0) v->Fill(in Score, Timelines, kind, routes, ByFeeder, ref spans, identity);
             return;
         }
         if ((Kinds >> kind & 1) != 0 || Shift > 27) return;
         var align = Math.Min(64, sizeof(AlignmentProbe<T>) - sizeof(T));
         var at = (Stride + align - 1) / align * align;
         *v = new KindValues { Front = at, Back = at + sizeof(T), Shift = Shift, Part = part };
-        Stride = at + 2 * sizeof(T);
+        Stride = at + (Split ? 1 : 2) * sizeof(T);
         Align = Math.Max(Align, align);
         Shift += 3;
         Kinds |= 1ul << kind;
@@ -221,7 +226,7 @@ public unsafe struct KindValues
         return head == null || (*head >> Shift & 1) == 0 ? null : (byte*)head;
     }
 
-    public void Fill<T, TSpans>(in KindScore score, LibraryTimeline* timelines, int kind, ushort* routes, bool byFeeder, ref TSpans spans) where T : unmanaged where TSpans : struct, IKindSpanValues<T>
+    public void Fill<T, TSpans>(in KindScore score, LibraryTimeline* timelines, int kind, ushort* routes, bool byFeeder, ref TSpans spans, T identity = default) where T : unmanaged where TSpans : struct, IKindSpanValues<T>
     {
         for (var t = 0; t < TimelineCount; t++)
             for (var tick = 0; Row[t] >= 0 && tick < timelines[t].Duration; tick++)
@@ -258,6 +263,12 @@ public unsafe struct KindValues
                     *(uint*)mirror |= 2u << (Shift + 1 - d);
                     *(T*)(mirror + (d == 0 ? Back : Front)) = total;
                 }
+            }
+        for (var r = 0; r < Rows; r++)
+            for (var d = 0; d < 2; d++)
+            {
+                var at = Data + (nuint)r * (nuint)Stride;
+                if ((*(uint*)at >> (Shift + 1 + d) & 1) == 0) *(T*)(at + (d == 0 ? Front : Back)) = identity;
             }
     }
 
