@@ -319,7 +319,8 @@ public sealed class DenseOracleTests
                 world.Tick(players, true);
                 try
                 {
-                    if (system == 0) new SumSystem { Seen = seen }.Run(world, players, true);
+                    using var workers = new TlWorkers(3);
+                    if (system == 0) new SumSystem { Seen = seen }.Run(world, players, true, workers);
                     else if (system == 1) new PickSystem { Seen = seen }.Run(world, players, true);
                     else new OrSystem { Seen = seen }.Run(world, players, true);
                 }
