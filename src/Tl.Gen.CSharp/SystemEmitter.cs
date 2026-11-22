@@ -481,7 +481,7 @@ internal static class SystemEmitter
     static void EmitFused(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<int> fused, string head, string name)
     {
         var f0 = fused[0];
-        W(writer, $"[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]\ninternal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.SystemView; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
+        W(writer, $"internal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.SystemView; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
         foreach (var i in fused)
         {
             var kind = assignment.Kinds[i];
@@ -500,9 +500,12 @@ internal static class SystemEmitter
         foreach (var i in fused) W(writer, $"var __ka{i} = __kt{i}->Active[__kw]; var __kb{i} = __kt{i}->Enabled[__kw] & (__ka{i} | __plw);");
         W(writer, $"var __kba = {string.Join(" | ", fused.ConvertAll(static i => $"__kb{i}"))};");
         W(writer, "if (__kba == 0) continue;");
-        W(writer, "var __spw = __pspilled[__kw]; var __dnw = __pdn == null ? 0ul : __pdn[__kw] & __kba;");
-        W(writer, $"if (__dnw != 0) {{ System.Runtime.CompilerServices.Unsafe.InitBlock(__dh, 0, {fused.Count * 8}); {name}Dense(__dnw, __kw << 6, __porg, __pborg, __pslots, __pcounts, __spw, __pspe, __clk, __vdata, __vstride, {string.Join(", ", fused.ConvertAll(static i => $"__vm{i}, __vf{i}, __dt{i}"))}, __dh); }}");
-        W(writer, "for (var __kb = __kba; __kb != 0; __kb &= __kb - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__kb); var __row = (__kw << 6) + __bit; var __e = __row;\nif (__e >= __n) break;");
+        var columns = new List<string>();
+        for (var c = 0; c < shape.Columns.Count; c++) if (shape.UsedColumns[c]) columns.Add($"__c{c}");
+        W(writer, "var __spw = __pspilled[__kw]; var __dnw = __pdn == null ? 0ul : __pdn[__kw] & __kba; var __lim = __n - (__kw << 6);");
+        W(writer, $"var __dna = __dnw & ~({string.Join(" | ", fused.ConvertAll(static i => $"__ka{i}"))}) & (__lim >= 64 ? ~0ul : __lim <= 0 ? 0ul : (1ul << __lim) - 1);");
+        W(writer, $"if (__dnw != 0) {{ System.Runtime.CompilerServices.Unsafe.InitBlock(__dh, 0, {fused.Count * 8}); {name}Dense(__dnw, __dna, __kw << 6, __porg, __pborg, __pslots, __pcounts, __spw, __pspe, __clk, __vdata, __vstride, {string.Join(", ", fused.ConvertAll(static i => $"__kb{i}, __vm{i}, __vf{i}, __dt{i}"))}, __dh{string.Concat(columns.ConvertAll(static c => ", " + c))}); }}");
+        W(writer, "for (var __kb = __kba & ~__dna; __kb != 0; __kb &= __kb - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__kb); var __row = (__kw << 6) + __bit; var __e = __row;\nif (__e >= __n) break;");
         W(writer, "var __inline = __pslots + (nuint)__e * __pspe; var __run = (__spw >> __bit & 1) == 0 ? __inline : __pblocks + *(int*)__inline; var __cnt = __pcounts[__e]; var __smp = __hasSamples ? __ks.SamplesOf(__e) : 0; var __sampled = __smp != 0; var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;");
         foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
         W(writer, "if ((__dnw >> __bit & 1) != 0)");
@@ -546,7 +549,9 @@ internal static class SystemEmitter
         }
         W(writer, "}\n}\nreturn true;\n}");
         W(writer, "[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]");
-        W(writer, $"static void {name}Dense(ulong __bits, int __base, ushort* __porg, ushort* __pborg, Tl.Playback* __pslots, int* __pcounts, ulong __spw, nuint __pspe, ushort __clk, byte* __vdata, nuint __vstride, {string.Join(", ", fused.ConvertAll(i => $"uint __vm{i}, int __vf{i}, {assignment.Kinds[i].ValueTypeName}* __dt{i}"))}, ulong* __dh)");
+        var typed = new List<string>();
+        for (var c = 0; c < shape.Columns.Count; c++) if (shape.UsedColumns[c]) typed.Add($", {shape.Columns[c].ElementTypeName}* __c{c}");
+        W(writer, $"static void {name}Dense(ulong __bits, ulong __apply, int __base, ushort* __porg, ushort* __pborg, Tl.Playback* __pslots, int* __pcounts, ulong __spw, nuint __pspe, ushort __clk, byte* __vdata, nuint __vstride, {string.Join(", ", fused.ConvertAll(i => $"ulong __kb{i}, uint __vm{i}, int __vf{i}, {assignment.Kinds[i].ValueTypeName}* __dt{i}"))}, ulong* __dh{string.Concat(typed)})");
         W(writer, "{\nfor (; __bits != 0; __bits &= __bits - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__bits); var __e = __base + __bit;");
         W(writer, "var __org = (__spw >> __bit & 1) == 0 ? __porg + (nuint)__e * __pspe : __pborg + *(int*)(__pslots + (nuint)__e * __pspe);");
         foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
@@ -555,6 +560,9 @@ internal static class SystemEmitter
         foreach (var i in fused)
             W(writer, $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({assignment.Kinds[i].ValueTypeName}*)(__at + __vf{i}); {Acc(assignment.Kinds[i], "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
         W(writer, "}");
+        W(writer, "if ((__apply >> __bit & 1) != 0)\n{");
+        foreach (var i in fused) W(writer, $"if ((__kb{i} >> __bit & 1) != 0 && __fh{i}) {assignment.Kinds[i].TypeName}.Apply(in __ft{i}{ApplyTail(shape, assignment.Kinds[i])});");
+        W(writer, "continue;\n}");
         for (var j = 0; j < fused.Count; j++) W(writer, $"__dt{fused[j]}[__bit] = __ft{fused[j]}; if (__fh{fused[j]}) __dh[{j}] |= 1ul << __bit;");
         W(writer, "}\n}");
     }
