@@ -10,7 +10,7 @@ namespace Tl.Systems.Tests;
 
 public sealed class DenseOracleTests
 {
-    const int Rewinds = 0, Controls = 1, DenseSteps = 2, OffDenseSteps = 3, Reloads = 4, GamePulses = 5, Spilled = 6;
+    const int Rewinds = 0, Controls = 1, DenseSteps = 2, OffDenseSteps = 3, Reloads = 4, GamePulses = 5, Spilled = 6, SkippedTally = 7;
 
     const string DenseHostSource = """
         using System;
@@ -44,20 +44,20 @@ public sealed class DenseOracleTests
                     Bodies = new Body[rows];
                 }
 
-                public void Step(bool forward, TlWorkers? workers)
+                public void Step(bool forward, TlWorkers? workers, bool tally)
                 {
                     World.Tick(Players, forward);
                     if (workers == null)
                     {
                         new MoveSystem { Body = Bodies }.Run(World, Players, forward);
                         new PushSystem { Body = Bodies }.Run(World, Players, forward);
-                        new TallySystem { Body = Bodies }.Run(World, Players, forward);
+                        if (tally) new TallySystem { Body = Bodies }.Run(World, Players, forward);
                         new LaneSystem { Body = Bodies }.Run(World, Players, forward);
                         return;
                     }
                     new MoveSystem { Body = Bodies }.Run(World, Players, forward, workers);
                     new PushSystem { Body = Bodies }.Run(World, Players, forward, workers);
-                    new TallySystem { Body = Bodies }.Run(World, Players, forward, workers);
+                    if (tally) new TallySystem { Body = Bodies }.Run(World, Players, forward, workers);
                     new LaneSystem { Body = Bodies }.Run(World, Players, forward, workers);
                 }
 
@@ -165,8 +165,10 @@ public sealed class DenseOracleTests
                             b.Kinds.Pulses<int>("DenseGame.Hits").To(e, 1 + e % 3);
                             stats[5]++;
                         }
-                    a.Step(forward, workers);
-                    b.Step(forward, null);
+                    var tally = step % 13 != 7 && step % 29 != 11;
+                    if (!tally) stats[7]++;
+                    a.Step(forward, workers, tally);
+                    b.Step(forward, null, tally);
                     for (var e = 0; e < rows; e++)
                     {
                         if (a.Players.SystemView.IsDense(e)) stats[2]++;
@@ -258,7 +260,7 @@ public sealed class DenseOracleTests
         var differs = (string)run.Invoke(null, [game.First, game.Second, rows, slots, steps, calm, workers, (Action<KindStore>)(static store => store.DenseEnabled = false), stats])!;
         Assert.True(differs.Length == 0, "the dense world left the explicit one at " + differs);
         Assert.Equal(0, stats[OffDenseSteps]);
-        Assert.True(stats[Rewinds] > 0 && stats[Reloads] == 1 && stats[GamePulses] > 0, "the script skipped a world rewind, the reload or the game pulses.");
+        Assert.True(stats[Rewinds] > 0 && stats[Reloads] == 1 && stats[GamePulses] > 0 && stats[SkippedTally] > 0, "the script skipped a world rewind, the reload, the game pulses or a step without the tally system.");
         return stats;
     }
 
