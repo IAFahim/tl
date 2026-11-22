@@ -15,7 +15,7 @@ public sealed partial class TwoAssemblyTests
 
         public static class PushDenseHost
         {
-            public static string Play(byte[] library, int rows, int steps, Action<KindStore> off)
+            public static string Play(byte[] library, int rows, int steps, bool feedFirst, Action<KindStore> off)
             {
                 using var world = new TimelineWorld(library);
                 using var players = new PlaybackTable(rows);
@@ -37,15 +37,36 @@ public sealed partial class TwoAssemblyTests
                 {
                     world.Tick(players, true);
                     exactWorld.Tick(exactPlayers, true);
-                    new Tl.Generated.TlAuto_Tl_Unity_PushGame { C0_Wind = wind }.Run(world, players, true);
-                    new Tl.Generated.TlAuto_Tl_Unity_PushGame { C0_Wind = wind }.Run(exactWorld, exactPlayers, true);
+                    if (feedFirst) new Tl.Generated.TlAuto_Tl_Unity_PushGame { C0_Wind = wind }.Run(world, players, true);
+                    if (feedFirst) new Tl.Generated.TlAuto_Tl_Unity_PushGame { C0_Wind = wind }.Run(exactWorld, exactPlayers, true);
                     new Tl.Generated.TlAuto_Tl_Unity_PushPack { C0_Push = push }.Run(world, players, true);
                     new Tl.Generated.TlAuto_Tl_Unity_PushPack { C0_Push = exactPush }.Run(exactWorld, exactPlayers, true);
+                    if (!feedFirst) new Tl.Generated.TlAuto_Tl_Unity_PushGame { C0_Wind = wind }.Run(world, players, true);
+                    if (!feedFirst) new Tl.Generated.TlAuto_Tl_Unity_PushGame { C0_Wind = wind }.Run(exactWorld, exactPlayers, true);
                     for (var e = 0; e < rows; e++)
                         if (BitConverter.SingleToInt32Bits(push[e].X) != BitConverter.SingleToInt32Bits(exactPush[e].X) || BitConverter.SingleToInt32Bits(push[e].Y) != BitConverter.SingleToInt32Bits(exactPush[e].Y))
                             return $"step {step} entity {e}: dense {push[e].X} {push[e].Y}, explicit {exactPush[e].X} {exactPush[e].Y}";
                 }
                 return "";
+            }
+
+            public static int Dense(byte[] library, int rows, int steps)
+            {
+                using var world = new TimelineWorld(library);
+                using var players = new PlaybackTable(rows);
+                using var kinds = new KindStore(world, players);
+                var push = new Push[rows];
+                var wind = new Wind[rows];
+                for (var e = 0; e < rows; e++) players.Start(e, (ushort)(1 + e % 4));
+                var dense = 0;
+                for (var step = 0; step < steps; step++)
+                {
+                    world.Tick(players, true);
+                    new Tl.Generated.TlAuto_Tl_Unity_PushGame { C0_Wind = wind }.Run(world, players, true);
+                    new Tl.Generated.TlAuto_Tl_Unity_PushPack { C0_Push = push }.Run(world, players, true);
+                    for (var e = 0; e < rows; e++) if (players.SystemView.IsDense(e)) dense++;
+                }
+                return dense;
             }
         }
         """;
@@ -64,7 +85,8 @@ public sealed partial class TwoAssemblyTests
         var loadedPack = context.LoadFromStream(new MemoryStream(pack));
         var loadedGame = context.LoadFromStream(new MemoryStream(game));
         var play = context.LoadFromStream(new MemoryStream(host)).GetType("PushDenseHost", true)!.GetMethod("Play")!;
-        var differs = (string)play.Invoke(null, [Library(loadedPack, loadedGame), 16, 300, (Action<KindStore>)(static store => store.DenseEnabled = false)])!;
+        var differs = (string)play.Invoke(null, [Library(loadedPack, loadedGame), 16, 300, true, (Action<KindStore>)(static store => store.DenseEnabled = false)])!;
         Assert.True(differs.Length == 0, "the dense world left the explicit one at " + differs);
+        Assert.Equal(0, (int)play.DeclaringType!.GetMethod("Dense")!.Invoke(null, [Library(loadedPack, loadedGame), 16, 300])!);
     }
 }

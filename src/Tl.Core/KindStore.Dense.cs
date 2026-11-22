@@ -119,7 +119,7 @@ public sealed unsafe partial class KindStore
                 for (var p = _pairStart[t]; ok && p < _pairStart[t + 1]; p++)
                 {
                     var feeder = _sec.Feeders + (_pairs[p] & 0xffff);
-                    if (feeder->Trigger == 0 && (_values[feeder->Kind].Data == null || _parts[feeder->Kind]?.Count > 1 || _feeding.Contains(_kindNames[feeder->Kind]))) ok = false;
+                    if (feeder->Trigger == 0 && (_values[feeder->Kind].Data == null || _feeding.Contains(_kindNames[feeder->Kind]))) ok = false;
                 }
                 _eligible[t] = ok ? (byte)1 : (byte)0;
             }
