@@ -550,7 +550,7 @@ internal static class SystemEmitter
         W(writer, "var __spw = __pspilled[__kw]; var __dnw = __pdn == null ? 0ul : __pdn[__kw] & __kba; var __lim = __n - (__kw << 6);");
         W(writer, $"var __dna = __dnw & ~({string.Join(" | ", fused.ConvertAll(static i => $"__ka{i}"))}) & (__lim >= 64 ? ~0ul : __lim <= 0 ? 0ul : (1ul << __lim) - 1);");
         var rest = $"__dna, __kw << 6, __porg, __pborg, __pslots, __pcounts, __spw, __pspe, __clk, __vdata, __vhead, __vstride, {string.Join(", ", fused.ConvertAll(static i => $"__kb{i}, __vb{i}, __vf{i}, __dt{i}"))}, __dh{string.Concat(columns.ConvertAll(static c => ", " + c))}";
-        W(writer, $"if (__dnw != 0) {{ System.Runtime.CompilerServices.Unsafe.InitBlock(__dh, 0, {fused.Count * 8}); var __left = {name}Small(__dnw, {rest}); if (__left != 0) {name}Dense(__left, {rest}); }}");
+        W(writer, $"if (__dnw != 0) {{ System.Runtime.CompilerServices.Unsafe.InitBlock(__dh, 0, {fused.Count * 8}); var __left = __pspe > 4 ? __dnw : {name}Small(__dnw, {rest}); if (__left != 0) {name}Dense(__left, {rest}); }}");
         W(writer, "for (var __kb = __kba & ~__dna; __kb != 0; __kb &= __kb - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__kb); var __row = (__kw << 6) + __bit; var __e = __row;\nif (__e >= __n) break;");
         W(writer, "var __inline = __pslots + (nuint)__e * __pspe; var __run = (__spw >> __bit & 1) == 0 ? __inline : __pblocks + *(int*)__inline; var __cnt = __pcounts[__e]; var __smp = __hasSamples ? __ks.SamplesOf(__e) : 0; var __sampled = __smp != 0; var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;");
         foreach (var i in fused) W(writer, $"{assignment.Kinds[i].ValueTypeName} __ft{i} = default; var __fh{i} = false;");
