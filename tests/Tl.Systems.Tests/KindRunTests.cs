@@ -6,14 +6,13 @@ namespace Tl.Systems.Tests;
 
 public sealed unsafe class KindRunTests : IDisposable
 {
-    const ushort Jump = 1, PotionHop = 2, Run = 3, RunLegacy = 4, SpeedBoost = 5, Stomp = 6;
+    const ushort Jump = 1, PotionHop = 2, Run = 3, SpeedBoost = 5, Stomp = 6;
     const int N = 4;
 
     readonly TimelineWorld _world;
     readonly PlaybackTable _players = new(N);
     readonly KindStore _store;
     readonly Motion[] _motion = new Motion[N];
-    readonly LegacyMotion[] _legacy = new LegacyMotion[N];
     readonly WalkStat[] _stat = new WalkStat[N];
     readonly JumpPower[] _power = new JumpPower[N];
     readonly Stamina[] _stamina = new Stamina[N];
@@ -52,7 +51,7 @@ public sealed unsafe class KindRunTests : IDisposable
     void Step(bool forward = true)
     {
         _world.Tick(_players, forward);
-        new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, _players, forward);
+        new Movement { Motion = _motion, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, _players, forward);
         new Vitals { Health = _health }.Run(_world, _players, forward);
     }
 
@@ -113,22 +112,6 @@ public sealed unsafe class KindRunTests : IDisposable
     }
 
     [Fact]
-    public void KindPathAndLegacyConsumerAgreeBitForBitAcrossLoopWrap()
-    {
-        _stat[0] = _stat[1] = new WalkStat { Value = 1.1f };
-        _players.Start(0, Run);
-        _players.Start(1, RunLegacy);
-        for (var s = 0; s < 100; s++)
-        {
-            Step();
-            Assert.Equal(BitConverter.SingleToInt32Bits(_legacy[1].X), BitConverter.SingleToInt32Bits(_motion[0].X));
-        }
-        Assert.True(_motion[0].X > 200f);
-        Assert.Equal(0f, _motion[1].X);
-        Assert.Equal(0f, _legacy[0].X);
-    }
-
-    [Fact]
     public void ADisabledKindRowSkipsItsEntriesUntilEnabledAgain()
     {
         _players.Start(0, Run);
@@ -141,21 +124,6 @@ public sealed unsafe class KindRunTests : IDisposable
         _store.Table(kind)->SetEnabled(row, true);
         Step();
         Assert.Equal(4f, _motion[0].X);
-    }
-
-    [Fact]
-    public void SystemsRunLegacyConsumersWithoutAKindStore()
-    {
-        using var plain = new PlaybackTable(N);
-        plain.Start(1, RunLegacy);
-        for (var s = 0; s < 5; s++)
-        {
-            _world.ApplyRequests(plain);
-            new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, plain, true);
-            _world.Advance(plain, true);
-        }
-        Assert.Equal(10f, _legacy[1].X);
-        Assert.Equal(0f, _motion[1].X);
     }
 
     [Fact]

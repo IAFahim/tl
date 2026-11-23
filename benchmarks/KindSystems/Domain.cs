@@ -11,27 +11,6 @@ public ref partial struct KSys
     public Span<int> Hp;
 }
 
-[TimelineSystem]
-public ref partial struct LSys
-{
-    public Span<float> Fx;
-}
-
-public struct LegacyClip { public float Amount; }
-public struct LegacyTrack : IBlend<LegacyClip>
-{
-    public float Scale;
-    public void Blend(in LegacyClip a, in LegacyClip b, float t, out LegacyClip r) => r = a;
-}
-[TimelineSystemMember(typeof(LSys))]
-public struct Legacy : ITrack<LegacyTrack, LegacyClip>
-{
-    public static void ExecuteActive(in Frame<LegacyTrack, LegacyClip> f, ref float fx) => fx += f.Direction * f.Clip.Amount * f.Track.Scale;
-    public static void OnClipEnd(in Frame<LegacyTrack, LegacyClip> f)
-    {
-    }
-}
-
 [TimelineKind(Accepts = KindEntries.Pulses, FoldsPulses = true)]
 public struct Dmg
 {

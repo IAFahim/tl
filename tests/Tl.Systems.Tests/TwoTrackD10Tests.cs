@@ -15,25 +15,34 @@ public sealed unsafe class TwoTrackD10Tests
         return library;
     }
 
-    static (float Effect, int Runs) AtTick(ushort position, bool forward)
+    static (float Effect, int Runs)[] SampleLoop(bool forward)
     {
         using var world = new TimelineWorld(File.ReadAllBytes(Path.Combine(TwoTrackLibraryDir(), "game.tlib")));
         Assert.Equal(1, world.View.TimelineCount);
         using var players = new PlaybackTable(4);
+        using var kinds = new KindStore(world, players);
         var total = new float[4];
         var runs = new int[4];
+        var system = new TwoTrack { Total = total, Runs = runs };
+        var samples = new (float, int)[8];
         players.Start(0, 1);
-        for (var i = 0; i < position; i++)
+        if (!forward)
         {
-            world.ApplyRequests(players);
-            new TwoTrack { Total = total, Runs = runs }.Run(world, players, true);
-            world.Advance(players, true);
+            for (var i = 0; i <= samples.Length; i++)
+            {
+                world.Tick(players, true);
+                system.Run(world, players, true);
+            }
         }
-        total[0] = 0f;
-        runs[0] = 0;
-        world.ApplyRequests(players);
-        new TwoTrack { Total = total, Runs = runs }.Run(world, players, forward);
-        return (total[0], runs[0]);
+        for (var i = 0; i < samples.Length; i++)
+        {
+            total[0] = 0;
+            runs[0] = 0;
+            world.Tick(players, forward);
+            system.Run(world, players, forward);
+            samples[forward ? i : samples.Length - i - 1] = (total[0], runs[0]);
+        }
+        return samples;
     }
 
     [Fact]
@@ -43,9 +52,10 @@ public sealed unsafe class TwoTrackD10Tests
         // (6 + 50), not twice the shared lane (100).
         float[] effects = [6, 6, 56, 56, 56, 56, 50, 50];
         int[] runs = [1, 1, 2, 2, 2, 2, 1, 1];
-        for (var position = 0; position <= 7; position++)
+        var samples = SampleLoop(true);
+        for (var position = 0; position < samples.Length; position++)
         {
-            var (effect, runCount) = AtTick((ushort)position, true);
+            var (effect, runCount) = samples[position];
             Assert.Equal(effects[position], effect);
             Assert.Equal(runs[position], runCount);
         }
@@ -56,11 +66,8 @@ public sealed unsafe class TwoTrackD10Tests
     {
         float[] effects = [-6, -6, -56, -56, -56, -56, -50, -50];
         int[] runs = [1, 1, 2, 2, 2, 2, 1, 1];
-        for (var position = 0; position <= 7; position++)
-        {
-            var (effect, runCount) = AtTick((ushort)position, false);
-            Assert.Equal(effects[position], effect);
-            Assert.Equal(runs[position], runCount);
-        }
+        var samples = SampleLoop(false);
+        Assert.Equal(effects, samples.Select(static sample => sample.Effect).ToArray());
+        Assert.Equal(runs, samples.Select(static sample => sample.Runs).ToArray());
     }
 }

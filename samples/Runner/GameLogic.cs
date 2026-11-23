@@ -18,7 +18,8 @@ namespace Game
     public readonly struct InputState { public readonly Button Held; public InputState(Button held) { Held = held; } }
     public readonly struct HeadIndex { public readonly int Value; public HeadIndex(int value) { Value = value; } }
     public readonly struct Cue { public readonly Sound Voice; public Cue(Sound voice) { Voice = voice; } }
-    public readonly struct StompHit { public readonly float Radius; public readonly Position At; public StompHit(float radius, Position at) { Radius = radius; At = at; } }
+    public struct Trigger { public ushort Timeline; }
+    public struct FootstepCue { public Sound Voice; }
 
     public readonly struct MoveTrack : IBlend<MoveClip>
     {
@@ -63,59 +64,77 @@ namespace Game
     }
     public readonly struct CueClip { public readonly Sound Voice; public CueClip(Sound voice) { Voice = voice; } }
     public readonly struct FootstepMarker { public readonly Sound Step; public readonly Foot Foot; public FootstepMarker(Sound step, Foot foot) { Step = step; Foot = foot; } }
+    [TimelineSystemMember(typeof(Movement))]
     public readonly struct Move : ITrack<MoveTrack, MoveClip>
     {
-        public static void ExecuteActive(in Frame<MoveTrack, MoveClip> frame, ref Motion m)
-        {
-            m.X += frame.Direction * frame.Clip.Dx * frame.Track.Mult;
-            m.Y += frame.Direction * frame.Clip.Dy * frame.Track.Mult;
-        }
+        [Feeds(typeof(Stride))]
+        public static Motion Evaluate(in Frame<MoveTrack, MoveClip> frame)
+            => new(frame.Direction * frame.Clip.Dx * frame.Track.Mult, frame.Direction * frame.Clip.Dy * frame.Track.Mult);
+    }
 
-        public static void OnClipEnd(in Frame<MoveTrack, MoveClip> frame)
+    [TimelineKind(Mode = KindMode.Each)]
+    public struct Stride
+    {
+        public static void Apply(in Motion delta, ref Motion motion)
         {
+            motion.X += delta.X;
+            motion.Y += delta.Y;
         }
     }
 
     public readonly struct Jump : ITrack<ArcTrack, ArcClip>
     {
-        public static void Fold(in Frame<ArcTrack, ArcClip> frame, out float lift)
-            => lift = frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
-
-        public static void ExecuteActive(in Frame<ArcTrack, ArcClip> frame, in float lift, ref Motion m, in JumpPower power)
-            => m.Y += lift * power.Value;
-
-        public static void OnClipEnd(in Frame<ArcTrack, ArcClip> frame)
-        {
-        }
+        [Feeds(typeof(Lift))]
+        public static float Evaluate(in Frame<ArcTrack, ArcClip> frame, in JumpPower power)
+            => frame.Direction * frame.Clip.Velocity * frame.Track.Scale * power.Value;
     }
 
+    [TimelineKind(Mode = KindMode.Each)]
+    public struct Lift
+    {
+        public static void Apply(in float lift, ref Motion motion) => motion.Y += lift;
+    }
+
+    [TimelineSystemMember(typeof(Movement))]
     public readonly struct ChangeStat : ITrack<StatTrack, StatClip>
     {
-        public static void OnClipStart(in Frame<StatTrack, StatClip> frame, ref Stats s)
+        [Pulse(typeof(StatChange), On = ClipEvent.Start)]
+        public static StatClip Evaluate(in Frame<StatTrack, StatClip> frame)
+            => new(frame.Clip.Which, frame.Direction * frame.Clip.Delta);
+    }
+
+    [TimelineKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each)]
+    public struct StatChange
+    {
+        public static void Apply(in StatClip change, ref Stats stats)
         {
-            if (frame.Clip.Which == Stat.JumpCounter)
-                s.JumpCounter += frame.Direction * frame.Clip.Delta;
+            if (change.Which == Stat.JumpCounter)
+                stats.JumpCounter += change.Delta;
             else
-                s.Health += frame.Direction * frame.Clip.Delta;
+                stats.Health += change.Delta;
         }
     }
 
     public readonly struct InputWindow : ITrack<InputTrack, InputWindowClip>
     {
-        public static void ExecuteActive(in Frame<InputTrack, InputWindowClip> frame, in InputState input, ref Requests requests)
+        [Feeds(typeof(Starts))]
+        public static ushort Evaluate(in Frame<InputTrack, InputWindowClip> frame, in InputState input)
+            => frame.Direction > 0 && input.Held == frame.Clip.Button ? frame.Clip.OnPress.Value : (ushort)0;
+    }
+
+    [TimelineKind(Mode = KindMode.Each)]
+    public struct Starts
+    {
+        public static void Apply(in ushort timeline, ref Trigger trigger)
         {
-            if (frame.Direction > 0 && input.Held == frame.Clip.Button)
-                requests.Start(frame.Clip.OnPress.Value);
+            if (timeline != 0) trigger.Timeline = timeline;
         }
     }
 
     public readonly struct Stomp : ITrack<StompTrack, StompClip>
     {
-        public static void ExecuteActive(in Frame<StompTrack, StompClip> frame, in Position pos, in HeadIndex head, ref Events<StompHit> hits)
-        {
-            if (head.Value != 0)
-                hits.Raise(new StompHit(frame.Clip.Radius, pos));
-        }
+        public static void ExecuteActive(in Frame<StompTrack, StompClip> frame, ref Events<float> hits)
+            => hits.Raise(frame.Clip.Radius);
     }
 
     public readonly struct Cues : ITrack<CueTrack, CueClip>
@@ -124,10 +143,17 @@ namespace Game
             => cues.Raise(new Cue(frame.Clip.Voice));
     }
 
+    [TimelineSystemMember(typeof(Movement))]
     public readonly struct Footsteps : IMarker<FootstepMarker>
     {
-        public static void OnMarker(in MarkerFrame<FootstepMarker> marker, ref Events<Cue> cues)
-            => cues.Raise(new Cue(marker.Marker.Step));
+        [Pulse(typeof(Footstep), On = ClipEvent.Marker)]
+        public static Sound Evaluate(in MarkerFrame<FootstepMarker> marker) => marker.Marker.Step;
+    }
+
+    [TimelineKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each)]
+    public struct Footstep
+    {
+        public static void Apply(in Sound voice, ref FootstepCue cue) => cue.Voice = voice;
     }
 
     [TimelineSystem]
@@ -137,15 +163,14 @@ namespace Game
         public ReadOnlySpan<JumpPower> JumpPower;
         public Span<Stats> Stats;
         public ReadOnlySpan<InputState> Input;
-        public Requests Requests;
-        public Events<Cue> Cues;
+        public Span<Trigger> Triggers;
+        public Span<FootstepCue> Footsteps;
     }
 
     [TimelineSystem]
-    public ref partial struct Combat
+    public ref partial struct Signals
     {
-        public ReadOnlySpan<Position> Position;
-        public ReadOnlySpan<HeadIndex> Heads;
-        public Events<StompHit> Hits;
+        public Events<Cue> Cues;
+        public Events<float> Hits;
     }
 }

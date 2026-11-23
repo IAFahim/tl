@@ -39,7 +39,7 @@ CLASSIFIED = {
     "IsExternalInit": "compiler polyfill, permanently classified",
     "SkipLocalsInitAttribute": "compiler polyfill, permanently classified",
     "UnscopedRefAttribute": "compiler polyfill, permanently classified",
-    "TimelineSlotKeysAttribute": "applied as [TimelineSlotKeys] short name in tests/Tl.Systems.Toolbox; text scanner cannot see the use",
+    "TimelineSlotKeysAttribute": "applied as [TimelineSlotKeys] short name in samples/Runner; text scanner cannot see the use",
     "BurstDiscardAttribute": "applied as [Unity.Burst.BurstDiscard] in src/Tl.Core/Events.cs; the scanner only sees the short attribute name",
     "LiveHostInstall": "module-initializer consumer install for tl --live hosting; invoked by attribute, never by name",
 }

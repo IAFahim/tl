@@ -14,7 +14,6 @@ public sealed unsafe class KindSpeedTests
         public readonly PlaybackTable Players;
         public readonly KindStore Store;
         public readonly Motion[] Motion;
-        readonly LegacyMotion[] _legacy;
         readonly WalkStat[] _stat;
         readonly JumpPower[] _power;
         public readonly Stamina[] Stamina;
@@ -29,7 +28,6 @@ public sealed unsafe class KindSpeedTests
             Players = new PlaybackTable(n);
             Store = new KindStore(World, Players);
             Motion = new Motion[n];
-            _legacy = new LegacyMotion[n];
             _stat = new WalkStat[n];
             _power = new JumpPower[n];
             Stamina = new Stamina[n];
@@ -46,7 +44,7 @@ public sealed unsafe class KindSpeedTests
         public void Step(bool forward = true)
         {
             World.Tick(Players, forward);
-            new Movement { Motion = Motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = Stamina, Heat = _heat }.Run(World, Players, forward);
+            new Movement { Motion = Motion, WalkStat = _stat, JumpPower = _power, Stamina = Stamina, Heat = _heat }.Run(World, Players, forward);
             new Vitals { Health = Health }.Run(World, Players, forward);
         }
 

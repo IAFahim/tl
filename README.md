@@ -45,70 +45,48 @@ dotnet tool install --global Tl.Bake --prerelease     # the tl bake command
 
 ## Get started
 
-Three structs and one JSON file — a first timeline in a minute. Put the structs and `timelines/jump.json` in a console project:
+The [Hello Tl example](demos/hello) takes one authored timeline from JSON to playback. A track's `[Pulse]` method computes a value when its clip starts. A kind's `Apply` uses that value to update the entity:
 
 ```cs
-public readonly struct ArcClip { public readonly float Velocity; public ArcClip(float velocity) { Velocity = velocity; } }
+[TlClip("Hello/Teleport")]
+public struct TeleportClip { public float Distance; }
 
-public readonly struct ArcTrack : IBlend<ArcClip>
+public struct TeleportTrack : ITlTrack<TeleportClip>
 {
-    public readonly float Scale;
-    public ArcTrack(float scale) { Scale = scale; }
-    public void Blend(in ArcClip first, in ArcClip second, float factor, out ArcClip result)
-        => result = new ArcClip(first.Velocity + ((second.Velocity - first.Velocity) * factor));
+    [Pulse(typeof(TeleportKind), On = ClipEvent.Start)]
+    public static float Jump(in TlFrame<TeleportClip> frame)
+        => frame.Direction * frame.Clip.Distance;
 }
 
-public readonly struct Rise : ITrack<ArcTrack, ArcClip>
+[TlKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each)]
+public struct TeleportKind
 {
-    public static void Fold(in Frame<ArcTrack, ArcClip> frame, out float lift)
-        => lift = frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
-
-    public static void ExecuteActive(in Frame<ArcTrack, ArcClip> frame, in float lift, ref Motion m)
-        => m.Y += lift;
-
-    public static void OnClipEnd(in Frame<ArcTrack, ArcClip> frame)
-    {
-    }
+    public static void Apply(in float distance, ref Teleported player)
+        => player.Offset += distance;
 }
+
+[TlState]
+public partial struct Teleported { public float Offset; }
 ```
 
-```json
-{
-  "name": "jump", "duration": 30, "next": "run", "channel": "locomotion",
-  "tracks": [
-    { "namespace": "Game", "type": "ArcTrack", "data": { "Scale": 1.0 },
-      "clips": [ { "namespace": "Game", "type": "ArcClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
-                 { "namespace": "Game", "type": "ArcClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } } ] }
-  ]
-}
-```
-
-Build, then bake the whole library with `tl library` — it packs every timeline into one `game.tlib` and writes the stable ids to `Timelines.g.cs`:
-
-```sh
-dotnet build -c Release
-tl library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
-```
-
-Play it — systems run every step, then one `Advance` moves every clock; `Run` never moves ticks. After the full loop the arc has risen and fallen and `next` has handed the entity back to `run`. Put the loop in `Program.cs` and `dotnet run`:
+The host attaches a `KindStore` to its `PlaybackTable`, calls `world.Tick(players)`, and runs the generated system with its own component array:
 
 ```cs
 using var world = new TimelineWorld(File.ReadAllBytes("game.tlib"));
-using var players = new PlaybackTable(entityCapacity: 1, slotsPerEntity: 4);
-var motion = new Motion[1];
-var power = new JumpPower[1];
-players.Start(0, Timelines.Jump);
-for (var frame = 0; frame < 30; frame++)
+using var players = new PlaybackTable(entityCapacity: 1);
+using var kinds = new KindStore(world, players);
+var state = new Teleported[1];
+players.Start(0, 1);
+for (var frame = 0; frame < 60; frame++)
 {
-    world.ApplyRequests(players);
-    new Movement { Motion = motion, JumpPower = power }.Run(world, players);
-    world.Advance(players);
+    world.Tick(players);
+    new Tl.Generated.TlAuto_HelloTl { C0_Teleported = state }.Run(world, players);
 }
 ```
 
 ## Run the full thing
 
-`samples/Runner` is the whole pipeline with the code inline — data, bake, systems, output. Its `GameLogic.cs` is the shared toolbox both hosts compile (payloads, tracks and clips, consumers, the `Movement` and `Combat` systems); the console host loads `game.tlib` and steps three entities through it.
+`samples/Runner` is the whole pipeline with the code inline — data, bake, systems, output. Its `GameLogic.cs` declares the toolbox (payloads, tracks and clips, consumers, the `Movement` and `Signals` systems); the console host loads `game.tlib` and steps three entities through it.
 
 **1 · the data** — `samples/Runner/timelines/`, authored by a designer, naming the game's own C# types. `run.json` loops locomotion under the whole game; `jump.json` hands back to `run` through `next`; `slide.json` opens an `InputWindow` that requests `barrel_explode` on a second channel when the player presses Attack mid-slide; `potion_hop.json` stacks channel-free on top of anything:
 
@@ -125,22 +103,7 @@ cd samples/Runner
 tl library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
 ```
 
-**3 · the systems** — `samples/Runner/GameLogic.cs`. `Jump` folds the pure arc once per tick and composes it with live per-jumper power every step; `InputWindow` requests `barrel_explode` while Attack is held; `ChangeStat` spends one `JumpCounter` on clip start; `Stomp` and `Cues` raise typed events:
-
-```cs
-public readonly struct Jump : ITrack<ArcTrack, ArcClip>
-{
-    public static void Fold(in Frame<ArcTrack, ArcClip> frame, out float lift)
-        => lift = frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
-
-    public static void ExecuteActive(in Frame<ArcTrack, ArcClip> frame, in float lift, ref Motion m, in JumpPower power)
-        => m.Y += lift * power.Value;
-
-    public static void OnClipEnd(in Frame<ArcTrack, ArcClip> frame)
-    {
-    }
-}
-```
+**3 · the systems** — `samples/Runner/GameLogic.cs`. `Jump` feeds lift from the clip and live jump power. `Lift.Apply` writes vertical motion. `ChangeStat` sends a pulse when a clip starts. The host reads input-trigger results and queues a request for the next step.
 
 Run it:
 
@@ -155,7 +118,7 @@ dotnet run -c Release --no-build -- --verify
 
 You see the hero run, jump exactly back to the takeoff height, and hand over to `run`; the slider's mid-slide button press detonates the barrel on the action channel; `--verify` proves `Jump_lands_exactly_where_it_took_off`, exact rewind, and a stable state hash across two 600-step runs.
 
-No game behaviour lives in tl. The jump-arc math is `Jump.Fold` (toolbox, once per clip type); pressing Attack to detonate is the host setting one `InputState` cell (gameplay, your ECS); sliding into a barrel needs no slide-specific code — the designer arranged an `InputWindow` clip plus a `Cue`/`Stomp` pair the toolbox already provided.
+No game behaviour lives in tl. The jump-arc math is `Jump.Evaluate` (toolbox, once per clip type); pressing Attack to detonate is the host setting one `InputState` cell (gameplay, your ECS); sliding into a barrel needs no slide-specific code — the designer arranged an `InputWindow` clip plus a `Cue`/`Stomp` pair the toolbox already provided.
 
 ## Data
 
@@ -189,7 +152,7 @@ tl library <dir> [--assembly Game.dll] --out game.tlib --ids Timelines.g.cs [--n
 
 `tl bake tl.project.json -o game.tlib` is the same pack, but it writes `Timelines.g.cs` and `Kinds.g.cs` only with `--emit-sources <dir>` (`tl library` writes them beside the folder as above); `tl decode game.tlib -o decoded/` (or one `.tlb`) writes the exact JSON back, or fails by name when it cannot. The three JSON documents (timeline, `tl.project.json`, scene), the decode guarantees and the migration notes are in [docs/json-format.md](docs/json-format.md).
 
-`new TimelineWorld(ReadOnlySpan<byte> library)` is the one cold step per library: it validates (rejection contract) + digest, turns TLB structures into native blocks, and builds the derived tables — per-step fold lanes (every tick both directions; pure functions of the frame), frame tables per (timeline, step, direction), an event index (sorted tick/kind/step/marker plus 1 bit per tick), and per (system, timeline, stage) step lists in authored order so dispatch costs active steps, not clip types in the game. It publishes a `LibraryView`: an unmanaged versioned pointer struct documented in [docs/library-view-abi.md](docs/library-view-abi.md) with readers for tools.
+`new TimelineWorld(ReadOnlySpan<byte> library)` is the one cold step per library: it validates (rejection contract) + digest, turns TLB structures into native frame tables and a tick-ordered index of clip and marker events. A `KindStore` builds the tables used by the generated kind systems. It publishes a `LibraryView`: an unmanaged versioned pointer struct documented in [docs/library-view-abi.md](docs/library-view-abi.md) with readers for tools.
 
 `tl --json --assembly bin/Release/net10.0/Runner.dll` lists every authorable pair in the given assemblies — the authoritative answer to "what can this JSON name?":
 
@@ -209,56 +172,15 @@ tl library <dir> [--assembly Game.dll] --out game.tlib --ids Timelines.g.cs [--n
 
 ## System
 
-The structs in the run above are the whole game side — the clip payload, the track settings with its blend, and the consumers that read entity columns plus shared context. `ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact.
+A kind declares the values it accepts and how its system applies them. `[Feeds]` supplies a value while a clip is active. `[Pulse]` supplies a value at a clip boundary or marker. Kind systems borrow columns from the game and run in game order after `Tick`. Each `Tick` applies requests and advances the playbacks once. The game owns the columns, I/O, and downstream systems.
 
-A **system** is a struct the gameplay programmer declares once. It lists entity columns plus shared context (spatial index, event writer). The generator connects each consumer to the system holding its parameters and writes the loop. A game has a handful of systems and any number of timelines and clip types:
+Event-only clip hooks can raise typed `Events<T>` from the frame. The host drains each writer in entity, slot, and raise order. A kind-free host can advance playback with `TimelineWorld.Advance`.
 
-```cs
-[TimelineSystem]
-public ref partial struct Movement
-{
-    public Span<Motion> Motion;
-    public ReadOnlySpan<JumpPower> JumpPower;
-    public Span<Stats> Stats;
-    public ReadOnlySpan<InputState> Input;
-    public Requests Requests;
-    public Events<Cue> Cues;
-}
-```
+### Migrate legacy .NET consumers
 
-`Span`/`ReadOnlySpan` fields are columns (one element per entity); anything else is context; all column and context types are unmanaged. One consumer belongs to exactly one system (all params covered); fitting two systems without `[TimelineSystemMember(typeof(S))]` is an error; fitting none warns and never runs. `Run` never moves ticks: any number of systems run per step, ticks move once in `Advance`.
+Replace column-writing `ExecuteActive` with a span `[Feeds]` method and the kind's `Apply`. Use `[Pulse]` with `ClipEvent.Start`, `End`, or `Marker` for gameplay effects at those boundaries. A `Fold` can still supply inputs to a feeder. Keep frame-only clip hooks with `ref Events<T>` writers for notifications.
 
-All consumer methods are static, optional, in any combination, found by name and shape:
-
-| Method | Called | Receives | Use |
-|---|---|---|---|
-| `Fold(in Frame, out R...)` | at load, every tick both directions; must be pure | frame only | authored-data numbers |
-| `ExecuteActive(...)` | every step, once per active step of this pair per playback | frame **or** leading fold results, then columns, then context | per-entity effects |
-| `OnClipStart(in Frame, ...)` | first tick of clip either direction (`Direction` says which); mid-clip start gives `Synthetic` | frame, columns, context | one-shots, stat changes |
-| `OnClipEnd(in Frame, ...)` | last tick either direction; mid-clip stop/replace gives `Interrupted` | frame, columns, context | cleanup |
-| `OnMarker(in MarkerFrame, ...)` on `struct X : IMarker<T>` | at marker tick either direction | marker frame, columns, context | footsteps, spawns |
-
-Rewind is exact (tied to ticks): `ChangeStat` applies `+delta` forward and `-delta` back across the same tick. Binding: `ref/in T` column type = this entity's element; `ref/in T` context type = shared value; `ref Requests` = start/stop for this entity applied next request phase; `ref Events<T>` = raises with `EntityRef`+slot; fold results = leading `in R` in declaration order. Caps are unchanged: 10 folds, widths 1/2/4/8, 30 live columns per consumer, 40-slot row, same-type duplicate-column rejection.
-
-A **playback** is one timeline playing on an entity: `{Timeline, Tick}` plus channel and flags. `Tick` is the next tick to play forward. Storage is a native table behind a managed owner with inline slots per entity (slot order = start order, O(1) start/stop, removal keeps order). Operations: `Start(entity, id, at = 0)` (channel replace: active clips of replaced playbacks get `OnClipEnd`+`Interrupted`; `at > 0` gives `OnClipStart`+`Synthetic` next step), `Stop`/`StopChannel`/`StopAll` (actives get `Interrupted` ends), `IsPlaying`/`Find(channel)`. Games with per-skill loadouts declare `[TimelineSlotKeys] enum Skill { Jump, Slide, Hurt }` and swap each entity's slot table (key → `TimelineId`, see `slots` in `samples/Runner/Program.cs`) so a potion swaps the jump without touching entities.
-
-One whole step of this consumer model, which runs on .NET only (Unity runs kinds and event-only methods and warns TLUNITY9105 for the rest; the kind model in [Control, events and pulses](#control-events-and-pulses-on-both-hosts) runs on both hosts):
-
-```cs
-using var world = new TimelineWorld(File.ReadAllBytes("game.tlib"));
-var players = new PlaybackTable(entityCapacity: 4096, slotsPerEntity: 4);
-players.Start(0, Timelines.Run);
-void Step() {
-    world.ApplyRequests(players);
-    new Movement { Motion = motion, JumpPower = power, Stats = stats, Input = input, Requests = world.Requests(players), Cues = cues.Writer }.Run(world, players);
-    new Combat { Position = position, Heads = heads, Hits = hits.Writer }.Run(world, players);
-    world.Advance(players);
-}
-```
-
-Step order: 1. Requests (last step's, then host's). 2. Systems in game order. 3. `Advance` per playback (++/--, wrap if loop, `next` handover same slot+channel at tick 0 + `StartPending`, else `hold` → `Ended` else removal; `Paused`/`Ended` don't move). 4. Events drained in (entity, slot, raise) order. Determinism: no hash-ordered containers; every tick played exactly once per step, no skipping; float order fixed by consumer order (entities row order; per entity slots in slot order; per playback steps in authored track order, reversed backward; per step consumers in ordinal consumer-name order, reversed backward; event methods after `ExecuteActive` of the same playback+tick).
-
-Game owns column arrays plus result systems (integrate motion, apply damage, present cues). Tl requires none of that.
+`RunFused`, `SystemDispatch`, and `SystemStep` were removed. Attach a `KindStore`, drive the step through `Tick`, and call the generated system's `Run`. Regenerate exported C# and rebake the library so it includes the kind catalog.
 
 ## Control, events and pulses on both hosts
 
@@ -287,20 +209,7 @@ Any code can send any verb to any entity: a healer's cast event starts "healing_
 dotnet msbuild -t:TlGenExport -p:Configuration=Release   # content-stable .g.cs snapshot + manifest
 ```
 
-Checked-in systems snapshots are byte-exact emission goldens. Regenerate them
-only with the commands below and check in the result; the matching tests fail
-on any drift:
-
-- `samples/Runner/Generated/TlSystemsRunner.g.cs` — regenerate via
-  `Tl.Systems.Tests` `RunnerSnapshotTests` with `TL_UPDATE_SNAPSHOT=1`
-  (emits the `Game.Logic` toolbox with id `Runner`; the Runner sample and
-  `LoaderRunTests` consume it).
-- `benchmarks/Systems/Generated/TlSystemsBench.g.cs` — regenerate via
-  `Tl.Systems.Tests` `BenchGenTests` with `TL_UPDATE_BENCH=1`
-  (emits the bench domain with id `Bench`; the Systems benchmarks consume it).
-- `tests/Tl.Systems.Tests/LoaderLibrary/game.tlib` — rebake with
-  `tl library tests/Tl.Systems.Tests/LoaderLibrary --assembly <Tl.Systems.Tests.dll> --out game.tlib`
-  (the `LoaderRunTests` loader-built proof consumes it; ids are positional).
+The export is content-stable. The KindDomain, IdleDomain, and KindSystems tests compare the emitted source with their checked-in snapshots.
 
 ## Numbers
 
@@ -323,7 +232,7 @@ Opt-in lazy slot ticks for kind-free playback, their ownership contract, measure
 Two playbacks per entity cost 1.94x one playback on the same run. Committed 3.x LiveBatch baselines (per-entity medians from a different harness and row count) ship in the receipt for reference; the 4.10 gates (folded ≤1.03x, fold-fed ≤0.15x, frame ≤0.25x, four-pair ≤0.70x, 64-consumer ≤1.5x, 2-playback ≤2.2x) are decided by same-harness BenchmarkDotNet runs on the release machine, not by the ratios above. Warm allocation is 0 B on every shape and determinism is verified by identical state hashes across two full runs.
 <!-- /tl-numbers -->
 
-The table is rendered from [benchmarks/Systems](benchmarks/Systems) receipts — every shape bit-exact forward and backward with 0 B warm — and CI fails if the receipt and this section disagree. Re-measure on the release machine with `eng/refresh-numbers`, which rebuilds the harness, re-runs every shape, and re-renders this block from the fingerprinted receipt. The 4.10 gates (folded ≤1.03x, fold-fed ≤0.15x, frame ≤0.25x, four-pair ≤0.70x, 64-consumer ≤1.5x, 2-playback ≤2.2x, 0 B warm, parity) run against these rows plus the committed 3.x baselines; ratios below are indicative until a same-harness release-machine run records the verdicts.
+These are historical measurements of the removed .NET consumer path. The [KindShape harness](benchmarks/KindShape) measures current playback. The original harness and receipts can be reproduced from [the last legacy revision](https://github.com/IAFahim/tl/tree/7c90cde7/benchmarks/Systems).
 
 ## Migrating 3.x → 4.0
 

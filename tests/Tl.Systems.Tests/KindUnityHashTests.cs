@@ -14,7 +14,6 @@ public sealed unsafe class KindUnityHashTests : IDisposable
     readonly PlaybackTable _players = new(N);
     readonly KindStore _store;
     readonly Motion[] _motion = new Motion[N];
-    readonly LegacyMotion[] _legacy = new LegacyMotion[N];
     readonly WalkStat[] _stat = new WalkStat[N];
     readonly JumpPower[] _power = new JumpPower[N];
     readonly Stamina[] _stamina = new Stamina[N];
@@ -91,7 +90,7 @@ public sealed unsafe class KindUnityHashTests : IDisposable
                 }
             }
             _world.Tick(_players, forward);
-            new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, _players, forward);
+            new Movement { Motion = _motion, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, _players, forward);
             new Vitals { Health = _health }.Run(_world, _players, forward);
             for (var e = 0; e < N; e++)
             {

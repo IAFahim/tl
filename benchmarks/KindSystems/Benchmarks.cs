@@ -28,14 +28,14 @@ public unsafe class KindBenchmarks
 {
     public const int N = 100_000;
     public const int Frames = 32;
-    const ushort Hit = 1, Long = 2, Walk = 3, WalkLegacy = 4;
+    const ushort Hit = 1, Long = 2, Walk = 3;
     public double Sink;
 
     TimelineWorld _shapes = null!, _many = null!, _pairs = null!;
-    PlaybackTable _plA = null!, _pA = null!, _pB = null!, _pC = null!, _pD = null!, _pE2 = null!, _pE64 = null!, _pF1 = null!, _pF8 = null!;
+    PlaybackTable _pA = null!, _pB = null!, _pC = null!, _pD = null!, _pE2 = null!, _pE64 = null!, _pF1 = null!, _pF8 = null!;
     KindStore _sA = null!, _sB = null!, _sC = null!, _sD = null!, _sE2 = null!, _sE64 = null!, _sF1 = null!, _sF8 = null!;
     KindPulses<int, DmgFold> _bullets1, _bullets8;
-    float[] _fxPlan = null!, _fxA = null!, _fxB = null!, _fxC = null!, _fxD = null!, _fxE2 = null!, _fxE64 = null!, _fxF = null!;
+    float[] _fxA = null!, _fxB = null!, _fxC = null!, _fxD = null!, _fxE2 = null!, _fxE64 = null!, _fxF = null!;
     int[] _hp1 = null!, _hp8 = null!;
 
     static string Lib(string name) => Path.Combine(AppContext.BaseDirectory, "libs", name + ".tlib");
@@ -63,7 +63,6 @@ public unsafe class KindBenchmarks
         var k0 = new[] { "KindBench.K0" };
         var one = Reach(N, _ => 1ul);
         var dmg = new[] { "KindBench.Dmg" };
-        _plA = new PlaybackTable(N);
         _pA = new PlaybackTable(N);
         _pB = new PlaybackTable(N);
         _pC = new PlaybackTable(N);
@@ -83,7 +82,6 @@ public unsafe class KindBenchmarks
         _sF8 = new KindStore(_shapes, _pF8, dmg, one);
         _bullets1 = _sF1.Pulses<int, DmgFold>("KindBench.Dmg");
         _bullets8 = _sF8.Pulses<int, DmgFold>("KindBench.Dmg");
-        _fxPlan = new float[N];
         _fxA = new float[N];
         _fxB = new float[N];
         _fxC = new float[N];
@@ -95,7 +93,6 @@ public unsafe class KindBenchmarks
         _hp8 = new int[N];
         for (var e = 0; e < N; e++)
         {
-            _plA.Start(e, WalkLegacy);
             _pA.Start(e, Walk);
             if (e % 10 == 0) _pB.Start(e, Walk);
             _pC.Start(e, (ushort)(1 + (int)((uint)(e * 2654435761u) % 100)), (ushort)(e % 40));
@@ -103,7 +100,6 @@ public unsafe class KindBenchmarks
             _pE2.Start(e, (ushort)(33 + Block(e)));
             _pE64.Start(e, (ushort)(2 + Block(e)));
         }
-        _shapes.ApplyRequests(_plA);
     }
 
     static int Block(int e) => (int)((long)e * 31 / N);
@@ -112,22 +108,10 @@ public unsafe class KindBenchmarks
     public void Cleanup()
     {
         foreach (var s in new[] { _sA, _sB, _sC, _sD, _sE2, _sE64, _sF1, _sF8 }) s.Dispose();
-        foreach (var p in new[] { _plA, _pA, _pB, _pC, _pD, _pE2, _pE64, _pF1, _pF8 }) p.Dispose();
+        foreach (var p in new[] { _pA, _pB, _pC, _pD, _pE2, _pE64, _pF1, _pF8 }) p.Dispose();
         _shapes.Dispose();
         _many.Dispose();
         _pairs.Dispose();
-    }
-
-    [Benchmark(Baseline = true)]
-    public void PlanA()
-    {
-        for (var f = 0; f < Frames; f++)
-        {
-            _shapes.ApplyRequests(_plA);
-            new LSys { Fx = _fxPlan }.Run(_shapes, _plA, true);
-            _shapes.Advance(_plA, true);
-        }
-        Sink += _fxPlan[0] + _fxPlan[N - 1];
     }
 
     void Frames_(TimelineWorld world, PlaybackTable players, float[] fx, int[] hp)
@@ -140,7 +124,7 @@ public unsafe class KindBenchmarks
         Sink += fx[0] + fx[N - 1];
     }
 
-    [Benchmark] public void KindsA() => Frames_(_shapes, _pA, _fxA, _hp8);
+    [Benchmark(Baseline = true)] public void KindsA() => Frames_(_shapes, _pA, _fxA, _hp8);
 
     [Benchmark] public void KindsB() => Frames_(_shapes, _pB, _fxB, _hp8);
 
@@ -173,7 +157,7 @@ public unsafe class KindBenchmarks
 
     [Benchmark] public void KindsF8() => Damage(_pF8, _bullets8, 8, _hp8);
 
-    public bool Parity() => _fxPlan.AsSpan().SequenceEqual(_fxA);
+    public bool MatchesWalkOracle(int steps) => _fxA.All(value => value == steps * 6f);
 
     public (long A, long E2, long E64) BytesPerEntity() => (Row(_sA), Row(_sE2), Row(_sE64));
 
@@ -201,7 +185,7 @@ public static class Smoke
 {
     static (string, Action)[] Shapes(KindBenchmarks b) =>
     [
-        ("PlanA", b.PlanA), ("KindsA", b.KindsA), ("KindsB", b.KindsB), ("KindsC", b.KindsC), ("KindsDTickOnly", b.KindsDTickOnly),
+        ("KindsA", b.KindsA), ("KindsB", b.KindsB), ("KindsC", b.KindsC), ("KindsDTickOnly", b.KindsDTickOnly),
         ("KindsE2", b.KindsE2), ("KindsE64", b.KindsE64), ("KindsF1", b.KindsF1), ("KindsF8", b.KindsF8),
     ];
 
@@ -210,8 +194,8 @@ public static class Smoke
         var bench = new KindBenchmarks();
         bench.Setup();
         var shapes = Shapes(bench);
-        for (var i = 0; i < 2; i++) { bench.PlanA(); bench.KindsA(); }
-        var parity = bench.Parity();
+        for (var i = 0; i < 2; i++) bench.KindsA();
+        var parity = bench.MatchesWalkOracle(2 * KindBenchmarks.Frames);
         foreach (var (_, run) in shapes) for (var w = 0; w < 30; w++) run();
         foreach (var (name, run) in shapes)
         {
@@ -221,7 +205,7 @@ public static class Smoke
             var ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds / 20;
             Console.WriteLine($"SMOKE {name} frames={KindBenchmarks.Frames} entities={KindBenchmarks.N} ms/op={ms:F2} bytes/20ops={GC.GetAllocatedBytesForCurrentThread() - before}");
         }
-        Console.WriteLine($"SMOKE parityPlanVsKinds={parity}");
+        Console.WriteLine($"SMOKE matchesWalkOracle={parity}");
         Console.WriteLine($"SMOKE kindBytesPerEntity A/E2/E64={bench.BytesPerEntity()} damage1={bench.Damage1()} damage8={bench.Damage8()}");
         bench.Cleanup();
         return parity ? 0 : 1;

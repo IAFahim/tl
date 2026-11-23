@@ -28,6 +28,7 @@ public sealed class SystemReaderTests
         public struct C1 { public float W; public C1(float w) { W = w; } }
         public struct ColA { public float V; public ColA(float v) { V = v; } }
         public struct ColB { public float V; public ColB(float v) { V = v; } }
+        [TimelineKind(Mode = KindMode.Each)] public struct K { public static void Apply(in float v, ref ColA a) => a.V += v; }
         """;
 
     [Fact]
@@ -39,7 +40,7 @@ public sealed class SystemReaderTests
         public ref partial struct S1 { public global::System.Span<ColA> A; }
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, in Orphan o) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, in Orphan o) => 1;
             public static void OnClipEnd(in Frame<T1, C1> frame) { }
         }
         """);
@@ -56,7 +57,7 @@ public sealed class SystemReaderTests
         public ref partial struct S2 { public global::System.Span<ColA> A; }
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, ref ColA a) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, in ColA a) => a.V;
             public static void OnClipEnd(in Frame<T1, C1> frame) { }
         }
         """);
@@ -64,7 +65,7 @@ public sealed class SystemReaderTests
     }
 
     [Fact]
-    public void FoldFeedOnEventMethodIsTlgen92()
+    public void FoldFeedOnEventMethodIsRemoved()
     {
         var read = Read(Prelude + """
         [TimelineSystem]
@@ -75,7 +76,7 @@ public sealed class SystemReaderTests
             public static void OnClipStart(in Frame<T1, C1> frame, in float lift) { }
         }
         """);
-        Code(read.Diagnostics, "TLGEN92");
+        Code(read.Diagnostics, "TLGEN95");
     }
 
     [Fact]
@@ -86,7 +87,7 @@ public sealed class SystemReaderTests
         public ref partial struct S1 { public global::System.Span<ColA> A; }
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, string name) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, string name) => 1;
             public static void OnClipEnd(in Frame<T1, C1> frame) { }
         }
         """);
@@ -94,7 +95,7 @@ public sealed class SystemReaderTests
     }
 
     [Fact]
-    public void RequestsByInIsTlgen94()
+    public void RequestsOnClipHookAreRemoved()
     {
         var read = Read(Prelude + """
         [TimelineSystem]
@@ -104,7 +105,7 @@ public sealed class SystemReaderTests
             public static void ExecuteActive(in Frame<T1, C1> frame, in Requests r) { }
         }
         """);
-        Code(read.Diagnostics, "TLGEN94");
+        Code(read.Diagnostics, "TLGEN95");
     }
 
     [Fact]
@@ -121,22 +122,22 @@ public sealed class SystemReaderTests
         }
         """);
         Code(read.Diagnostics, "TLGEN95");
-        Assert.Contains(read.Diagnostics, static d => d.Code == "TLGEN95" && d.Message.Contains("ExecuteBatch, which was removed", StringComparison.Ordinal));
+        Assert.Contains(read.Diagnostics, static d => d.Code == "TLGEN95" && d.Message.Contains("removed ExecuteBatch", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void MarkerMethodWithoutMarkerInterfaceIsTlgen97()
+    public void StandaloneMarkerCallbackIsRemoved()
     {
         var read = Read(Prelude + """
         [TimelineSystem]
         public ref partial struct S1 { public global::System.Span<ColA> A; }
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, ref ColA a) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, in ColA a) => a.V;
             public static void OnMarker(in MarkerFrame<C1> frame) { }
         }
         """);
-        Code(read.Diagnostics, "TLGEN97");
+        Code(read.Diagnostics, "TLGEN95");
     }
 
     [Fact]
@@ -149,7 +150,7 @@ public sealed class SystemReaderTests
         public ref partial struct S2 { public global::System.Span<ColB> B; }
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, ref ColA a, ref ColB b) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, in ColA a, in ColB b) => a.V + b.V;
             public static void OnClipEnd(in Frame<T1, C1> frame) { }
         }
         """);
@@ -165,7 +166,7 @@ public sealed class SystemReaderTests
         public ref struct S1 { public global::System.Span<ColA> A; }
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, ref ColA a) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, in ColA a) => a.V;
             public static void OnClipEnd(in Frame<T1, C1> frame) { }
         }
         """);
@@ -180,7 +181,7 @@ public sealed class SystemReaderTests
         public ref partial struct S1 { public global::System.Span<ColA> A; public string Name; }
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, ref ColA a) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, in ColA a) => a.V;
             public static void OnClipEnd(in Frame<T1, C1> frame) { }
         }
         """);
@@ -206,7 +207,7 @@ public sealed class SystemReaderTests
         [TimelineSystemMember(typeof(S1))]
         public readonly struct C : ITrack<T1, C1>
         {
-            public static void ExecuteActive(in Frame<T1, C1> frame, ref ColA a) { }
+            [Feeds(typeof(K))] public static float Evaluate(in Frame<T1, C1> frame, in ColA a) => a.V;
             public static void OnClipEnd(in Frame<T1, C1> frame) { }
         }
         """);
@@ -222,7 +223,7 @@ public sealed class SystemReaderTests
         public readonly struct C : ITrack<T1, C1>
         {
             public static void Fold(in Frame<T1, C1> frame, out float lift) { lift = 0; }
-            public static void ExecuteActive(in Frame<T1, C1> frame, in float lift, ref ColA a, ref Requests r) { }
+            [Feeds(typeof(K))] public static float Evaluate(in float lift) => lift;
         }
         """);
         Assert.Empty(read.Diagnostics);

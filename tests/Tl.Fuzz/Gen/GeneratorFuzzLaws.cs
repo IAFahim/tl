@@ -281,7 +281,10 @@ public sealed unsafe class GeneratorFuzzLaws
             }
             if (fedHere == 0)
             {
-                sb.AppendLine($"    public static void ExecuteActive(in Frame<Tr_{t}, DynClip> f, ref Col_0 c0) {{ c0.V.A += 1; }}");
+                var attribute = kinds[0].Accepts == 1 ? "Pulse(typeof(Kind_0), On = ClipEvent.Start)" : "Feeds(typeof(Kind_0))";
+                sb.Append($"    [{attribute}] public static {ValueTypeName(kinds[0].Shape)} Extra(in Frame<Tr_{t}, DynClip> f) => ");
+                AppendMakeExpr(sb, kinds[0].Shape, "f.Direction", "1");
+                sb.AppendLine(";");
             }
             sb.AppendLine("}");
             extraFeedConsumer.Add(t);
@@ -317,13 +320,17 @@ public sealed unsafe class GeneratorFuzzLaws
 
         if (totalCols > kindCount)
         {
-            var sigCols = new List<string>();
-            for (var c = 0; c < totalCols; c++) sigCols.Add($"ref Col_{c} p{c}");
+            var reads = Enumerable.Range(0, totalCols).Select(c => $"in Col_{c} p{c}");
+            var writes = Enumerable.Range(kindCount, totalCols - kindCount).Select(c => $"ref Col_{c} p{c}");
             sb.AppendLine("[TimelineSystemMember(typeof(DynSystem))]");
-            sb.AppendLine("public readonly struct PlainBigCon : ITrack<PlainTrack, PlainClip>");
+            sb.AppendLine("public readonly struct WideFeed : ITrack<PlainTrack, PlainClip>");
             sb.AppendLine("{");
-            sb.Append($"    public static void ExecuteActive(in Frame<PlainTrack, PlainClip> f, {string.Join(", ", sigCols)}) {{ ");
-            for (var c = kindCount; c < totalCols; c++) sb.Append($"p{c}.V.A += f.Direction * (f.Clip.P + {c}); ");
+            sb.AppendLine($"    [Feeds(typeof(WideKind))] public static int Evaluate(in Frame<PlainTrack, PlainClip> f, {string.Join(", ", reads)}) => f.Direction * f.Clip.P;");
+            sb.AppendLine("}");
+            sb.AppendLine("[TimelineKind(Mode = KindMode.Each)] public struct WideKind");
+            sb.AppendLine("{");
+            sb.Append($"    public static void Apply(in int value, {string.Join(", ", writes)}) {{ ");
+            for (var c = kindCount; c < totalCols; c++) sb.Append($"p{c}.V.A += value + {c}; ");
             sb.AppendLine("}");
             sb.AppendLine("}");
         }
@@ -1049,13 +1056,13 @@ public sealed unsafe class GeneratorFuzzLaws
             public struct M { public int X; }
             [TimelineSystem] public ref partial struct S { public Span<AnchorSt> A; public Span<M> M; }
             [TimelineSystemMember(typeof(S))]
-            public struct C : ITrack<Tr, Cl> { public static void ExecuteActive(in Frame<Tr, Cl> f, ref M a, ref M b) { } public static void OnClipStart(in Frame<Tr, Cl> f) { } }
+            public struct C : ITrack<Tr, Cl> { [Feeds(typeof(AnchorKind))] public static int E(in Frame<Tr, Cl> f, in M a, in M b) => 1; }
             """), "TLGEN90");
 
         var cols31Decl = string.Join("\n", Enumerable.Range(0, 31).Select(static i => $"public struct M{i} {{ public int V; }}"));
         var cols31Fields = string.Join("\n", Enumerable.Range(0, 31).Select(static i => $"public Span<M{i}> C{i};"));
-        var cols31Params = string.Join(", ", Enumerable.Range(0, 31).Select(static i => $"ref M{i} p{i}"));
-        AssertDiags("Cols31", Wrap(cols31Decl + "\n[TimelineSystem] public ref partial struct S {\npublic Span<AnchorSt> Anchor;\n" + cols31Fields + "\n}\npublic struct C : ITrack<Tr, Cl> { public static void ExecuteActive(in Frame<Tr, Cl> f, " + cols31Params + ") { } public static void OnClipStart(in Frame<Tr, Cl> f) { } }"), "TLGEN90");
+        var cols31Params = string.Join(", ", Enumerable.Range(0, 31).Select(static i => $"in M{i} p{i}"));
+        AssertDiags("Cols31", Wrap(cols31Decl + "\n[TimelineSystem] public ref partial struct S {\npublic Span<AnchorSt> Anchor;\n" + cols31Fields + "\n}\npublic struct C : ITrack<Tr, Cl> { [Feeds(typeof(AnchorKind))] public static int E(in Frame<Tr, Cl> f, " + cols31Params + ") => 1; }"), "TLGEN90");
 
         var fold11Params = string.Join(", ", Enumerable.Range(0, 11).Select(static i => $"out int r{i}"));
         var fold11Assigns = string.Join(" ", Enumerable.Range(0, 11).Select(static i => $"r{i} = {i};"));
@@ -1093,7 +1100,7 @@ public sealed unsafe class GeneratorFuzzLaws
             [TlClip("Bad/St")] public struct BadClip { public int X; }
             public struct K : ITlTrack<BadClip> { [Feeds(typeof(Set<St>))] public static St E(in TlFrame<BadClip> f) => default; }
             public readonly struct Tr2 : IBlend<Cl> { public void Blend(in Cl a, in Cl b, float t, out Cl r) => r = a; }
-            public struct W2 : ITrack<Tr2, Cl> { public static void ExecuteActive(in Frame<Tr2, Cl> f, ref St c) => c.V++; public static void OnClipStart(in Frame<Tr2, Cl> f) { } }
+            public struct W2 : ITrack<Tr2, Cl> { [Feeds(typeof(Sum<St>))] public static St E(in Frame<Tr2, Cl> f) => default; }
             """), "TLGEN112");
 
         FuzzRunner.Run("B2-InvalidMutations", 0x42320006UL, 6, (rng, iter) =>
@@ -1105,7 +1112,7 @@ public sealed unsafe class GeneratorFuzzLaws
                 1 => Wrap("public struct M { public int X; }\n[TimelineSystem] public ref partial struct S { public Span<AnchorSt> Anchor; public Span<M> M; }\n[TimelineKind(Accepts = KindEntries.Pulses)] public struct PK { public static void Combine(ref int t, in int n) => t += n; public static void Apply(in int v, ref M m) => m.X += v; }\npublic struct C : ITrack<Tr, Cl> { [Feeds(typeof(PK))] public static int E(in Frame<Tr, Cl> f) => 1; }"),
                 2 => Wrap("public struct M { public int X; }\n[TimelineSystem] public ref partial struct S { public Span<AnchorSt> Anchor; public Span<M> M; }\n[TimelineKind] public struct K { public static void Combine(ref int t, in int n) => t += n; public static void Apply(in int v, ref M m) => m.X += v; }\npublic struct C : ITrack<Tr, Cl> { [Feeds(typeof(K))] public static float E(in Frame<Tr, Cl> f) => 1f; }"),
                 3 => Wrap("public struct M { public int X; }\n[TimelineSystem] public ref partial struct S { public Span<AnchorSt> Anchor; public Span<M> M; }\npublic struct K : ITrack<Tr, Cl> { [Feeds(typeof(M))] public static int E(in Frame<Tr, Cl> f) => 1; }"),
-                _ => Wrap("public struct M { public int X; }\n[TimelineSystem] public ref partial struct S { public Span<AnchorSt> Anchor; public Span<M> M; }\npublic struct C : ITrack<Tr, Cl> { public static void ExecuteActive(in Frame<Tr, Cl> f, ref M a, ref M b) { } public static void OnClipStart(in Frame<Tr, Cl> f) { } }"),
+                _ => Wrap("public struct M { public int X; }\n[TimelineSystem] public ref partial struct S { public Span<AnchorSt> Anchor; public Span<M> M; }\npublic struct C : ITrack<Tr, Cl> { [Feeds(typeof(AnchorKind))] public static int E(in Frame<Tr, Cl> f, in M a, in M b) => 1; }"),
             };
             var (_, genDiags, _) = CompileWithGenerator($"BadMut_{iter}_{mut}", snippet);
             Assert.Contains(genDiags, static d => d.Id.StartsWith("TLGEN", StringComparison.Ordinal) && d.Severity == DiagnosticSeverity.Error);

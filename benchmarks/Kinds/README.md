@@ -1,5 +1,7 @@
 # Kinds
 
+Historical harness. Run it from [revision `7c90cde7`](https://github.com/IAFahim/tl/tree/7c90cde7/benchmarks/Kinds).
+
 K0 prototype for the kind model (issue #553, plan #552): per-tick timeline work grouped by kind instead of dispatched per entity. Hand-written, no generator, standalone (not in `tl.slnx`).
 
 - `Library.cs`: baked timelines with clip windows, fold lanes, per-tick event bits, per-direction event lists (remove, insert, start pulse, end pulse), wrap lists and a kind mask per timeline.

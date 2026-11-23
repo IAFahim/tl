@@ -19,7 +19,7 @@ public sealed class RunnerSnapshotTests
         => File.ReadAllText(Path.Combine(RepoRoot(), "samples", "Runner", "GameLogic.cs"));
 
     internal static string ExpectedSnapshot()
-        => File.ReadAllText(Path.Combine(RepoRoot(), "samples", "Runner", "Generated", "TlSystemsRunner.g.cs")).Replace("\r\n", "\n");
+        => File.ReadAllText(Path.Combine(RepoRoot(), "tests", "Tl.Systems.Tests", "Generated", "TlSystemsRunner.g.cs")).Replace("\r\n", "\n");
 
     internal static CSharpCompilation RunnerCompilation()
     {
@@ -41,10 +41,10 @@ public sealed class RunnerSnapshotTests
         var compilation = RunnerCompilation();
         var emitted = SystemGeneration.Emit(compilation, "Runner");
         Assert.True(emitted.Diagnostics.Count == 0, string.Join("\n", emitted.Diagnostics.Select(static diagnostic => diagnostic.ToString())));
-        var artifact = Assert.Single(emitted.Artifacts);
+        var artifact = Assert.Single(emitted.Artifacts, static a => a.RelativePath == "TlSystemsRunner.g.cs");
         var actual = artifact.Content.Replace("\r\n", "\n");
         if (Environment.GetEnvironmentVariable("TL_UPDATE_SNAPSHOT") == "1")
-            File.WriteAllText(Path.Combine(RepoRoot(), "samples", "Runner", "Generated", "TlSystemsRunner.g.cs"), actual);
+            File.WriteAllText(Path.Combine(RepoRoot(), "tests", "Tl.Systems.Tests", "Generated", "TlSystemsRunner.g.cs"), actual);
         Assert.True(actual == ExpectedSnapshot(), "Runner systems snapshot differs; regenerate with TL_UPDATE_SNAPSHOT=1.");
     }
 }

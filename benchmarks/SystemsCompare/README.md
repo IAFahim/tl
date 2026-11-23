@@ -1,5 +1,7 @@
 # SystemsCompare
 
+Historical harness. Run it from [revision `7c90cde7`](https://github.com/IAFahim/tl/tree/7c90cde7/benchmarks/SystemsCompare).
+
 Gate comparison harness: old baseline vs pre/post fast-path systems codegen on the
 NewA/B/C/D shapes (plus netstandard2.1 twins), with LiveBatch baselines alongside.
 

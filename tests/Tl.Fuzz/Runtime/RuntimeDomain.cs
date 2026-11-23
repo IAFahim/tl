@@ -60,8 +60,7 @@ public struct FuzzPlainMarker
     public int Code;
 }
 
-[TimelineSystemMember(typeof(PlainFuzzSystem))]
-public readonly struct FuzzPlainConsumer : ITrack<FuzzPlainTrack, FuzzPlainClip>
+public readonly struct FuzzPlainConsumer
 {
     public static void Fold(in Frame<FuzzPlainTrack, FuzzPlainClip> frame, out int delta)
         => delta = frame.Direction * frame.Clip.Delta * frame.Track.Gain;
@@ -102,8 +101,7 @@ public readonly struct FuzzPlainConsumer : ITrack<FuzzPlainTrack, FuzzPlainClip>
     }
 }
 
-[TimelineSystemMember(typeof(PlainFuzzSystem))]
-public readonly struct FuzzBatchConsumer : ITrack<FuzzBatchTrack, FuzzBatchClip>
+public readonly struct FuzzBatchConsumer
 {
     public static void Fold(in Frame<FuzzBatchTrack, FuzzBatchClip> frame, out int weight)
         => weight = frame.Direction * (frame.Clip.Weight + frame.Track.Bias);
@@ -111,13 +109,9 @@ public readonly struct FuzzBatchConsumer : ITrack<FuzzBatchTrack, FuzzBatchClip>
     public static void ExecuteActive(in Frame<FuzzBatchTrack, FuzzBatchClip> frame, in int weight, ref PlainStats stats)
         => stats.BatchHits += weight;
 
-    public static void OnClipStart(in Frame<FuzzBatchTrack, FuzzBatchClip> frame)
-    {
-    }
 }
 
-[TimelineSystemMember(typeof(PlainFuzzSystem))]
-public readonly struct FuzzMarkerConsumer : IMarker<FuzzPlainMarker>
+public readonly struct FuzzMarkerConsumer
 {
     public static void OnMarker(in MarkerFrame<FuzzPlainMarker> frame, ref PlainStats stats, ref Events<FuzzCue> cues)
     {
@@ -126,14 +120,117 @@ public readonly struct FuzzMarkerConsumer : IMarker<FuzzPlainMarker>
     }
 }
 
-[TimelineSystem]
-public ref partial struct PlainFuzzSystem
+public unsafe ref struct PlainFuzzSystem
 {
     public Span<PlainMotion> Motion;
     public Span<PlainStats> Stats;
     public ReadOnlySpan<PlainInput> Input;
     public Requests Requests;
     public Events<FuzzCue> Cues;
+
+    public void Run(TimelineWorld world, PlaybackTable players, bool forward)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(players);
+        if (Motion.Length != Stats.Length || Motion.Length != Input.Length || Motion.Length > players.EntityCapacity)
+            throw new ArgumentException("Plain playback oracle columns must have a common length within the table capacity.");
+        var library = world.View;
+        var view = players.View;
+        var closing = players.Closing;
+        for (var i = 0; i < closing->Count; i++)
+        {
+            closing->Get(i, out var row, out var slot, out var playback);
+            var timeline = LibraryViewReader.GetTimeline(in library, new TimelineId(playback.Timeline));
+            if (timeline is null || timeline->Duration == 0 || (uint)row >= (uint)Motion.Length) continue;
+            var tick = (ushort)Math.Min(playback.Tick, timeline->Duration - 1);
+            Visit(world, timeline, in playback, row, slot, tick, forward, true);
+        }
+        for (var row = 0; row < Motion.Length; row++)
+        {
+            for (var slot = 0; slot < view.Counts[row]; slot++)
+            {
+                var playback = *view.SlotOf(row, slot);
+                if (playback.Timeline == 0 || (playback.Flags & (PlaybackFlags.Ended | PlaybackFlags.Paused | PlaybackFlags.Stopping)) != 0 && !PlaybackRules.Resumes(playback.Flags, forward))
+                    continue;
+                var crossings = PlaybackRules.Crossings(in playback);
+                for (var step = 0; step < crossings; step++)
+                {
+                    if (step > 0 && (PlaybackRules.Advance(ref playback, library.Timelines, library.TimelineCount, forward) != AdvanceResult.Kept || (playback.Flags & (PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0)) break;
+                    var timeline = LibraryViewReader.GetTimeline(in library, new TimelineId(playback.Timeline));
+                    if (timeline != null && timeline->Duration != 0)
+                        Visit(world, timeline, in playback, row, slot, playback.Tick, forward, false);
+                }
+            }
+        }
+    }
+
+    const ulong PlainPair = 505129909724517765UL;
+    const ulong BatchPair = 14911208062133723617UL;
+
+    void Visit(TimelineWorld world, LibraryTimeline* timeline, in Playback playback, int row, int slot, ushort tick, bool forward, bool closing)
+    {
+        var direction = forward != ((playback.Flags & PlaybackFlags.Reverse) != 0) ? FrameFlags.None : FrameFlags.Reverse;
+        var reentry = (playback.Flags & PlaybackFlags.ReenterPending) != 0;
+        var flags = direction;
+        if (closing) flags |= FrameFlags.Interrupted;
+        if (!closing && (reentry || tick != 0 && (playback.Flags & PlaybackFlags.StartPending) != 0)) flags |= FrameFlags.Synthetic;
+        if (tick == 0) flags |= FrameFlags.TimelineStart;
+        if (tick == timeline->Duration - 1) flags |= FrameFlags.TimelineEnd;
+        var request = Requests.For(row, slot);
+        var writer = Cues.Writer;
+        writer.Bind(row, slot);
+        var stage = LibraryViewReader.StageAt(timeline, tick);
+        foreach (ref var step in LibraryViewReader.StepsFor(timeline, stage))
+        {
+            if (tick < step.WindowStart || tick >= step.WindowEnd) continue;
+            if (step.PairKey == PlainPair)
+            {
+                var frame = ReadFrame<FuzzPlainTrack, FuzzPlainClip>(in step, tick, flags);
+                if (closing)
+                {
+                    FuzzPlainConsumer.OnClipEnd(in frame, ref Stats[row], ref writer);
+                    continue;
+                }
+                FuzzPlainConsumer.Fold(in frame, out var delta);
+                FuzzPlainConsumer.ExecuteActive(in frame, in delta, ref Motion[row], in Input[row], ref request, ref writer);
+                if (!reentry && frame.Has(FrameFlags.ClipStart)) FuzzPlainConsumer.OnClipStart(in frame, ref Stats[row], ref writer);
+                if (!reentry && frame.Has(FrameFlags.ClipEnd)) FuzzPlainConsumer.OnClipEnd(in frame, ref Stats[row], ref writer);
+            }
+            else if (!closing && step.PairKey == BatchPair)
+            {
+                var frame = ReadFrame<FuzzBatchTrack, FuzzBatchClip>(in step, tick, flags);
+                FuzzBatchConsumer.Fold(in frame, out var weight);
+                FuzzBatchConsumer.ExecuteActive(in frame, in weight, ref Stats[row]);
+            }
+        }
+        if (closing || reentry || !LibraryViewReader.HasEvent(timeline, tick)) return;
+        foreach (ref var marker in LibraryViewReader.Events(timeline))
+        {
+            if (marker.Tick != tick || marker.Kind != 2) continue;
+            if (!MarkerTableRegistry.TryResolve(world, timeline->Id, marker.Marker, sizeof(FuzzPlainMarker), out var source))
+                throw new InvalidOperationException("The plain playback oracle requires its marker fixture.");
+            var frame = new MarkerFrame<FuzzPlainMarker>(in *(FuzzPlainMarker*)source, tick, 0, flags);
+            FuzzMarkerConsumer.OnMarker(in frame, ref Stats[row], ref writer);
+        }
+    }
+
+    static Frame<TTrack, TClip> ReadFrame<TTrack, TClip>(in LibraryStep step, ushort tick, FrameFlags flags)
+        where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+    {
+        var track = *(TTrack*)step.FrameRow;
+        var values = (TClip*)((byte*)step.FrameRow + sizeof(TTrack));
+        var clip = values[0];
+        if (step.FactorSpan != 0)
+            track.Blend(in clip, in values[1], step.FactorSpan <= 1 ? 0.5f : (tick - step.FactorStart) / (float)(step.FactorSpan - 1), out clip);
+        var length = (ushort)(step.WindowEnd - step.WindowStart);
+        var within = (ushort)(tick - step.WindowStart);
+        if (within == 0) flags |= FrameFlags.ClipStart;
+        if (within == length - 1) flags |= FrameFlags.ClipEnd;
+        return new(in track, in clip, tick, length, within, (ushort)step.TrackIndex, flags);
+    }
+
+
+
 }
 
 public struct KindIntCol

@@ -136,7 +136,6 @@ unsafe
             Array.Fill(reach, (1ul << kindNames.Length) - 1);
             using var store = new KindStore(world, players, kindNames, reach);
             var motion = new Motion[rows];
-            var legacy = new LegacyMotion[rows];
             var stat = new WalkStat[rows];
             var power = new JumpPower[rows];
             var stamina = new Stamina[rows];
@@ -167,7 +166,7 @@ unsafe
                     new KindPure.Vitals { Health = pureHealth }.Run(world, players, true);
                     return;
                 }
-                new Movement { Motion = motion, Legacy = legacy, WalkStat = stat, JumpPower = power, Stamina = stamina, Heat = heat }.Run(world, players, true);
+                new Movement { Motion = motion, WalkStat = stat, JumpPower = power, Stamina = stamina, Heat = heat }.Run(world, players, true);
                 new Vitals { Health = health }.Run(world, players, true);
             }
             Step();
@@ -195,6 +194,7 @@ unsafe
                 h.Int(pure ? pureHealth[e].Value : health[e].Value);
                 h.Slots(players.View.RunOf(e), players.View.CountOf(e));
             }
+            if (run != 0 && h.Value != hash) throw new InvalidOperationException("The benchmark produced different state across repeated runs.");
             hash = h.Value;
             if (split && pure)
             {

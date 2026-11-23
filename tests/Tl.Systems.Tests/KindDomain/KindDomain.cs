@@ -5,7 +5,6 @@ namespace KindGame
 {
 
 public struct Motion { public float X, Y; }
-public struct LegacyMotion { public float X; }
 public struct Health { public int Value; }
 public struct Stamina { public int Value; }
 public struct WalkStat { public float Value; }
@@ -126,16 +125,6 @@ public struct Walk : ITrack<WalkTrack, WalkClip>
         => new Speed { Value = f.Direction * f.Clip.Speed * f.Track.Scale * stat.Value, Priority = f.Clip.Priority };
 }
 
-public struct LegacyWalk : ITrack<LegacyWalkTrack, LegacyWalkClip>
-{
-    public static void ExecuteActive(in Frame<LegacyWalkTrack, LegacyWalkClip> f, in WalkStat stat, ref LegacyMotion motion)
-        => motion.X += f.Direction * f.Clip.Speed * f.Track.Scale * stat.Value;
-
-    public static void OnClipEnd(in Frame<LegacyWalkTrack, LegacyWalkClip> f)
-    {
-    }
-}
-
 public struct Jump : ITrack<ArcTrack, ArcClip>
 {
     public static void Fold(in Frame<ArcTrack, ArcClip> f, out float lift) => lift = f.Direction * f.Clip.Velocity * f.Track.Scale;
@@ -169,7 +158,6 @@ public struct Steps : IMarker<StepMarker>
 public ref partial struct Movement
 {
     public Span<Motion> Motion;
-    public Span<LegacyMotion> Legacy;
     public ReadOnlySpan<WalkStat> WalkStat;
     public ReadOnlySpan<JumpPower> JumpPower;
     public Span<Stamina> Stamina;

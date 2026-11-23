@@ -3,70 +3,9 @@ using __PF = Tl.PlaybackFlags;
 using __FF = Tl.FrameFlags;
 namespace TlSystems
 {
-internal sealed class TlModule_Kinds : Tl.ITlModule
-{
-public int PairCount => 1;
-public ulong PairKey(int index)
-{
-switch (index)
-{
-case 0: return 14068976065496153043UL;
-default: return 0UL;
-}
-}
-public int FoldLaneBytes(int index)
-{
-switch (index)
-{
-case 0: return 4;
-default: return 0;
-}
-}
-public int FoldLaneOffset(int index)
-{
-switch (index)
-{
-case 0: return 0;
-default: return 0;
-}
-}
-public unsafe void FoldStep(int index, byte* track, byte* first, byte* second, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, byte* lane)
-{
-switch (index)
-{
-case 0:
-{
-TlSystem_Kinds_global__KindGame_Movement.Frame_3(track, first, second == first ? null : second, blend, tick, windowLength, withinClip, trackIndex, duration, direction, __FF.None, out var __t, out var __c, out var __frame);
-float __out0 = default;
-global::KindGame.Jump.Fold(in __frame, out __out0);
-*(float*)(lane + 0) = __out0;
-return;
-}
-default: return;
-}
-}
-internal static void Install()
-{
-Tl.TlGenerated.Install(new TlModule_Kinds());
-}
-#if NET
-[System.Runtime.CompilerServices.ModuleInitializer]
-internal static void InstallModule() => Install();
-#endif
-}
+internal sealed class TlCompiled_Kinds { }
 internal static unsafe class TlSystem_Kinds_global__KindGame_Movement
 {
-internal const ulong SystemKey = 8458436716167386113UL;
-internal static readonly ulong[] PairKeys = new ulong[]
-{
-0UL,
-0UL,
-0UL,
-0UL,
-2194717391423795397UL,
-0UL,
-0UL,
-};
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, Tl.FrameFlags extra, out global::KindGame.StatTrack track, out global::KindGame.StatClip clip, out Tl.Frame<global::KindGame.StatTrack, global::KindGame.StatClip> frame)
 {
 track = *(global::KindGame.StatTrack*)trackPtr;
@@ -131,23 +70,7 @@ if (tick == 0) __flags |= __FF.TimelineStart;
 if (tick == (ushort)(duration - 1)) __flags |= __FF.TimelineEnd;
 frame = new Tl.Frame<global::KindGame.ArcTrack, global::KindGame.ArcClip>(in track, in clip, tick, windowLength, withinClip, trackIndex, __flags);
 }
-internal static void Frame_4(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, Tl.FrameFlags extra, out global::KindGame.LegacyWalkTrack track, out global::KindGame.LegacyWalkClip clip, out Tl.Frame<global::KindGame.LegacyWalkTrack, global::KindGame.LegacyWalkClip> frame)
-{
-track = *(global::KindGame.LegacyWalkTrack*)trackPtr;
-clip = *(global::KindGame.LegacyWalkClip*)firstPtr;
-if (secondPtr != null)
-{
-global::KindGame.LegacyWalkClip __second = *(global::KindGame.LegacyWalkClip*)secondPtr;
-track.Blend(in clip, in __second, blend, out clip);
-}
-var __flags = (direction < 0 ? __FF.Reverse : __FF.None) | extra;
-if (withinClip == 0) __flags |= __FF.ClipStart;
-if (withinClip == (ushort)(windowLength - 1)) __flags |= __FF.ClipEnd;
-if (tick == 0) __flags |= __FF.TimelineStart;
-if (tick == (ushort)(duration - 1)) __flags |= __FF.TimelineEnd;
-frame = new Tl.Frame<global::KindGame.LegacyWalkTrack, global::KindGame.LegacyWalkClip>(in track, in clip, tick, windowLength, withinClip, trackIndex, __flags);
-}
-internal static void Frame_6(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, Tl.FrameFlags extra, out global::KindGame.WalkTrack track, out global::KindGame.WalkClip clip, out Tl.Frame<global::KindGame.WalkTrack, global::KindGame.WalkClip> frame)
+internal static void Frame_5(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, Tl.FrameFlags extra, out global::KindGame.WalkTrack track, out global::KindGame.WalkClip clip, out Tl.Frame<global::KindGame.WalkTrack, global::KindGame.WalkClip> frame)
 {
 track = *(global::KindGame.WalkTrack*)trackPtr;
 clip = *(global::KindGame.WalkClip*)firstPtr;
@@ -163,25 +86,23 @@ if (tick == 0) __flags |= __FF.TimelineStart;
 if (tick == (ushort)(duration - 1)) __flags |= __FF.TimelineEnd;
 frame = new Tl.Frame<global::KindGame.WalkTrack, global::KindGame.WalkClip>(in track, in clip, tick, windowLength, withinClip, trackIndex, __flags);
 }
-internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n)
+internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n)
 {
-if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
-RunClose(world, players, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n); RunLegacyRange(world, players, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
 var __ks = players.Kinds;
 if (__ks != null)
 {
-Kinds(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, 0, 2147483647);
+Kinds(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __n, 0, 2147483647);
 }
 }
-internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
-Kind_0(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
-Kind_1(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
-Kind_2(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
-Kind_3(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
-Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, __firstWord, __endWord);
+Kind_0(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __n, __firstWord, __endWord);
+Kind_1(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __n, __firstWord, __endWord);
+Kind_2(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __n, __firstWord, __endWord);
+Kind_3(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __n, __firstWord, __endWord);
+Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __n, __firstWord, __endWord);
 }
-internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
 var __pview = players.SystemView;
@@ -307,7 +228,7 @@ if (!__ok) continue;
 if (__has) global::KindGame.Burn.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
-if (__has) global::KindGame.Burn.Apply(in __total, ref __c5[__e]);
+if (__has) global::KindGame.Burn.Apply(in __total, ref __c4[__e]);
 }
 if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled || __pulses != 0)
@@ -328,7 +249,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 }
 }
 }
-internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
 var __pview = players.SystemView;
@@ -420,7 +341,7 @@ if (!__ok) continue;
 if (__has) global::KindGame.Chill.Combine(ref __total, in __v);
 else { __total = __v; __has = true; }
 }
-if (__has) global::KindGame.Chill.Apply(in __total, ref __c4[__e]);
+if (__has) global::KindGame.Chill.Apply(in __total, ref __c3[__e]);
 }
 __lst[__row >> 6] &= ~(1ul << (__row & 63));
 if (__sampled || __pulses != 0)
@@ -441,7 +362,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 }
 }
 }
-internal static void Kind_2(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+internal static void Kind_2(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
 var __pview = players.SystemView;
@@ -520,17 +441,9 @@ ushort __len3 = (ushort)(__def->WindowEnd - __def->WindowStart);
 ushort __within3 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir3 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_3(__row3, __first3, __second3, __blend3, __tick, __len3, __within3, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir3, __kflags, out var __t3, out var __cc3, out var __f3);
-byte* __lane3 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
 float __fd3_0 = default;
-if (__def->FoldLane == null)
-{
 global::KindGame.Jump.Fold(in __f3, out __fd3_0);
-}
-else
-{
-__fd3_0 = *(float*)(__lane3 + 0);
-}
-__v = global::KindGame.Jump.Evaluate(in __fd3_0, in __c3[__e]);
+__v = global::KindGame.Jump.Evaluate(in __fd3_0, in __c2[__e]);
 __ok = true;
 break;
 }
@@ -585,7 +498,7 @@ if (__len != 0) __kt->Clear(__row);
 }
 }
 }
-internal static void Kind_3(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+internal static void Kind_3(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
 var __pview = players.SystemView;
@@ -656,15 +569,15 @@ switch (__r & 0xff)
 {
 case 0:
 {
-byte* __row6 = (byte*)__def->FrameRow;
-byte* __first6 = __row6 + sizeof(global::KindGame.WalkTrack);
-byte* __second6 = __def->FactorSpan == 0 ? null : __first6 + sizeof(global::KindGame.WalkClip);
-float __blend6 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len6 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within6 = (ushort)(__tick - __def->WindowStart);
-sbyte __dir6 = __backward ? (sbyte)-1 : (sbyte)1;
-Frame_6(__row6, __first6, __second6, __blend6, __tick, __len6, __within6, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir6, __kflags, out var __t6, out var __cc6, out var __f6);
-__v = global::KindGame.Walk.Evaluate(in __f6, in __c2[__e]);
+byte* __row5 = (byte*)__def->FrameRow;
+byte* __first5 = __row5 + sizeof(global::KindGame.WalkTrack);
+byte* __second5 = __def->FactorSpan == 0 ? null : __first5 + sizeof(global::KindGame.WalkClip);
+float __blend5 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len5 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within5 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir5 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_5(__row5, __first5, __second5, __blend5, __tick, __len5, __within5, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir5, __kflags, out var __t5, out var __cc5, out var __f5);
+__v = global::KindGame.Walk.Evaluate(in __f5, in __c1[__e]);
 __ok = true;
 break;
 }
@@ -719,7 +632,7 @@ if (__len != 0) __kt->Clear(__row);
 }
 }
 }
-internal static void Kind_4(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
+internal static void Kind_4(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
 var __pview = players.SystemView;
@@ -803,11 +716,11 @@ break;
 }
 case 1:
 {
-byte* __mptr5;
-if (!Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __ks.MarkerOf(__en->Timeline, __en->Step), sizeof(global::KindGame.StepMarker), out __mptr5)) throw new System.InvalidOperationException("Tl: marker values are not published for this library.");
-global::KindGame.StepMarker __m5 = *(global::KindGame.StepMarker*)__mptr5;
-var __mf5 = new Tl.MarkerFrame<global::KindGame.StepMarker>(in __m5, __tick, 0, __kflags);
-__v = global::KindGame.Steps.OnStep(in __mf5);
+byte* __mptr4;
+if (!Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __ks.MarkerOf(__en->Timeline, __en->Step), sizeof(global::KindGame.StepMarker), out __mptr4)) throw new System.InvalidOperationException("Tl: marker values are not published for this library.");
+global::KindGame.StepMarker __m4 = *(global::KindGame.StepMarker*)__mptr4;
+var __mf4 = new Tl.MarkerFrame<global::KindGame.StepMarker>(in __m4, __tick, 0, __kflags);
+__v = global::KindGame.Steps.OnStep(in __mf4);
 __ok = true;
 break;
 }
@@ -815,7 +728,7 @@ break;
 if (!__ok) continue;
 }
 }
-global::KindGame.StatChange.Apply(in __v, ref __c4[__e]);
+global::KindGame.StatChange.Apply(in __v, ref __c3[__e]);
 }
 }
 __lst[__row >> 6] &= ~(1ul << (__row & 63));
@@ -825,200 +738,9 @@ if (__len != 0) __kt->Clear(__row);
 }
 }
 }
-internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n)
-{
-var __view = world.View; var __pview = players.View;
-var __closing = players.Closing;
-for (var __ci = 0; __ci < __closing->Count; __ci++)
-{
-__closing->Get(__ci, out var __ce, out var __cs, out var __cpb);
-var __ctl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__cpb.Timeline));
-if (__ctl is null || __ctl->Duration == 0) continue;
-var __ctick = __cpb.Tick < __ctl->Duration ? __cpb.Tick : (ushort)(__ctl->Duration - 1);
-var __cstage = Tl.LibraryViewReader.StageAt(__ctl, __ctick);
-if (__cstage is null) continue;
-var __csteps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __ctl->Id, (int)(__cstage - __ctl->Stages), PairKeys);
-var __cbackward = forward ? (__cpb.Flags & __PF.Reverse) != 0 : (__cpb.Flags & __PF.Reverse) == 0;
-var __cbase = (__cbackward ? __FF.Reverse : __FF.None) | __FF.Interrupted;
-if (__ctick == 0) __cbase |= __FF.TimelineStart;
-if (__ctick == (ushort)(__ctl->Duration - 1)) __cbase |= __FF.TimelineEnd;
-for (var __i = 0; __i < __csteps.Length; __i++)
-{
-var __entry = __csteps[__i];
-switch (__entry.Consumer)
-{
-case 4:
-{
-var __def = __cstage->Steps + __entry.Step;
-if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
-byte* __row4 = (byte*)__def->FrameRow;
-byte* __first4 = __row4 + sizeof(global::KindGame.LegacyWalkTrack);
-byte* __second4 = __def->FactorSpan == 0 ? null : __first4 + sizeof(global::KindGame.LegacyWalkClip);
-float __blend4 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__ctick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len4 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within4 = (ushort)(__ctick - __def->WindowStart);
-sbyte __dir4 = __cbackward ? (sbyte)-1 : (sbyte)1;
-Frame_4(__row4, __first4, __second4, __blend4, __ctick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__ctl->Duration, __dir4, __cbase, out var __t4, out var __cc4, out var __f4);
-global::KindGame.LegacyWalk.OnClipEnd(in __f4);
-break;
-}
-}
-}
-}
-}
-internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
-{
-var __view = world.View; var __pview = players.View;
-var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
-for (var __w = __firstWord; __w < __w1; __w++)
-{
-for (var __b = __pl[__w]; __b != 0; __b &= __b - 1)
-{
-var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__b);
-if (__e >= __n) continue;
-#if TL_CHECKED
-Tl.Checked.Visited();
-#endif
-var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
-if (__count == 0) continue;
-for (var __s = 0; __s < __count; __s++)
-{
-var __ps = __pview.SlotOf(__e, __s);
-if (__ps->Timeline == 0 || ((__ps->Flags & (__PF.Ended | __PF.Paused | __PF.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__ps->Flags, forward))) continue;
-var __pcopy = *__ps;
-var __pb = __ps->Rate == 0 ? __ps : &__pcopy;
-var __pk = Tl.PlaybackRules.Crossings(in *__ps);
-for (var __j = 0; __j < __pk; __j++)
-{
-if (__j > 0 && (Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != Tl.AdvanceResult.Kept || (__pcopy.Flags & (__PF.Ended | __PF.Paused)) != 0)) break;
-var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
-if (__tl is null || __tl->Duration == 0) continue;
-var __tick = __pb->Tick;
-var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
-if (__stage is null) continue;
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
-var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __base = __backward ? __FF.Reverse : __FF.None;
-if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
-if (__tick == 0) __base |= __FF.TimelineStart;
-if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
-for (var __i = 0; __i < __steps.Length; __i++)
-{
-var __entry = __steps[__i];
-switch (__entry.Consumer)
-{
-case 4:
-{
-var __def = __stage->Steps + __entry.Step;
-if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
-byte* __row4 = (byte*)__def->FrameRow;
-byte* __first4 = __row4 + sizeof(global::KindGame.LegacyWalkTrack);
-byte* __second4 = __def->FactorSpan == 0 ? null : __first4 + sizeof(global::KindGame.LegacyWalkClip);
-float __blend4 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len4 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within4 = (ushort)(__tick - __def->WindowStart);
-sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
-Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
-global::KindGame.LegacyWalk.ExecuteActive(in __f4, in __c2[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1 && (__pb->Flags & __PF.ReenterPending) == 0) global::KindGame.LegacyWalk.OnClipEnd(in __f4);
-break;
-}
-}
-}
-}
-}
-}
-}
-}
-internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
-{
-var __view = world.View; var __pview = players.View;
-var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
-for (var __w = __firstWord; __w < __w1; __w++)
-{
-for (var __b = __pl[__w]; __b != 0; __b &= __b - 1)
-{
-var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__b);
-if (__e >= __n) continue;
-#if TL_CHECKED
-Tl.Checked.Visited();
-#endif
-var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
-for (var __s = 0; __s < __cnt; __s++)
-{
-var __pb = __pview.SlotOf(__e, __s);
-if (__pb->Timeline == 0) continue;
-var __pfl = __pb->Flags;
-if ((__pfl & (__PF.Ended | __PF.Paused)) != 0 && !Tl.PlaybackRules.Unpark(ref *__pb, forward)) { if (!Tl.PlaybackRules.IsParked(__pfl)) __pb->Flags = __pfl & ~__PF.StartPending; }
-else
-{
-var __pk = Tl.PlaybackRules.Cross(ref *__pb);
-for (var __j = 0; __j < __pk; __j++)
-{
-if (__pb->Timeline == 0 || (uint)(__pb->Timeline - 1) >= (uint)__view.TimelineCount) throw new System.ArgumentException($"Playback slot {__s} of entity {__e} names no timeline in the loaded library.");
-var __tl = __view.Timelines + (__pb->Timeline - 1);
-var __dur = __tl->Duration;
-if (__dur != 0)
-{
-var __tick = __pb->Tick;
-var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
-if (__stage != null)
-{
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
-var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __base = __backward ? __FF.Reverse : __FF.None;
-if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
-if (__tick == 0) __base |= __FF.TimelineStart;
-if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
-for (var __i = 0; __i < __steps.Length; __i++)
-{
-var __entry = __steps[__i];
-switch (__entry.Consumer)
-{
-case 4:
-{
-var __def = __stage->Steps + __entry.Step;
-if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
-byte* __row4 = (byte*)__def->FrameRow;
-byte* __first4 = __row4 + sizeof(global::KindGame.LegacyWalkTrack);
-byte* __second4 = __def->FactorSpan == 0 ? null : __first4 + sizeof(global::KindGame.LegacyWalkClip);
-float __blend4 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len4 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within4 = (ushort)(__tick - __def->WindowStart);
-sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
-Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
-global::KindGame.LegacyWalk.ExecuteActive(in __f4, in __c2[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1 && (__pb->Flags & __PF.ReenterPending) == 0) global::KindGame.LegacyWalk.OnClipEnd(in __f4);
-break;
-}
-}
-}
-}
-}
-var __advance = Tl.PlaybackRules.Advance(ref *__pb, __view.Timelines, __view.TimelineCount, forward);
-if (__advance == Tl.AdvanceResult.Removed)
-{
-__pb[0] = default;
-var __hw = __pview.Counts[__e];
-while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
-__pview.Counts[__e] = __hw;
-break;
-}
-if ((__pb->Flags & (__PF.Ended | __PF.Paused)) != 0) break;
-}
-}
-}
-}
-}
-}
 }
 internal static unsafe class TlSystem_Kinds_global__KindGame_Vitals
 {
-internal const ulong SystemKey = 18383117159997139311UL;
-internal static readonly ulong[] PairKeys = new ulong[]
-{
-0UL,
-};
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, Tl.FrameFlags extra, out global::KindGame.HitTrack track, out global::KindGame.HitClip clip, out Tl.Frame<global::KindGame.HitTrack, global::KindGame.HitClip> frame)
 {
 track = *(global::KindGame.HitTrack*)trackPtr;
@@ -1037,7 +759,6 @@ frame = new Tl.Frame<global::KindGame.HitTrack, global::KindGame.HitClip>(in tra
 }
 internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::KindGame.Health* __c0, int __n)
 {
-if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 var __ks = players.Kinds;
 if (__ks != null)
 {
@@ -1277,7 +998,6 @@ if (world is null) throw new System.ArgumentNullException(nameof(world));
 if (players is null) throw new System.ArgumentNullException(nameof(players));
 int __len = players.EntityCapacity;
 __len = this.Motion.Length;
-if (this.Legacy.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column Legacy lengths differ.");
 if (this.WalkStat.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column WalkStat lengths differ.");
 if (this.JumpPower.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column JumpPower lengths differ.");
 if (this.Stamina.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column Stamina lengths differ.");
@@ -1285,18 +1005,15 @@ if (this.Heat.Length != __len) throw new System.ArgumentException("global::KindG
 if (__len > players.EntityCapacity) throw new System.ArgumentException("global::KindGame.Movement: column length exceeds table capacity.");
 fixed (global::KindGame.Motion* __p0 = this.Motion)
 {
-fixed (global::KindGame.LegacyMotion* __p1 = this.Legacy)
+fixed (global::KindGame.WalkStat* __p1 = this.WalkStat)
 {
-fixed (global::KindGame.WalkStat* __p2 = this.WalkStat)
+fixed (global::KindGame.JumpPower* __p2 = this.JumpPower)
 {
-fixed (global::KindGame.JumpPower* __p3 = this.JumpPower)
+fixed (global::KindGame.Stamina* __p3 = this.Stamina)
 {
-fixed (global::KindGame.Stamina* __p4 = this.Stamina)
+fixed (global::KindGame.Heat* __p4 = this.Heat)
 {
-fixed (global::KindGame.Heat* __p5 = this.Heat)
-{
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.Run(world, players, forward, __p0, __p1, __p2, __p3, __p4, __p5, __len);
-}
+TlSystems.TlSystem_Kinds_global__KindGame_Movement.Run(world, players, forward, __p0, __p1, __p2, __p3, __p4, __len);
 }
 }
 }
@@ -1305,23 +1022,20 @@ TlSystems.TlSystem_Kinds_global__KindGame_Movement.Run(world, players, forward, 
 }
 unsafe struct __PS { public System.IntPtr __w; public System.IntPtr __p;
 public global::KindGame.Motion* __c0;
-public global::KindGame.LegacyMotion* __c1;
-public global::KindGame.WalkStat* __c2;
-public global::KindGame.JumpPower* __c3;
-public global::KindGame.Stamina* __c4;
-public global::KindGame.Heat* __c5;
+public global::KindGame.WalkStat* __c1;
+public global::KindGame.JumpPower* __c2;
+public global::KindGame.Stamina* __c3;
+public global::KindGame.Heat* __c4;
 public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.RunLegacyRange(world, players, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
-var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kinds(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__c5, __s->__n, __fw, __ew);
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__KindGame_Movement.Kinds(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__c2, __s->__c3, __s->__c4, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players)); if (workers is null) throw new System.ArgumentNullException(nameof(workers));
 int __len = players.EntityCapacity;
 __len = this.Motion.Length;
-if (this.Legacy.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column Legacy lengths differ.");
 if (this.WalkStat.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column WalkStat lengths differ.");
 if (this.JumpPower.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column JumpPower lengths differ.");
 if (this.Stamina.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column Stamina lengths differ.");
@@ -1329,22 +1043,18 @@ if (this.Heat.Length != __len) throw new System.ArgumentException("global::KindG
 if (__len > players.EntityCapacity) throw new System.ArgumentException("global::KindGame.Movement: column length exceeds table capacity.");
 fixed (global::KindGame.Motion* __p0 = this.Motion)
 {
-fixed (global::KindGame.LegacyMotion* __p1 = this.Legacy)
+fixed (global::KindGame.WalkStat* __p1 = this.WalkStat)
 {
-fixed (global::KindGame.WalkStat* __p2 = this.WalkStat)
+fixed (global::KindGame.JumpPower* __p2 = this.JumpPower)
 {
-fixed (global::KindGame.JumpPower* __p3 = this.JumpPower)
+fixed (global::KindGame.Stamina* __p3 = this.Stamina)
 {
-fixed (global::KindGame.Stamina* __p4 = this.Stamina)
+fixed (global::KindGame.Heat* __p4 = this.Heat)
 {
-fixed (global::KindGame.Heat* __p5 = this.Heat)
-{
-if (workers.WorkerCount == 1) { TlSystems.TlSystem_Kinds_global__KindGame_Movement.Run(world, players, forward, __p0, __p1, __p2, __p3, __p4, __p5, __len); return; }
-TlSystems.TlSystem_Kinds_global__KindGame_Movement.RunClose(world, players, forward, __p0, __p1, __p2, __p3, __p4, __p5, __len);
+if (workers.WorkerCount == 1) { TlSystems.TlSystem_Kinds_global__KindGame_Movement.Run(world, players, forward, __p0, __p1, __p2, __p3, __p4, __len); return; }
 var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
-var __st = new __PS { __c0 = __p0, __c1 = __p1, __c2 = __p2, __c3 = __p3, __c4 = __p4, __c5 = __p5, __n = __len, __forward = forward ? 1 : 0 };
+var __st = new __PS { __c0 = __p0, __c1 = __p1, __c2 = __p2, __c3 = __p3, __c4 = __p4, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
-}
 }
 }
 }
@@ -1391,44 +1101,6 @@ var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st._
 if (players.Kinds != null)
 {
 players.Kinds.ClearPulseHits(players.Kinds.IndexOf("KindGame.Damage"), __len);
-}
-}
-}
-}
-}
-namespace KindGame
-{
-partial struct Movement
-{
-public unsafe void RunFused(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward = true)
-{
-if (world is null) throw new System.ArgumentNullException(nameof(world));
-if (players is null) throw new System.ArgumentNullException(nameof(players));
-int __len = players.EntityCapacity;
-__len = this.Motion.Length;
-if (this.Legacy.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column Legacy lengths differ.");
-if (this.WalkStat.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column WalkStat lengths differ.");
-if (this.JumpPower.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column JumpPower lengths differ.");
-if (this.Stamina.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column Stamina lengths differ.");
-if (this.Heat.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column Heat lengths differ.");
-if (__len > players.EntityCapacity) throw new System.ArgumentException("global::KindGame.Movement: column length exceeds table capacity.");
-fixed (global::KindGame.Motion* __p0 = this.Motion)
-{
-fixed (global::KindGame.LegacyMotion* __p1 = this.Legacy)
-{
-fixed (global::KindGame.WalkStat* __p2 = this.WalkStat)
-{
-fixed (global::KindGame.JumpPower* __p3 = this.JumpPower)
-{
-fixed (global::KindGame.Stamina* __p4 = this.Stamina)
-{
-fixed (global::KindGame.Heat* __p5 = this.Heat)
-{
-if (players.Kinds != null) throw new System.InvalidOperationException("RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached."); TlSystems.TlSystem_Kinds_global__KindGame_Movement.RunClose(world, players, forward, __p0, __p1, __p2, __p3, __p4, __p5, __len); TlSystems.TlSystem_Kinds_global__KindGame_Movement.RunFusedRange(world, players, forward, __p0, __p1, __p2, __p3, __p4, __p5, __len, 0, 2147483647); Tl.ClosingList.Clear(players.Closing);
-}
-}
-}
-}
 }
 }
 }

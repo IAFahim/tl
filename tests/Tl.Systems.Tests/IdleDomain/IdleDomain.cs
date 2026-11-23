@@ -35,12 +35,14 @@ public struct Footage
     public static void Apply(in int reel, ref Screen screen) => screen.Footage = reel;
 }
 
+[TimelineSystemMember(typeof(Stage))]
 public struct Lines : ITrack<LineTrack, LineClip>
 {
     [Feeds(typeof(Caption))]
     public static int Which(in Frame<LineTrack, LineClip> f) => f.Clip.Line;
 }
 
+[TimelineSystemMember(typeof(Stage))]
 public struct Reels : ITrack<ReelTrack, ReelClip>
 {
     [Feeds(typeof(Footage))]

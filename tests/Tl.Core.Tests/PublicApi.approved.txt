@@ -679,12 +679,6 @@ type Tl.SlotWord
   Field UInt64 TimelineMask
   Method UInt64 WorldReverse(Boolean)
 type Tl.Sum`1
-type Tl.SystemDispatch
-  Method Void FastFoldAdd(Single*, UInt16*, Single*, Int32)
-  Method System.Span`1[Tl.SystemStep] FilteredSteps(Tl.TimelineWorld, UInt64, UInt16, Int32, System.ReadOnlySpan`1[System.UInt64])
-type Tl.SystemStep
-  Field Int32 Consumer
-  Field Int32 Step
 type Tl.TimelineId
   Property Boolean IsNone
   Property Tl.TimelineId None

@@ -36,7 +36,7 @@ internal static class NewStyle
         var elements = new List<string>();
         foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
         {
-            if (!method.IsStatic || method.Name is not ("OnClipStart" or "OnClipEnd"))
+            if (!method.IsStatic || method.Name is not ("OnClipStart" or "OnClipEnd" or "ExecuteActive"))
                 continue;
             for (var i = 1; i < method.Parameters.Length; i++)
                 if (method.Parameters[i].Type is INamedTypeSymbol { IsGenericType: true } evented && Same(evented.OriginalDefinition, events))
