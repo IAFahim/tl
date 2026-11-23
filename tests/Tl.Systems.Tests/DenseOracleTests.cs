@@ -44,11 +44,12 @@ public sealed class DenseOracleTests
                     Bodies = new Body[rows];
                 }
 
-                public void Step(bool forward, TlWorkers? workers, bool tally)
+                public void Step(bool forward, TlWorkers? workers, bool tally, bool flush)
                 {
                     World.Tick(Players, forward);
                     if (workers == null)
                     {
+                        if (flush) new FlushSystem { Body = Bodies }.Run(World, Players, forward);
                         if (tally) new PingSystem { Body = Bodies }.Run(World, Players, forward);
                         new MoveSystem { Body = Bodies }.Run(World, Players, forward);
                         new PushSystem { Body = Bodies }.Run(World, Players, forward);
@@ -56,6 +57,7 @@ public sealed class DenseOracleTests
                         new LaneSystem { Body = Bodies }.Run(World, Players, forward);
                         return;
                     }
+                    if (flush) new FlushSystem { Body = Bodies }.Run(World, Players, forward, workers);
                     if (tally) new PingSystem { Body = Bodies }.Run(World, Players, forward, workers);
                     new MoveSystem { Body = Bodies }.Run(World, Players, forward, workers);
                     new PushSystem { Body = Bodies }.Run(World, Players, forward, workers);
@@ -120,6 +122,38 @@ public sealed class DenseOracleTests
                 return "";
             }
 
+            public static string FlushOrder(byte[] library, int rows, int steps, Action<KindStore> entries, long[] stats)
+            {
+                using var a = new Arm(library, rows, 4);
+                using var b = new Arm(library, rows, 4);
+                entries(b.Kinds);
+                for (var e = 0; e < rows; e++)
+                {
+                    a.Players.Start(e, 1, (ushort)(e % 20));
+                    b.Players.Start(e, 1, (ushort)(e % 20));
+                }
+                for (var step = 0; step < steps; step++)
+                {
+                    var skip = step % 4 == 1;
+                    if (skip)
+                        for (var e = 0; e < rows; e++)
+                            foreach (var arm in new[] { a, b })
+                            {
+                                arm.Kinds.Pulses<float>("DenseGame.Glow").To(e, 1e8f);
+                                arm.Kinds.Pulses<float>("DenseGame.Glow").To(e, -1e8f);
+                                arm.Kinds.Pulses<int>("DenseGame.Trace").To(e, 7);
+                                arm.Kinds.Pulses<int>("DenseGame.Trace").To(e, 11);
+                            }
+                    a.Step(true, null, true, !skip);
+                    b.Step(true, null, true, !skip);
+                    for (var e = 0; e < rows; e++)
+                        if (a.Players.SystemView.IsDense(e)) stats[2]++;
+                    var differs = Differs(a, b, step);
+                    if (differs.Length != 0) return differs;
+                }
+                return "";
+            }
+
             public static string Run(byte[] first, byte[] second, int rows, int slots, int steps, int calm, int workerCount, Action<KindStore> off, long[] stats)
             {
                 using var a = new Arm(first, rows, slots);
@@ -167,10 +201,19 @@ public sealed class DenseOracleTests
                             b.Kinds.Pulses<int>("DenseGame.Hits").To(e, 1 + e % 3);
                             stats[5]++;
                         }
+                    if (step % 3 == 1)
+                        for (var e = step % 5; e < rows; e += 5)
+                        {
+                            a.Kinds.Pulses<float>("DenseGame.Glow").To(e, 0.7f + 0.01f * (e % 13));
+                            b.Kinds.Pulses<float>("DenseGame.Glow").To(e, 0.7f + 0.01f * (e % 13));
+                            a.Kinds.Pulses<int>("DenseGame.Trace").To(e, 40 + e % 9);
+                            b.Kinds.Pulses<int>("DenseGame.Trace").To(e, 40 + e % 9);
+                        }
                     var tally = step % 23 is < 5 or > 10;
+                    var flush = step % 19 is < 7 or > 8;
                     if (!tally) stats[7]++;
-                    a.Step(forward, workers, tally);
-                    b.Step(forward, null, tally);
+                    a.Step(forward, workers, tally, flush);
+                    b.Step(forward, null, tally, flush);
                     for (var e = 0; e < rows; e++)
                     {
                         if (a.Players.SystemView.IsDense(e)) stats[2]++;
@@ -234,14 +277,15 @@ public sealed class DenseOracleTests
         TypedTrack Push(params (uint Start, uint End, int Gain)[] clips) => Track("PushTrack", "PushClip", clips.Select(c => new object[] { c.Start, c.End, c.Gain + bump }));
         TypedTrack Tally(params (uint Start, uint End, int Count, int Hit)[] clips) => Track("TallyTrack", "TallyClip", clips.Select(c => new object[] { c.Start, c.End, c.Count, c.Hit + bump }));
         TypedTrack Ping(params (uint Start, uint End, int Value)[] clips) => Track("PingTrack", "PingClip", clips.Select(c => new object[] { c.Start, c.End, c.Value + bump }));
+        TypedTrack Flare(params (uint Start, uint End, float Heat, int Mark)[] clips) => Track("FlareTrack", "FlareClip", clips.Select(c => new object[] { c.Start, c.End, c.Heat + 0.0625f * bump, c.Mark }));
         TypedTrack Lane(params (uint Start, uint End, float F, int I, int Hi, int Lo, int Bits, int Value, int Priority, float X, int Y)[] clips) => Track("LaneTrack", "LaneClip", clips.Select(c => new object[] { c.Start, c.End, c.F, c.I, c.Hi, c.Lo, c.Bits, c.Value + bump, c.Priority, c.X, c.Y }));
         var timelines = new List<TypedTimeline>
         {
-            new() { Name = "a-loop", Duration = 20 + shift, Loops = true, Tracks = { Ping((3, 7, 2), (11, 16, 5)), Ping((0, 3, 9), (16, 20, 6)), Ping((0, 5, 4), (12, 16, 1)), Step((0, 9, 3, 1, 1.5f), (6, 15, 5, 2, 2.25f)), Step((4, 18, 2, 1, 0.7f)), Push((2, 12, 4), (12, 19, 6)), Tally((1, 6, 2, 3), (10, 17, 4, 5)), Lane((0, 8, -0f, 2, int.MaxValue, 7, 0, 10, 1, 0f, 1), (5, 14, 0f, -1, -4, int.MinValue, 1, 20, 1, -0f, 2), (12, 20, 1.5f, 3, int.MinValue, int.MaxValue, 6, 30, 2, 1.25f, -1)), Lane((2, 10, -0f, 0, 3, 3, 4, 40, 1, -0f, 0)) } },
-            new() { Name = "b-head", Duration = 9, Next = "c-tail", Tracks = { Ping((1, 6, 3)), Step((0, 9, 1, 0, 0.4f)), Push((3, 8, 2)), Tally((2, 5, 1, 2)), Lane((0, 9, -0f, 1, 9, -9, 2, 5, 0, -0f, 3)) } },
+            new() { Name = "a-loop", Duration = 20 + shift, Loops = true, Tracks = { Ping((3, 7, 2), (11, 16, 5)), Ping((0, 3, 9), (16, 20, 6)), Ping((0, 5, 4), (12, 16, 1)), Flare((0, 4, 1.25f, 3), (9, 14, -0.5f, 7)), Flare((2, 11, 0.375f, 2)), Step((0, 9, 3, 1, 1.5f), (6, 15, 5, 2, 2.25f)), Step((4, 18, 2, 1, 0.7f)), Push((2, 12, 4), (12, 19, 6)), Tally((1, 6, 2, 3), (10, 17, 4, 5)), Lane((0, 8, -0f, 2, int.MaxValue, 7, 0, 10, 1, 0f, 1), (5, 14, 0f, -1, -4, int.MinValue, 1, 20, 1, -0f, 2), (12, 20, 1.5f, 3, int.MinValue, int.MaxValue, 6, 30, 2, 1.25f, -1)), Lane((2, 10, -0f, 0, 3, 3, 4, 40, 1, -0f, 0)) } },
+            new() { Name = "b-head", Duration = 9, Next = "c-tail", Tracks = { Ping((1, 6, 3)), Flare((0, 5, 2.5f, 1)), Step((0, 9, 1, 0, 0.4f)), Push((3, 8, 2)), Tally((2, 5, 1, 2)), Lane((0, 9, -0f, 1, 9, -9, 2, 5, 0, -0f, 3)) } },
             new() { Name = "c-tail", Duration = 13, Hold = true, Tracks = { Ping((6, 12, 4)), Step((5, 11, 7, 2, 1.1f)), Push((0, 13, 3)), Tally((4, 9, 3, 1)), Lane((2, 11, 0f, 4, -7, 7, 8, 6, 3, 0.5f, 1)) } },
             new() { Name = "d-once", Duration = 7, Tracks = { Step((0, 7, 4, 1, 0.9f)), Tally((0, 3, 2, 4)), Lane((0, 7, -2.25f, 2, 1, 1, 0, 8, 1, -0f, 0)) } },
-            new() { Name = "e-spin", Duration = 5, Loops = true, Tracks = { Ping((1, 4, 6)), Ping((0, 2, 3)), Step((0, 5, 2, 2, 0.3f)), Push((1, 4, 1)), Tally((2, 4, 1, 1)), Lane((0, 5, -0f, 1, int.MaxValue, int.MinValue, 16, 9, 1, 0f, 1)) } },
+            new() { Name = "e-spin", Duration = 5, Loops = true, Tracks = { Ping((1, 4, 6)), Ping((0, 2, 3)), Flare((0, 3, 0.625f, 4)), Step((0, 5, 2, 2, 0.3f)), Push((1, 4, 1)), Tally((2, 4, 1, 1)), Lane((0, 5, -0f, 1, int.MaxValue, int.MinValue, 16, 9, 1, 0f, 1)) } },
             new() { Name = "f-long", Duration = 31 + 2 * shift, Loops = true, Tracks = { Ping((2, 9, 1), (14, 22, 8)), Step((3, 20, 6, 1, 1.25f), (15, 28, 2, 1, 0.5f)), Push((0, 31, 2)), Tally((5, 12, 2, 2), (20, 26, 3, 3)), Lane((3, 20, 0.75f, -2, 11, -11, 3, 12, 2, -0.5f, 2), (15, 28, -0f, 5, int.MinValue, int.MaxValue, 0, 13, 2, 0f, -3)), Lane((10, 25, 0f, 1, 2, -2, 1, 14, 2, -0f, 1)) } },
         };
         var manifest = LibraryBake.Manifest(timelines.Select(static t => t.Name!).ToList(), [], 60);
@@ -351,6 +395,16 @@ public sealed class DenseOracleTests
         var library = LibraryAssembler.Assemble([new LibraryPart { Name = "wrong", Tlb = tlb, Kinds = LibraryBake.KindPayload("wrong", tlb, LibraryBake.Kinds([loaded])) }], 60, LibrarySettings.Default);
         foreach (var (system, kind, combine) in new[] { (0, "SumIsMax", "Sum"), (1, "FirstWins", "Pick"), (2, "OrIsSum", "Or") })
             Assert.Equal($"Tl: kind 'WrongGame.{kind}' declares Combine = {combine}, but WrongGame.{kind}.Combine gives a different result on values from the library; fix Combine or the declaration.", (string)run.Invoke(null, [library, system])!);
+    }
+
+    [Fact]
+    public void FlushedHitsKeepTheExplicitEntryOrderWhenTheConsumerSkipsAStep()
+    {
+        var game = Game.Value;
+        var stats = new long[8];
+        var differs = (string)game.Host.GetType("DenseHost", true)!.GetMethod("FlushOrder")!.Invoke(null, [game.First, 24, 120, (Action<KindStore>)(static store => { store.DenseEnabled = false; store.PulseHitsEnabled = false; }), stats])!;
+        Assert.True(differs.Length == 0, "the dense world left the explicit entry world at " + differs);
+        Assert.True(stats[DenseSteps] * 2 > 24L * 120, $"only {stats[DenseSteps]} of {24 * 120} entity-steps ran dense.");
     }
 
     [Theory]

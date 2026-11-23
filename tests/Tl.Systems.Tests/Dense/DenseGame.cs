@@ -28,6 +28,9 @@ public struct Body
     public int Blend;
     public int Pings;
     public int Hurt;
+    public float Glow;
+    public int GlowBits;
+    public int Trace;
 }
 
 public struct PingClip { public int Value; }
@@ -66,6 +69,46 @@ public struct Pinger : ITrack<PingTrack, PingClip>
 
 [TimelineSystem]
 public ref partial struct PingSystem
+{
+    public Span<Body> Body;
+}
+
+public struct FlareClip { public float Heat; public int Mark; }
+public struct FlareTrack : IBlend<FlareClip>
+{
+    public float Scale;
+    public void Blend(in FlareClip first, in FlareClip second, float factor, out FlareClip result) => result = first;
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses, Combine = KindCombine.Sum)]
+public struct Glow
+{
+    public static void Combine(ref float total, in float next) => total += next;
+    public static void Apply(in float total, ref Body body)
+    {
+        body.Glow = body.Glow * 0.5f + total;
+        body.GlowBits = body.GlowBits * 31 + BitConverter.SingleToInt32Bits(total);
+    }
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses, Mode = KindMode.Each)]
+public struct Trace
+{
+    public static void Apply(in int mark, ref Body body) => body.Trace = body.Trace * 3 + mark;
+}
+
+[TimelineSystemMember(typeof(FlushSystem))]
+public struct Flarer : ITrack<FlareTrack, FlareClip>
+{
+    [Pulse(typeof(Glow), On = ClipEvent.Start)]
+    public static float Rise(in Frame<FlareTrack, FlareClip> f) => f.Clip.Heat;
+
+    [Pulse(typeof(Trace), On = ClipEvent.Start)]
+    public static int Mark(in Frame<FlareTrack, FlareClip> f) => f.Clip.Mark;
+}
+
+[TimelineSystem]
+public ref partial struct FlushSystem
 {
     public Span<Body> Body;
 }
