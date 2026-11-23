@@ -99,6 +99,34 @@ public sealed class IncrementalTests
     }
 
     [Fact]
+    public void DeclaredCombineThatTheKindCannotAccumulateIsTlgen116AndAValidOneIsPrecombined()
+    {
+        const string shared = """
+            using System;
+            using Tl;
+            namespace Portable;
+            public struct Gauge { public float A; public int B; }
+            public struct Ranked { public int Value; public float Priority; }
+            public struct GaugeClip { public float V; }
+            public struct GaugeTrack : IBlend<GaugeClip> { public void Blend(in GaugeClip first, in GaugeClip second, float factor, out GaugeClip result) => result = first; }
+            [TimelineSystem] public ref partial struct GaugeSystem { public Span<Gauge> Gauge; }
+            public struct Feed : ITrack<GaugeTrack, GaugeClip> { [Feeds(typeof(GaugeKind))] public static __VALUE__ Eval(in Frame<GaugeTrack, GaugeClip> f) => default; }
+            [TimelineKind(__DECL__)] public struct GaugeKind { public static void Combine(ref __VALUE__ total, in __VALUE__ next) { } public static void Apply(in __VALUE__ total, ref Gauge gauge) { } }
+            """;
+        string[] Codes(string value, string declaration)
+        {
+            var driver = NewDriver();
+            var (run, trees) = Step(ref driver, Compile(("Gauge.cs", shared.Replace("__VALUE__", value).Replace("__DECL__", declaration))));
+            return run.Diagnostics.Where(static d => d.Id == "TLGEN116").Select(static d => d.Id + ": " + d.GetMessage()).Concat(trees.Where(static t => t.Contains("__b.Add<", StringComparison.Ordinal)).Select(static _ => "precombined")).ToArray();
+        }
+        Assert.Equal(["TLGEN116: Kind 'global::Portable.GaugeKind' declares Combine = Or, but its value is float. Sum takes numeric fields, Max and Min integer fields, Or integer or bool fields, all public and writable; Pick names an integer field of the value with Priority."], Codes("float", "Combine = KindCombine.Or"));
+        Assert.Equal(["TLGEN116: Kind 'global::Portable.GaugeKind' declares Combine = Max, but field 'A' is float. Sum takes numeric fields, Max and Min integer fields, Or integer or bool fields, all public and writable; Pick names an integer field of the value with Priority."], Codes("Gauge", "Combine = KindCombine.Max"));
+        Assert.Equal(["TLGEN116: Kind 'global::Portable.GaugeKind' declares Combine = Pick, but 'global::Portable.Ranked' has no public integer field named by Priority ('Priority') of at most 32 bits. Sum takes numeric fields, Max and Min integer fields, Or integer or bool fields, all public and writable; Pick names an integer field of the value with Priority."], Codes("Ranked", "Combine = KindCombine.Pick, Priority = nameof(Ranked.Priority)"));
+        Assert.Equal(["TLGEN116: Kind 'global::Portable.GaugeKind' declares Combine = Sum, but Mode is Each. Sum takes numeric fields, Max and Min integer fields, Or integer or bool fields, all public and writable; Pick names an integer field of the value with Priority."], Codes("float", "Combine = KindCombine.Sum, Mode = KindMode.Each"));
+        Assert.Equal(["precombined"], Codes("Gauge", "Combine = KindCombine.Sum"));
+    }
+
+    [Fact]
     public void EditingOnlyThePartialFileThatHoldsAFeedersFoldMovesItsKindOnAndOffThePrecombinedPath()
     {
         const string feeder = "using System;\nusing Tl;\nnamespace Portable;\npublic struct Lift { public float Y; }\npublic struct LiftClip { public float Y; }\npublic struct LiftTrack : IBlend<LiftClip> { public void Blend(in LiftClip first, in LiftClip second, float factor, out LiftClip result) => result = first; }\n[TimelineSystem] public ref partial struct LiftSystem { public Span<Lift> Lift; }\n[TimelineKind(Associative = true)] public struct LiftKind { public static void Combine(ref float total, in float next) => total += next; public static void Apply(in float total, ref Lift lift) => lift.Y += total; }\npublic partial struct Jump : ITrack<LiftTrack, LiftClip> { [Feeds(typeof(LiftKind))] public static float Rise(in float height) => height; }\n";

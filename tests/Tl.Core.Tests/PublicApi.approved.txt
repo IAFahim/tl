@@ -159,10 +159,11 @@ type Tl.Inspection+TablesSnapshot
   Property PairSnapshot Pair
   Method System.String ToString()
 type Tl.KindBuild
-  Method Void Add[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef)
+  Method Void Add[T,TSpans](Int32, Int32, UInt16*, TSpans ByRef, T)
   Method Void Fill[TFill](Byte*, TFill ByRef)
   Field UInt64 Kinds
   Method Tl.KindBuild Of[TFill](Tl.KindScore ByRef, Tl.LibraryTimeline*, Tl.KindValues*, Int32*, Boolean, TFill ByRef)
+  Method Int32 RowSpace(Tl.LibraryTimeline*, Int32, Int32*)
   Field Int32 Rows
   Field Int32 Stride
 type Tl.KindCalm
@@ -178,6 +179,14 @@ type Tl.KindCapacity
   Field System.String Name
   Field System.String SetBy
   Field Int32 Worst
+type Tl.KindCombine
+  Field Tl.KindCombine Custom
+  Field Tl.KindCombine Max
+  Field Tl.KindCombine Min
+  Field Tl.KindCombine Or
+  Field Tl.KindCombine Pick
+  Field Tl.KindCombine Sum
+  Field Byte value__
 type Tl.KindEntries
   Field Tl.KindEntries Both
   Field Tl.KindEntries Pulses
@@ -363,11 +372,12 @@ type Tl.KindValues
   Field Int32 Back
   Field Int64 Bytes
   Field Byte* Data
-  Method Void Fill[T,TSpans](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, UInt16*, Boolean, TSpans ByRef)
+  Method Void Fill[T,TSpans](Tl.KindScore ByRef, Tl.LibraryTimeline*, Int32, UInt16*, Boolean, TSpans ByRef, T)
   Method Void Free()
   Field Int32 Front
   Method UInt32* HeadOf(UInt16, UInt16)
   Field Int32 Part
+  Field Int32 Reversed
   Field Int32* Row
   Method Byte* RowOf(UInt16, UInt16)
   Field Int32 Rows
@@ -577,17 +587,24 @@ type Tl.PlaybackTable
   Method Void SeekChannel(Int32, Byte, UInt16)
   Method Void SetChannelSpeed(Int32, Byte, UInt16)
   Method Void SetSpeed(Int32, UInt16, UInt16)
+  Method Void Settle(Int32)
   Property Int32 SlotsPerEntity
   Method Void Start(Int32, UInt16, UInt16)
   Method Void Stop(Int32, UInt16)
   Method Void StopAll(Int32)
   Method Void StopChannel(Int32, Byte)
+  Property Tl.PlaybackView SystemView
   Property Tl.PlaybackView View
 type Tl.PlaybackView
+  Field UInt16* BlockOrigins
   Field Tl.Playback* Blocks
+  Field UInt16 Clock
   Method Int32 CountOf(Int32)
   Field Int32* Counts
+  Field UInt64* Dense
   Field Int32 EntityCount
+  Method Boolean IsDense(Int32)
+  Field UInt16* Origins
   Method Tl.Playback* RunOf(Int32)
   Method Tl.Playback* SlotOf(Int32, Int32)
   Field Tl.Playback* Slots
@@ -675,10 +692,12 @@ type Tl.TimelineId
 type Tl.TimelineKindAttribute
   Property Tl.KindEntries Accepts
   Property Boolean Associative
+  Property Tl.KindCombine Combine
   Property Boolean FoldsPulses
   Property System.String Group
   Property Tl.KindMode Mode
   Property Int32 Order
+  Property System.String Priority
 type Tl.TimelineRef
 type Tl.TimelineSlotKeysAttribute
 type Tl.TimelineSystemAttribute
@@ -730,12 +749,14 @@ type Tl.TlGenerated
 type Tl.TlKindAttribute
   Property Tl.KindEntries Accepts
   Property Boolean Associative
+  Property Tl.KindCombine Combine
   Property Boolean FoldsPulses
   Property Int32 GamePulses
   Property System.String Group
   Property Int32 Inline
   Property Tl.KindMode Mode
   Property Int32 Order
+  Property System.String Priority
 type Tl.TlNoSettings`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.TlStateAttribute

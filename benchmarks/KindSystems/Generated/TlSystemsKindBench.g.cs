@@ -1199,7 +1199,7 @@ Kind_62(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.Dmg", sizeof(int), "KindBench.Hit.Start:1", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.Dmg");
@@ -1415,7 +1415,7 @@ public void Combine(ref int total, in int next) { }
 internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K0", sizeof(float), "KindBench.C0.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K0");
@@ -1549,7 +1549,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_2(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K1", sizeof(float), "KindBench.C1.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K1");
@@ -1683,7 +1683,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_3(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K10", sizeof(float), "KindBench.C10.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K10");
@@ -1817,7 +1817,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_4(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K11", sizeof(float), "KindBench.C11.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K11");
@@ -1951,7 +1951,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_5(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K12", sizeof(float), "KindBench.C12.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K12");
@@ -2085,7 +2085,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_6(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K13", sizeof(float), "KindBench.C13.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K13");
@@ -2219,7 +2219,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_7(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K14", sizeof(float), "KindBench.C14.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K14");
@@ -2353,7 +2353,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_8(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K15", sizeof(float), "KindBench.C15.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K15");
@@ -2487,7 +2487,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_9(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K16", sizeof(float), "KindBench.C16.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K16");
@@ -2621,7 +2621,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_10(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K17", sizeof(float), "KindBench.C17.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K17");
@@ -2755,7 +2755,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_11(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K18", sizeof(float), "KindBench.C18.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K18");
@@ -2889,7 +2889,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_12(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K19", sizeof(float), "KindBench.C19.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K19");
@@ -3023,7 +3023,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_13(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K2", sizeof(float), "KindBench.C2.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K2");
@@ -3157,7 +3157,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_14(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K20", sizeof(float), "KindBench.C20.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K20");
@@ -3291,7 +3291,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_15(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K21", sizeof(float), "KindBench.C21.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K21");
@@ -3425,7 +3425,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_16(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K22", sizeof(float), "KindBench.C22.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K22");
@@ -3559,7 +3559,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_17(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K23", sizeof(float), "KindBench.C23.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K23");
@@ -3693,7 +3693,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_18(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K24", sizeof(float), "KindBench.C24.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K24");
@@ -3827,7 +3827,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_19(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K25", sizeof(float), "KindBench.C25.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K25");
@@ -3961,7 +3961,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_20(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K26", sizeof(float), "KindBench.C26.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K26");
@@ -4095,7 +4095,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_21(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K27", sizeof(float), "KindBench.C27.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K27");
@@ -4229,7 +4229,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_22(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K28", sizeof(float), "KindBench.C28.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K28");
@@ -4363,7 +4363,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_23(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K29", sizeof(float), "KindBench.C29.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K29");
@@ -4497,7 +4497,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_24(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K3", sizeof(float), "KindBench.C3.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K3");
@@ -4631,7 +4631,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_25(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K30", sizeof(float), "KindBench.C30.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K30");
@@ -4765,7 +4765,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_26(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K31", sizeof(float), "KindBench.C31.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K31");
@@ -4899,7 +4899,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_27(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K32", sizeof(float), "KindBench.C32.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K32");
@@ -5033,7 +5033,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_28(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K33", sizeof(float), "KindBench.C33.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K33");
@@ -5167,7 +5167,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_29(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K34", sizeof(float), "KindBench.C34.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K34");
@@ -5301,7 +5301,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_30(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K35", sizeof(float), "KindBench.C35.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K35");
@@ -5435,7 +5435,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_31(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K36", sizeof(float), "KindBench.C36.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K36");
@@ -5569,7 +5569,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_32(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K37", sizeof(float), "KindBench.C37.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K37");
@@ -5703,7 +5703,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_33(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K38", sizeof(float), "KindBench.C38.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K38");
@@ -5837,7 +5837,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_34(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K39", sizeof(float), "KindBench.C39.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K39");
@@ -5971,7 +5971,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_35(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K4", sizeof(float), "KindBench.C4.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K4");
@@ -6105,7 +6105,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_36(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K40", sizeof(float), "KindBench.C40.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K40");
@@ -6239,7 +6239,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_37(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K41", sizeof(float), "KindBench.C41.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K41");
@@ -6373,7 +6373,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_38(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K42", sizeof(float), "KindBench.C42.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K42");
@@ -6507,7 +6507,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_39(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K43", sizeof(float), "KindBench.C43.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K43");
@@ -6641,7 +6641,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_40(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K44", sizeof(float), "KindBench.C44.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K44");
@@ -6775,7 +6775,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_41(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K45", sizeof(float), "KindBench.C45.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K45");
@@ -6909,7 +6909,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_42(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K46", sizeof(float), "KindBench.C46.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K46");
@@ -7043,7 +7043,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_43(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K47", sizeof(float), "KindBench.C47.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K47");
@@ -7177,7 +7177,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_44(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K48", sizeof(float), "KindBench.C48.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K48");
@@ -7311,7 +7311,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_45(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K49", sizeof(float), "KindBench.C49.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K49");
@@ -7445,7 +7445,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_46(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K5", sizeof(float), "KindBench.C5.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K5");
@@ -7579,7 +7579,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_47(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K50", sizeof(float), "KindBench.C50.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K50");
@@ -7713,7 +7713,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_48(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K51", sizeof(float), "KindBench.C51.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K51");
@@ -7847,7 +7847,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_49(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K52", sizeof(float), "KindBench.C52.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K52");
@@ -7981,7 +7981,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_50(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K53", sizeof(float), "KindBench.C53.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K53");
@@ -8115,7 +8115,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_51(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K54", sizeof(float), "KindBench.C54.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K54");
@@ -8249,7 +8249,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_52(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K55", sizeof(float), "KindBench.C55.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K55");
@@ -8383,7 +8383,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_53(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K56", sizeof(float), "KindBench.C56.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K56");
@@ -8517,7 +8517,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_54(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K57", sizeof(float), "KindBench.C57.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K57");
@@ -8651,7 +8651,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_55(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K58", sizeof(float), "KindBench.C58.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K58");
@@ -8785,7 +8785,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_56(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K59", sizeof(float), "KindBench.C59.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K59");
@@ -8919,7 +8919,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_57(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K6", sizeof(float), "KindBench.C6.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K6");
@@ -9053,7 +9053,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_58(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K60", sizeof(float), "KindBench.C60.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K60");
@@ -9187,7 +9187,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_59(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K61", sizeof(float), "KindBench.C61.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K61");
@@ -9321,7 +9321,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_60(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K7", sizeof(float), "KindBench.C7.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K7");
@@ -9455,7 +9455,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_61(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K8", sizeof(float), "KindBench.C8.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K8");
@@ -9589,7 +9589,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_62(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindBench.K9", sizeof(float), "KindBench.C9.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindBench.K9");

@@ -184,7 +184,7 @@ Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, _
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Burn", sizeof(float), "@Effects\nKindGame.Flame.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Burn");
@@ -331,7 +331,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Chill", sizeof(int), "@Effects\nKindGame.Frost.Start:1", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Chill");
@@ -444,7 +444,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 internal static void Kind_2(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Lift", sizeof(float), "KindGame.Jump.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Lift");
@@ -588,7 +588,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_3(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Locomotion", sizeof(global::KindGame.Speed), "KindGame.Walk.Evaluate:0", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Locomotion");
@@ -722,7 +722,7 @@ if (__len != 0) __kt->Clear(__row);
 internal static void Kind_4(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.LegacyMotion* __c1, global::KindGame.WalkStat* __c2, global::KindGame.JumpPower* __c3, global::KindGame.Stamina* __c4, global::KindGame.Heat* __c5, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.StatChange", sizeof(int), "KindGame.ChangeStat.Start:1\nKindGame.Steps.OnStep:3", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.StatChange");
@@ -1052,7 +1052,7 @@ Kind_0(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Damage", sizeof(int), "KindGame.Hit.Start:1", 0, out var __me);
 var __kid = __ks.IndexOf("KindGame.Damage");

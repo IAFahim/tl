@@ -73,6 +73,8 @@ internal enum DerivedFieldKind : byte { Integer, Float, Boolean, Other }
 
 internal sealed record DerivedField(string Name, DerivedFieldKind Kind);
 
+internal sealed record LaneField(string Path, string Type);
+
 internal sealed record KindDecl(
     string Name,
     string TypeName,
@@ -92,6 +94,8 @@ internal sealed record KindDecl(
     public bool Associative { get; init; }
     public bool Precombined { get; init; }
     public bool PrecombinedPulses { get; init; }
+    public int Monoid { get; init; }
+    public IReadOnlyList<LaneField> LaneFields { get; init; } = [];
 }
 
 internal sealed record SystemConsumer(

@@ -41,6 +41,8 @@
     <EmbeddedResource Include="Parity\*.cs" />
     <Compile Remove="Precombine\**" />
     <EmbeddedResource Include="Precombine\*.cs" />
+    <Compile Remove="Dense\**" />
+    <EmbeddedResource Include="Dense\*.cs" />
     <EmbeddedResource Include="Generated\TlSystemsKinds.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsIdle.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsSnapshot.g.cs" />

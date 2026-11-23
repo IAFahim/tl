@@ -100,7 +100,7 @@ Kind_1(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::IdleGame.Screen* __c0, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("IdleGame.Caption", sizeof(int), "IdleGame.Lines.Which:0", 0, out var __me);
 var __kid = __ks.IndexOf("IdleGame.Caption");
@@ -245,7 +245,7 @@ global::IdleGame.Caption.Idle(ref __c0[__e]);
 internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::IdleGame.Screen* __c0, int __n, int __firstWord, int __endWord)
 {
 var __view = world.View;
-var __pview = players.View;
+var __pview = players.SystemView;
 {
 var __routes = __ks.Join("IdleGame.Footage", sizeof(int), "IdleGame.Reels.Which:0", 0, out var __me);
 var __kid = __ks.IndexOf("IdleGame.Footage");

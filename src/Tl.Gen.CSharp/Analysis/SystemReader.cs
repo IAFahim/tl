@@ -436,6 +436,14 @@ internal static partial class SystemReader
         var parameters = new List<ConsumerParam>();
         if (!BindParams("Apply", apply, 1, parameters)) return null;
         var group = NamedString(attribute, "Group");
+        var monoid = NamedInt(attribute, "Combine");
+        var lanes = new List<LaneField>();
+        var invalid = monoid == 0 ? "" : each ? "Mode is Each" : group.Length > 0 ? "it has a Group" : LaneFieldsOf(value, monoid, NamedString(attribute, "Priority"), lanes);
+        if (invalid.Length > 0)
+        {
+            Symbols.Error(diagnostics, site, "TLGEN116", $"Kind '{name}' declares Combine = {MonoidName(monoid)}, but {invalid}. Sum takes numeric fields, Max and Min integer fields, Or integer or bool fields, all public and writable; Pick names an integer field of the value with Priority.");
+            return null;
+        }
         List<ConsumerParam>? idleParams = null;
         var idle = ApplyLike(type, "Idle");
         if (idle is not null)
@@ -448,7 +456,54 @@ internal static partial class SystemReader
             idleParams = [];
             if (!BindParams("Idle", idle, 0, idleParams)) return null;
         }
-        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams, Associative = NamedInt(attribute, "Associative") == 1 };
+        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type), IdleParams = idleParams, Associative = NamedInt(attribute, "Associative") == 1 || monoid != 0, Monoid = monoid, LaneFields = lanes };
+    }
+
+    internal static string MonoidName(int monoid) => monoid switch { 1 => "Sum", 2 => "Max", 3 => "Min", 4 => "Or", 5 => "Pick", _ => "Custom" };
+
+    static string LaneFieldsOf(ITypeSymbol value, int monoid, string priority, List<LaneField> lanes)
+    {
+        if (monoid == 5)
+        {
+            var field = value.GetMembers(priority).OfType<IFieldSymbol>().FirstOrDefault(static f => !f.IsStatic);
+            var type = field is null ? null : Keyword(field.Type);
+            if (priority.Length == 0 || field is null || type is null or "float" or "double" or "bool" or "long" or "ulong" || field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal))
+                return $"'{Symbols.Name(value)}' has no public integer field named by Priority ('{priority}') of at most 32 bits";
+            lanes.Add(new LaneField("@" + priority, type));
+            return Flatten(value, "", lanes) ? "" : $"'{Symbols.Name(value)}' is not a struct of public writable primitive fields";
+        }
+        if (monoid is < 1 or > 4) return "the value is not a known Combine";
+        if (!Flatten(value, "", lanes)) return $"'{Symbols.Name(value)}' is not a primitive or a struct of public writable primitive fields";
+        foreach (var lane in lanes)
+            if (lane.Type == "bool" ? monoid != 4 : (lane.Type is "float" or "double") && monoid != 1)
+                return lane.Path.Length == 0 ? $"its value is {lane.Type}" : $"field '{lane.Path.Replace("@", "")}' is {lane.Type}";
+        return "";
+    }
+
+    static string? Keyword(ITypeSymbol type) => type.SpecialType switch
+    {
+        SpecialType.System_SByte => "sbyte", SpecialType.System_Byte => "byte", SpecialType.System_Int16 => "short", SpecialType.System_UInt16 => "ushort",
+        SpecialType.System_Int32 => "int", SpecialType.System_UInt32 => "uint", SpecialType.System_Int64 => "long", SpecialType.System_UInt64 => "ulong",
+        SpecialType.System_Single => "float", SpecialType.System_Double => "double", SpecialType.System_Boolean => "bool", _ => null,
+    };
+
+    static bool Flatten(ITypeSymbol type, string path, List<LaneField> lanes)
+    {
+        if (Keyword(type) is { } keyword)
+        {
+            lanes.Add(new LaneField(path, keyword));
+            return true;
+        }
+        if (type.TypeKind != TypeKind.Struct) return false;
+        var any = false;
+        foreach (var field in type.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.IsStatic || field.IsConst) continue;
+            if (field.IsReadOnly || field.IsImplicitlyDeclared || field.IsFixedSizeBuffer || field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal)
+                || !Flatten(field.Type, path.Length == 0 ? "@" + field.Name : path + ".@" + field.Name, lanes)) return false;
+            any = true;
+        }
+        return any;
     }
 
     static KindDecl? ReadForeignKind(INamedTypeSymbol type, SyntaxNode site, List<DeclarationDiagnostic> diagnostics)
