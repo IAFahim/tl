@@ -3,54 +3,9 @@ using __PF = Tl.PlaybackFlags;
 using __FF = Tl.FrameFlags;
 namespace TlSystems
 {
-internal sealed class TlModule_Idle : Tl.ITlModule
-{
-public int PairCount => 0;
-public ulong PairKey(int index)
-{
-switch (index)
-{
-default: return 0UL;
-}
-}
-public int FoldLaneBytes(int index)
-{
-switch (index)
-{
-default: return 0;
-}
-}
-public int FoldLaneOffset(int index)
-{
-switch (index)
-{
-default: return 0;
-}
-}
-public unsafe void FoldStep(int index, byte* track, byte* first, byte* second, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, byte* lane)
-{
-switch (index)
-{
-default: return;
-}
-}
-internal static void Install()
-{
-Tl.TlGenerated.Install(new TlModule_Idle());
-}
-#if NET
-[System.Runtime.CompilerServices.ModuleInitializer]
-internal static void InstallModule() => Install();
-#endif
-}
+internal sealed class TlCompiled_Idle { }
 internal static unsafe class TlSystem_Idle_global__IdleGame_Stage
 {
-internal const ulong SystemKey = 4078310518730019989UL;
-internal static readonly ulong[] PairKeys = new ulong[]
-{
-0UL,
-0UL,
-};
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, Tl.FrameFlags extra, out global::IdleGame.LineTrack track, out global::IdleGame.LineClip clip, out Tl.Frame<global::IdleGame.LineTrack, global::IdleGame.LineClip> frame)
 {
 track = *(global::IdleGame.LineTrack*)trackPtr;
@@ -85,7 +40,6 @@ frame = new Tl.Frame<global::IdleGame.ReelTrack, global::IdleGame.ReelClip>(in t
 }
 internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, global::IdleGame.Screen* __c0, int __n)
 {
-if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
 var __ks = players.Kinds;
 if (__ks != null)
 {

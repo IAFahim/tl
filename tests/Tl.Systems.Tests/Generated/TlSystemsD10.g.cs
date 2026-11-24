@@ -3,64 +3,9 @@ using __PF = Tl.PlaybackFlags;
 using __FF = Tl.FrameFlags;
 namespace TlSystems
 {
-internal sealed class TlModule_D10 : Tl.ITlModule
-{
-public int PairCount => 1;
-public ulong PairKey(int index)
-{
-switch (index)
-{
-case 0: return 16185761523353686663UL;
-default: return 0UL;
-}
-}
-public int FoldLaneBytes(int index)
-{
-switch (index)
-{
-case 0: return 4;
-default: return 0;
-}
-}
-public int FoldLaneOffset(int index)
-{
-switch (index)
-{
-case 0: return 0;
-default: return 0;
-}
-}
-public unsafe void FoldStep(int index, byte* track, byte* first, byte* second, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, byte* lane)
-{
-switch (index)
-{
-case 0:
-{
-TlSystem_D10_global__D10_TwoTrack.Frame_0(track, first, second == first ? null : second, blend, tick, windowLength, withinClip, trackIndex, duration, direction, __FF.None, out var __t, out var __c, out var __frame);
-float __out0 = default;
-global::D10.TwoTrackFold.Fold(in __frame, out __out0);
-*(float*)(lane + 0) = __out0;
-return;
-}
-default: return;
-}
-}
-internal static void Install()
-{
-Tl.TlGenerated.Install(new TlModule_D10());
-}
-#if NET
-[System.Runtime.CompilerServices.ModuleInitializer]
-internal static void InstallModule() => Install();
-#endif
-}
+internal sealed class TlCompiled_D10 { }
 internal static unsafe class TlSystem_D10_global__D10_TwoTrack
 {
-internal const ulong SystemKey = 16020138691183654573UL;
-internal static readonly ulong[] PairKeys = new ulong[]
-{
-16185761523353686663UL,
-};
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, Tl.FrameFlags extra, out global::D10.TwoTrackFoldTrack track, out global::D10.TwoTrackFoldClip clip, out Tl.Frame<global::D10.TwoTrackFoldTrack, global::D10.TwoTrackFoldClip> frame)
 {
 track = *(global::D10.TwoTrackFoldTrack*)trackPtr;
@@ -79,98 +24,85 @@ frame = new Tl.Frame<global::D10.TwoTrackFoldTrack, global::D10.TwoTrackFoldClip
 }
 internal static void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n)
 {
-if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players));
-RunClose(world, players, forward, __c0, __c1, __n); RunLegacyRange(world, players, forward, __c0, __c1, __n, 0, 2147483647);
+var __ks = players.Kinds;
+if (__ks != null)
+{
+Kinds(world, players, __ks, forward, __c0, __c1, __n, 0, 2147483647);
+}
 }
 internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
+Kind_0(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
 }
-internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n)
+internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View; var __pview = players.View;
-var __closing = players.Closing;
-for (var __ci = 0; __ci < __closing->Count; __ci++)
+var __view = world.View;
+var __pview = players.SystemView;
 {
-__closing->Get(__ci, out var __ce, out var __cs, out var __cpb);
-var __ctl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__cpb.Timeline));
-if (__ctl is null || __ctl->Duration == 0) continue;
-var __ctick = __cpb.Tick < __ctl->Duration ? __cpb.Tick : (ushort)(__ctl->Duration - 1);
-var __cstage = Tl.LibraryViewReader.StageAt(__ctl, __ctick);
-if (__cstage is null) continue;
-var __csteps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __ctl->Id, (int)(__cstage - __ctl->Stages), PairKeys);
-var __cbackward = forward ? (__cpb.Flags & __PF.Reverse) != 0 : (__cpb.Flags & __PF.Reverse) == 0;
-var __cbase = (__cbackward ? __FF.Reverse : __FF.None) | __FF.Interrupted;
-if (__ctick == 0) __cbase |= __FF.TimelineStart;
-if (__ctick == (ushort)(__ctl->Duration - 1)) __cbase |= __FF.TimelineEnd;
-for (var __i = 0; __i < __csteps.Length; __i++)
+var __routes = __ks.Join("D10.TrackEffect", sizeof(float), "D10.TwoTrackFold.Evaluate:0", 0, out var __me);
+var __kid = __ks.IndexOf("D10.TrackEffect");
+var __kt = __ks.Table(__kid);
+if (__kt != null && __routes != null)
 {
-var __entry = __csteps[__i];
-switch (__entry.Consumer)
+if (__firstWord < 0) __firstWord = 0;
+if (__endWord > __kt->Words) __endWord = __kt->Words;
+if (__firstWord > __endWord) __firstWord = __endWord;
+var __stride = __kt->Stride;
+var __score = __ks.Score;
+var __pl = __ks.Playing;
+var __whole = __ks.RowsAreEntities(__kid);
+var __lst = __ks.ListedOf(__kid);
+for (var __kw = __firstWord; __kw < __endWord; __kw++)
 {
-case 0:
+var __kb = __kt->Enabled[__kw] & (__whole ? __kt->Active[__kw] | __lst[__kw] | __pl[__kw] : ~0ul);
+while (__kb != 0)
 {
-var __def = __cstage->Steps + __entry.Step;
-if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
-byte* __row0 = (byte*)__def->FrameRow;
-byte* __first0 = __row0 + sizeof(global::D10.TwoTrackFoldTrack);
-byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::D10.TwoTrackFoldClip);
-float __blend0 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__ctick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within0 = (ushort)(__ctick - __def->WindowStart);
-sbyte __dir0 = __cbackward ? (sbyte)-1 : (sbyte)1;
-Frame_0(__row0, __first0, __second0, __blend0, __ctick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__ctl->Duration, __dir0, __cbase, out var __t0, out var __cc0, out var __f0);
-global::D10.TwoTrackFold.OnClipEnd(in __f0);
-break;
-}
-}
-}
-}
-}
-internal static void RunLegacyRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
-{
-var __view = world.View; var __pview = players.View;
-var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
-for (var __w = __firstWord; __w < __w1; __w++)
-{
-for (var __b = __pl[__w]; __b != 0; __b &= __b - 1)
-{
-var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__b);
+var __row = (__kw << 6) + Tl.KindStore.TrailingZeros(__kb);
+__kb &= __kb - 1;
+var __e = __kt->Entity[__row];
 if (__e >= __n) continue;
-#if TL_CHECKED
-Tl.Checked.Visited();
-#endif
-var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
-if (__count == 0) continue;
-for (var __s = 0; __s < __count; __s++)
+var __len = (int)__kt->Length[__row];
+byte* __data = __kt->Data(__row);
+var __run = __pview.RunOf(__e);
+var __cnt = __pview.CountOf(__e);
+var __smp = __ks.SamplesOf(__e);
+var __pulses = 0;
+var __listed = false;
+var __sampled = __smp != 0;
+var __sk = __sampled ? Tl.KindRules.Depth(__run + __cnt, __smp) : 1;
+for (var __sj = 0; __sj < __sk; __sj++)
 {
-var __ps = __pview.SlotOf(__e, __s);
-if (__ps->Timeline == 0 || ((__ps->Flags & (__PF.Ended | __PF.Paused | __PF.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__ps->Flags, forward))) continue;
-var __pcopy = *__ps;
-var __pb = __ps->Rate == 0 ? __ps : &__pcopy;
-var __pk = Tl.PlaybackRules.Crossings(in *__ps);
-for (var __j = 0; __j < __pk; __j++)
+for (var __q = 0; __q < __cnt + __smp; __q++)
 {
-if (__j > 0 && (Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != Tl.AdvanceResult.Kept || (__pcopy.Flags & (__PF.Ended | __PF.Paused)) != 0)) break;
+var __i = __q < __smp ? __cnt + __q : __q - __smp;
+var __pb = __run + __i;
+if (__pb->Timeline == 0 || !Tl.KindScore.Listed(__pb->Flags)) continue;
+var __cell = __score.CellOf(__pb->Timeline, __pb->Tick, __kid);
+if (__cell < 0 || __score.Start[__cell] == __score.Start[__cell + 1]) continue;
+if (__i < __cnt) { __listed = true; if (__sj != 0 || __pb->Rate != 0) continue; }
+else if (__pb->Phase != __sj) continue;
+if ((__pb->Flags & __PF.Paused) != 0) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
-if (__tl is null || __tl->Duration == 0) continue;
-var __tick = __pb->Tick;
-var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
-if (__stage is null) continue;
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __base = __backward ? __FF.Reverse : __FF.None;
-if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
-if (__tick == 0) __base |= __FF.TimelineStart;
-if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
-for (var __i = 0; __i < __steps.Length; __i++)
+for (var __f = __score.Start[__cell]; __f < __score.Start[__cell + 1]; __f++)
 {
-var __entry = __steps[__i];
-switch (__entry.Consumer)
+var __sp = __score.Spans + __f;
+var __r = __routes[__sp->Ordinal];
+if ((__r >> 8) != __me) continue;
+var __def = __sp->Step;
+if (__def == null) continue;
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if (Tl.KindScore.Synthetic(__pb->Flags, __tick, __def, __backward)) __kflags |= __FF.Synthetic;
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+float __v = default;
+switch (__r & 0xff)
 {
 case 0:
 {
-var __def = __stage->Steps + __entry.Step;
-if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
 byte* __row0 = (byte*)__def->FrameRow;
 byte* __first0 = __row0 + sizeof(global::D10.TwoTrackFoldTrack);
 byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::D10.TwoTrackFoldClip);
@@ -178,114 +110,56 @@ float __blend0 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : 
 ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
 ushort __within0 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
-Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
-byte* __lane0 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
+Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __kflags, out var __t0, out var __cc0, out var __f0);
 float __fd0_0 = default;
-if (__def->FoldLane == null)
-{
 global::D10.TwoTrackFold.Fold(in __f0, out __fd0_0);
-}
-else
-{
-__fd0_0 = *(float*)(__lane0 + 0);
-}
-global::D10.TwoTrackFold.ExecuteActive(in __f0, in __fd0_0, ref __c0[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1 && (__pb->Flags & __PF.ReenterPending) == 0) global::D10.TwoTrackFold.OnClipEnd(in __f0);
+__v = global::D10.TwoTrackFold.Evaluate(in __fd0_0);
+__ok = true;
 break;
 }
 }
+if (!__ok) continue;
+global::D10.TrackEffect.Apply(in __v, ref __c0[__e], ref __c1[__e]);
 }
 }
-}
-}
-}
-}
-internal static void RunFusedRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
+for (var __j = 0; __j < __len; __j++)
 {
-var __view = world.View; var __pview = players.View;
-var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
-for (var __w = __firstWord; __w < __w1; __w++)
-{
-for (var __b = __pl[__w]; __b != 0; __b &= __b - 1)
-{
-var __e = (__w << 6) + Tl.KindStore.TrailingZeros(__b);
-if (__e >= __n) continue;
-#if TL_CHECKED
-Tl.Checked.Visited();
-#endif
-var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
-for (var __s = 0; __s < __cnt; __s++)
-{
-var __pb = __pview.SlotOf(__e, __s);
-if (__pb->Timeline == 0) continue;
-var __pfl = __pb->Flags;
-if ((__pfl & (__PF.Ended | __PF.Paused)) != 0 && !Tl.PlaybackRules.Unpark(ref *__pb, forward)) { if (!Tl.PlaybackRules.IsParked(__pfl)) __pb->Flags = __pfl & ~__PF.StartPending; }
+var __en = (Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);
+if (__sampled && !Tl.KindRules.Due(__en, __sj, __run, __cnt)) continue;
+float __v = default;
+__pulses++;
+if (__en->Timeline == 0)
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
 else
 {
-var __pk = Tl.PlaybackRules.Cross(ref *__pb);
-for (var __j = 0; __j < __pk; __j++)
+var __r = __routes[__en->Feeder];
+if ((__r >> 8) != __me)
 {
-if (__pb->Timeline == 0 || (uint)(__pb->Timeline - 1) >= (uint)__view.TimelineCount) throw new System.ArgumentException($"Playback slot {__s} of entity {__e} names no timeline in the loaded library.");
-var __tl = __view.Timelines + (__pb->Timeline - 1);
-var __dur = __tl->Duration;
-if (__dur != 0)
+if ((__en->Flags & Tl.KindEntryFlags.Ready) == 0) continue;
+__v = System.Runtime.CompilerServices.Unsafe.ReadUnaligned<float>((byte*)__en + 8);
+__en->Flags &= ~Tl.KindEntryFlags.Ready;
+}
+else
 {
-var __tick = __pb->Tick;
-var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick);
-if (__stage != null)
-{
-var __steps = Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+var __pb = __pview.SlotOf(__e, __en->Slot);
+var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__en->Timeline));
+ushort __tick = __pb->Tick;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
-var __base = __backward ? __FF.Reverse : __FF.None;
-if (((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0) __base |= __FF.Synthetic;
-if (__tick == 0) __base |= __FF.TimelineStart;
-if (__tick == (ushort)(__tl->Duration - 1)) __base |= __FF.TimelineEnd;
-for (var __i = 0; __i < __steps.Length; __i++)
-{
-var __entry = __steps[__i];
-switch (__entry.Consumer)
-{
-case 0:
-{
-var __def = __stage->Steps + __entry.Step;
-if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
-byte* __row0 = (byte*)__def->FrameRow;
-byte* __first0 = __row0 + sizeof(global::D10.TwoTrackFoldTrack);
-byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::D10.TwoTrackFoldClip);
-float __blend0 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
-ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
-ushort __within0 = (ushort)(__tick - __def->WindowStart);
-sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
-Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
-byte* __lane0 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
-float __fd0_0 = default;
-if (__def->FoldLane == null)
-{
-global::D10.TwoTrackFold.Fold(in __f0, out __fd0_0);
-}
-else
-{
-__fd0_0 = *(float*)(__lane0 + 0);
-}
-global::D10.TwoTrackFold.ExecuteActive(in __f0, in __fd0_0, ref __c0[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1 && (__pb->Flags & __PF.ReenterPending) == 0) global::D10.TwoTrackFold.OnClipEnd(in __f0);
-break;
+var __kflags = __FF.None;
+if (__backward) __kflags |= __FF.Reverse;
+if ((__en->Flags & Tl.KindEntryFlags.Synthetic) != 0) __kflags |= __FF.Synthetic;
+if ((__en->Flags & Tl.KindEntryFlags.Interrupted) != 0) __kflags |= __FF.Interrupted;
+if (__tick == 0) __kflags |= __FF.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= __FF.TimelineEnd;
+var __ok = false;
+if (!__ok) continue;
 }
 }
+global::D10.TrackEffect.Apply(in __v, ref __c0[__e], ref __c1[__e]);
 }
 }
-}
-var __advance = Tl.PlaybackRules.Advance(ref *__pb, __view.Timelines, __view.TimelineCount, forward);
-if (__advance == Tl.AdvanceResult.Removed)
-{
-__pb[0] = default;
-var __hw = __pview.Counts[__e];
-while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
-__pview.Counts[__e] = __hw;
-break;
-}
-if ((__pb->Flags & (__PF.Ended | __PF.Paused)) != 0) break;
-}
+if (__listed) __lst[__row >> 6] |= 1ul << (__row & 63); else __lst[__row >> 6] &= ~(1ul << (__row & 63));
+if (__len != 0) __kt->Clear(__row);
 }
 }
 }
@@ -319,7 +193,7 @@ public int* __c1;
 public int __n; public int __forward;
 }
 static unsafe void __PChunk(void* __p, int __fw, int __ew, int __chunk) { var __s = (__PS*)__p; var world = (Tl.TimelineWorld)Tl.TlWorkers.Target(__s->__w); var players = (Tl.PlaybackTable)Tl.TlWorkers.Target(__s->__p); var forward = __s->__forward != 0;
-TlSystems.TlSystem_D10_global__D10_TwoTrack.RunLegacyRange(world, players, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
+var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_D10_global__D10_TwoTrack.Kinds(world, players, __ks, forward, __s->__c0, __s->__c1, __s->__n, __fw, __ew);
 }
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
@@ -333,32 +207,9 @@ fixed (float* __p0 = this.Total)
 fixed (int* __p1 = this.Runs)
 {
 if (workers.WorkerCount == 1) { TlSystems.TlSystem_D10_global__D10_TwoTrack.Run(world, players, forward, __p0, __p1, __len); return; }
-TlSystems.TlSystem_D10_global__D10_TwoTrack.RunClose(world, players, forward, __p0, __p1, __len);
 var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __c1 = __p1, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
-}
-}
-}
-}
-}
-namespace D10
-{
-partial struct TwoTrack
-{
-public unsafe void RunFused(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward = true)
-{
-if (world is null) throw new System.ArgumentNullException(nameof(world));
-if (players is null) throw new System.ArgumentNullException(nameof(players));
-int __len = players.EntityCapacity;
-__len = this.Total.Length;
-if (this.Runs.Length != __len) throw new System.ArgumentException("global::D10.TwoTrack: column Runs lengths differ.");
-if (__len > players.EntityCapacity) throw new System.ArgumentException("global::D10.TwoTrack: column length exceeds table capacity.");
-fixed (float* __p0 = this.Total)
-{
-fixed (int* __p1 = this.Runs)
-{
-if (players.Kinds != null) throw new System.InvalidOperationException("RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached."); TlSystems.TlSystem_D10_global__D10_TwoTrack.RunClose(world, players, forward, __p0, __p1, __len); TlSystems.TlSystem_D10_global__D10_TwoTrack.RunFusedRange(world, players, forward, __p0, __p1, __len, 0, 2147483647); Tl.ClosingList.Clear(players.Closing);
 }
 }
 }

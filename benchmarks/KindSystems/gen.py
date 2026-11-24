@@ -7,12 +7,6 @@ GROUP = os.environ.get("TL_GROUP", "")
 def domain():
     out = ["using System;", "using Tl;", "", "namespace KindBench", "{", ""]
     out += ["[TimelineSystem]", "public ref partial struct KSys", "{", "    public Span<float> Fx;", "    public Span<int> Hp;", "}", ""]
-    out += ["[TimelineSystem]", "public ref partial struct LSys", "{", "    public Span<float> Fx;", "}", ""]
-    out += ["public struct LegacyClip { public float Amount; }",
-            "public struct LegacyTrack : IBlend<LegacyClip>", "{", "    public float Scale;", "    public void Blend(in LegacyClip a, in LegacyClip b, float t, out LegacyClip r) => r = a;", "}",
-            "[TimelineSystemMember(typeof(LSys))]", "public struct Legacy : ITrack<LegacyTrack, LegacyClip>", "{",
-            "    public static void ExecuteActive(in Frame<LegacyTrack, LegacyClip> f, ref float fx) => fx += f.Direction * f.Clip.Amount * f.Track.Scale;",
-            "    public static void OnClipEnd(in Frame<LegacyTrack, LegacyClip> f)", "    {", "    }", "}", ""]
     out += ["[TimelineKind(Accepts = KindEntries.Pulses, FoldsPulses = true)]", "public struct Dmg", "{",
             "    public static void Combine(ref int t, in int n) => t += n;", "    public static void Apply(in int t, ref int hp) => hp -= t;", "}",
             "public struct DmgFold : IPulseFold<int>", "{", "    public void Fold(ref int total, in int next) => total += next;", "}",
@@ -55,7 +49,6 @@ if __name__ == "__main__":
     open("Domain.cs", "w").write(domain())
     write_lib("lib-shapes", [
         timeline("walk", 40, [track("T0", 2, [(0, 40, {"Amount": 3})], "V0")], loop=True),
-        timeline("walk_legacy", 40, [track("LegacyTrack", 2, [(0, 40, {"Amount": 3})], "LegacyClip")], loop=True),
         timeline("long", 65535, [track("T0", 2, [(0, 65535, {"Amount": 3})], "V0")], loop=True),
         timeline("hit", 8, [track("HitTrack", 1, [(2, 4, {"Amount": 5})], "HitClip")]),
     ], kinds={"KindBench.Dmg": {"gamePulses": 8, "maxInlineBytes": 128}})

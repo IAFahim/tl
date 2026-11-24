@@ -116,22 +116,13 @@ internal static partial class SystemReader
 
     internal static SystemTypeModel? TrackOf(CSharpCompilation compilation, INamedTypeSymbol type, SyntaxNode node)
     {
-        if (type.AllInterfaces.Any(static i => i.OriginalDefinition is { MetadataName: "ITlModule", ContainingNamespace: { Name: "Tl" } }))
+        if (type.Name.StartsWith("TlCompiled_", StringComparison.Ordinal) && type.ContainingNamespace.ToDisplayString() == "TlSystems")
             return Stamp(Mk(type, node, compilation, SystemModelKind.Module));
-        var consumer = ReadConsumerFor(compilation, type, node);
-        var isTlTrack = type.AllInterfaces.Any(static i => i.OriginalDefinition is { MetadataName: "ITlTrack`1", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } });
-        if (consumer is null && !isTlTrack || Contracts(compilation) is not { } contracts) return null;
-        var events = isTlTrack ? NewStyle.EventElements(type, contracts.Events) : null;
-        return Stamp(Mk(type, node, compilation, SystemModelKind.Consumer)) with { Consumer = consumer, Diagnostics = consumer?.Diagnostics, Events = events };
-    }
-
-    static SystemConsumer? ReadConsumerFor(CSharpCompilation compilation, INamedTypeSymbol type, SyntaxNode node)
-    {
-        var contracts = Contracts(compilation);
-        if (contracts is null || !TypeAnalyzer.IsNewStyle(type)) return null;
-        var diagnostics = new List<DeclarationDiagnostic>();
-        var foreign = new Dictionary<string, (INamedTypeSymbol Type, SyntaxNode Site)>(StringComparer.Ordinal);
-        return ReadConsumer(type, node, contracts, KindContractsOf(compilation), compilation, diagnostics, foreign, new Dictionary<string, (KindDecl Kind, SyntaxNode Site)>(StringComparer.Ordinal), collectFeeders: false);
+        if (Contracts(compilation) is not { } contracts) return null;
+        var consumer = TypeAnalyzer.IsNewStyle(type) ? ReadConsumer(type, node, contracts) : null;
+        var events = NewStyle.EventElements(type, contracts.Events);
+        if (consumer is null && events.Count == 0) return null;
+        return Stamp(Mk(type, node, compilation, SystemModelKind.Consumer)) with { Consumer = consumer, Diagnostics = consumer?.Diagnostics, Events = events.Count == 0 ? null : events };
     }
 
     internal static ImmutableArray<SystemTypeModel?> CollectModels(CSharpCompilation compilation)

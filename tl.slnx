@@ -20,7 +20,7 @@
     <Project Path="tests/Tl.Packs.Tests/Tl.Packs.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
-    <Project Path="benchmarks/Systems/Systems.csproj" />
+    <Project Path="benchmarks/KindShape/KindShape.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Tl.Analyzers/Tl.Analyzers.csproj" />

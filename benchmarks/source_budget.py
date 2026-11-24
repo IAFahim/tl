@@ -18,7 +18,7 @@ def budget(label, *scopes, limit):
     return total <= limit
 
 
-ok = budget("src", "src", limit=556_000)
+ok = budget("src", "src", limit=520_000)
 ok &= budget("samples", "samples", limit=66_000)
 portable_json = ["tools/Tl.Gen.Tlb/TimelineJson.cs", "tools/Tl.Gen.Tlb/TlJson.cs", "tools/Tl.Gen.Tlb/ValueJson.cs", "tools/Tl.Bake/DecodeCommand.cs"]
 ok &= budget("shipped-tools", "tools/Tl.Gen.Tlb", "tools/Tl.Bake", *[":(exclude)" + path for path in portable_json], limit=345_000)

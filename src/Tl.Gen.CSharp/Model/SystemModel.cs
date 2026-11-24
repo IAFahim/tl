@@ -22,7 +22,6 @@ internal enum ConsumerMethodKind : byte
     ExecuteActive,
     OnClipStart,
     OnClipEnd,
-    OnMarker,
     Feeder,
 }
 
@@ -44,15 +43,7 @@ internal sealed record ConsumerParam(string Name, string TypeName, string Modifi
     public bool ByValue { get; init; }
 }
 
-internal sealed record DirectLane(bool Eligible, string Op, string WrittenType, string WrittenMember, IReadOnlyList<int> FoldOffsets, IReadOnlyList<string> ReadTypes)
-{
-    public static readonly DirectLane None = new(false, "", "", "", [], []);
-}
-
-internal sealed record ConsumerMethod(ConsumerMethodKind Kind, IReadOnlyList<ConsumerParam> Params, IReadOnlyList<string> FoldTypes, IReadOnlyList<int> FoldSizes)
-{
-    public DirectLane Direct { get; init; } = DirectLane.None;
-}
+internal sealed record ConsumerMethod(ConsumerMethodKind Kind, IReadOnlyList<ConsumerParam> Params, IReadOnlyList<string> FoldTypes, IReadOnlyList<int> FoldSizes);
 
 internal enum FeederTrigger : byte
 {

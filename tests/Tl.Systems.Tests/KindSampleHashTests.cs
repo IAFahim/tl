@@ -17,7 +17,6 @@ public sealed unsafe class KindSampleHashTests
         readonly KindStore _store;
         readonly KindPulses<int> _damage;
         readonly Motion[] _motion;
-        readonly LegacyMotion[] _legacy;
         readonly WalkStat[] _stat;
         readonly JumpPower[] _power;
         readonly Stamina[] _stamina;
@@ -33,7 +32,6 @@ public sealed unsafe class KindSampleHashTests
             _store = new KindStore(_world, _players);
             _damage = _store.Pulses<int>("KindGame.Damage");
             _motion = new Motion[count];
-            _legacy = new LegacyMotion[count];
             _stat = new WalkStat[count];
             _power = new JumpPower[count];
             _stamina = new Stamina[count];
@@ -56,7 +54,7 @@ public sealed unsafe class KindSampleHashTests
         public void Step()
         {
             _world.Tick(_players, true);
-            new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, _players, true);
+            new Movement { Motion = _motion, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, _players, true);
             new Vitals { Health = _health }.Run(_world, _players, true);
         }
 

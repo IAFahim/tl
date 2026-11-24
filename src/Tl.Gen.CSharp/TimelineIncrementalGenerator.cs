@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using Tl.Gen.CSharp.Analysis;
+using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp;
 
@@ -39,7 +40,7 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         var pulses = MethodAttr("Tl.PulseAttribute", static (ctx, ct) => SystemReader.FeederOf(ctx, ct));
         var tracks = context.SyntaxProvider
             .CreateSyntaxProvider(
-                static (node, _) => node is TypeDeclarationSyntax syntax && syntax.BaseList is not null && syntax.BaseList.Types.Any(candidate => Base(candidate.Type) is "ITlTrack" or "ITrack" or "IMarker" or "ITlModule"),
+                static (node, _) => node is TypeDeclarationSyntax syntax && (syntax.Identifier.ValueText.StartsWith("TlCompiled_", StringComparison.Ordinal) || syntax.BaseList is not null && syntax.BaseList.Types.Any(candidate => Base(candidate.Type) is "ITlTrack" or "ITrack" or "IMarker")),
                 static (syntax, cancellation) => SystemReader.TrackOf(syntax, cancellation))
             .WithTrackingName(TypeStep);
         var models = kinds.Collect().Combine(kindsLegacy.Collect()).Combine(systems.Collect()).Combine(states.Collect())
@@ -88,10 +89,10 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
     {
         cancellation.ThrowIfCancellationRequested();
         if (ordered.Length == 0) return Empty;
-        if (!ordered.Any(static model => model.Kind == SystemModelKind.Kind || model.Kind == SystemModelKind.Consumer && model.Events is not null || model.Derived is { Count: > 0 })) return Empty;
+        if (!ordered.Any(static model => model.Kind == SystemModelKind.Kind || model.Kind == SystemModelKind.Consumer && (model.Events is not null || model.Consumer?.Methods.Any(static method => method.Kind is ConsumerMethodKind.ExecuteActive or ConsumerMethodKind.OnClipStart or ConsumerMethodKind.OnClipEnd) == true || model.Diagnostics is { Count: > 0 }) || model.Derived is { Count: > 0 })) return Empty;
         var assemblyName = ordered[0].AssemblyName;
         var id = string.Concat((assemblyName.Length == 0 ? "Game" : assemblyName).Select(static c => char.IsLetterOrDigit(c) ? c : '_'));
-        if (ordered.Any(model => model.Kind == SystemModelKind.Module && model.TypeName == "global::TlSystems.TlModule_" + id)) return Empty;
+        if (ordered.Any(model => model.Kind == SystemModelKind.Module && model.TypeName == "global::TlSystems.TlCompiled_" + id)) return Empty;
         var read = SystemReader.AssignModels(ordered, id);
         var artifacts = SystemGeneration.ArtifactsFor(read.Assignments, read.Diagnostics, read.AutoSource, assemblyName, id);
         var fingerprint = string.Join("\0", read.Diagnostics.Select(DiagnosticFingerprint).Concat(artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));

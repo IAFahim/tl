@@ -32,68 +32,6 @@ public sealed unsafe class WorkerDeterminismLaws
             throw new InvalidOperationException($"fault chunk {chunk}");
     }
 
-    static (ulong Hash, byte[] Motion, byte[] Stats, byte[] Cues, PlaybackTable Players) RunPlainScenario(
-        GeneratedLibrary lib,
-        PlainInput[] input,
-        FuzzRequestOp[] ops,
-        int[] opsPerStep,
-        bool[] forwards,
-        int entities,
-        int slotsPerEntity,
-        int workerCount,
-        TlWorkers? sharedPool)
-    {
-        using var world = new TimelineWorld(lib.Bytes);
-        var players = new PlaybackTable(entities, slotsPerEntity);
-        using var cues = new Events<FuzzCue>(1 << 16);
-        using var owned = sharedPool == null && workerCount > 0 ? new TlWorkers(workerCount) : null;
-        var pool = sharedPool ?? owned;
-
-        var motion = new PlainMotion[entities];
-        var stats = new PlainStats[entities];
-        var hash = TlStateHash.Begin();
-        var cueList = new List<EventRecord<FuzzCue>>();
-
-        var opCursor = 0;
-        for (var step = 0; step < forwards.Length; step++)
-        {
-            var count = opsPerStep[step];
-            for (var k = 0; k < count; k++)
-                LibraryGen.ApplyOp(players, in ops[opCursor++]);
-
-            world.ApplyRequests(players);
-            var sys = new PlainFuzzSystem
-            {
-                Motion = motion,
-                Stats = stats,
-                Input = input,
-                Requests = world.Requests(players),
-                Cues = cues.Writer,
-            };
-            if (pool == null) sys.Run(world, players, forwards[step]);
-            else sys.Run(world, players, forwards[step], pool);
-            world.Advance(players, forwards[step]);
-
-            var drained = cues.Drain();
-            for (var i = 0; i < drained.Length; i++)
-                cueList.Add(drained[i]);
-
-            fixed (PlainMotion* pm = motion) hash.Bytes((byte*)pm, motion.Length * sizeof(PlainMotion));
-            fixed (PlainStats* ps = stats) hash.Bytes((byte*)ps, stats.Length * sizeof(PlainStats));
-            fixed (EventRecord<FuzzCue>* pd = drained)
-                if (drained.Length > 0) hash.Bytes((byte*)pd, drained.Length * sizeof(EventRecord<FuzzCue>));
-            hash.Int(cues.Dropped);
-            FuzzRunner.MixPlaybacks(ref hash, players);
-        }
-
-        return (
-            hash.Value,
-            MemoryMarshal.AsBytes<PlainMotion>(motion).ToArray(),
-            MemoryMarshal.AsBytes<PlainStats>(stats).ToArray(),
-            MemoryMarshal.AsBytes<EventRecord<FuzzCue>>(CollectionsMarshal.AsSpan(cueList)).ToArray(),
-            players);
-    }
-
     static (ulong Hash, byte[] Combine, byte[] Each, byte[] Idle, byte[] Flt, PlaybackTable Players) RunKindScenario(
         GeneratedLibrary lib,
         KindInputCol[] input,
@@ -164,7 +102,7 @@ public sealed unsafe class WorkerDeterminismLaws
     }
 
     [Fact]
-    public void WorkersDeterminism_PlainAndKindRunsMatchSequentialFrom1To32Workers()
+    public void WorkersDeterminism_KindRunsMatchSequentialFrom1To32Workers()
     {
         FuzzRunner.Run("T2-WorkerParity", 0x54320001UL, 14, (rng, _) =>
         {
@@ -174,14 +112,11 @@ public sealed unsafe class WorkerDeterminismLaws
             var channels = 1 + rng.NextInt(4);
             var steps = 20 + rng.NextInt(45);
 
-            var plainLib = LibraryGen.BuildPlainLibrary(ref rng, timelines, channels, 120, true, true, true);
             var kindLib = LibraryGen.BuildKindLibrary(ref rng, timelines, channels, 120, true, true, true, true);
 
-            var plainInput = new PlainInput[entities];
             var kindInput = new KindInputCol[entities];
             for (var e = 0; e < entities; e++)
             {
-                plainInput[e] = new PlainInput { Mult = 1 + rng.NextInt(3) };
                 kindInput[e] = new KindInputCol { Factor = 1 + rng.NextInt(3) };
             }
 
@@ -190,7 +125,7 @@ public sealed unsafe class WorkerDeterminismLaws
             var pulses = new List<(int, int)>();
             var pulsesPerStep = new int[steps];
             var forwards = new bool[steps];
-            var durations = plainLib.Durations;
+            var durations = kindLib.Durations;
 
             for (var s = 0; s < steps; s++)
             {
@@ -209,7 +144,6 @@ public sealed unsafe class WorkerDeterminismLaws
             var opArr = ops.ToArray();
             var pulseArr = pulses.ToArray();
 
-            var basePlain = RunPlainScenario(plainLib, plainInput, opArr, opsPerStep, forwards, entities, slotsPerEntity, 0, null);
             var baseKind = RunKindScenario(kindLib, kindInput, opArr, opsPerStep, pulseArr, pulsesPerStep, forwards, entities, slotsPerEntity, 0, null);
             try
             {
@@ -220,21 +154,6 @@ public sealed unsafe class WorkerDeterminismLaws
                 for (var wi = 0; wi < workerCounts.Length; wi++)
                 {
                     var w = workerCounts[wi];
-                    var parPlain = RunPlainScenario(plainLib, plainInput, opArr, opsPerStep, forwards, entities, slotsPerEntity, w, null);
-                    try
-                    {
-                        Assert.Equal(basePlain.Hash, parPlain.Hash);
-                        Assert.True(FuzzRunner.CompareBytes(basePlain.Motion, parPlain.Motion, $"w={w} Motion") is null);
-                        Assert.True(FuzzRunner.CompareBytes(basePlain.Stats, parPlain.Stats, $"w={w} Stats") is null);
-                        Assert.True(FuzzRunner.CompareBytes(basePlain.Cues, parPlain.Cues, $"w={w} Cues") is null);
-                        var pbErr = FuzzRunner.ComparePlaybacks(basePlain.Players, parPlain.Players);
-                        Assert.True(pbErr == null, $"w={w} Plain Playbacks: {pbErr}");
-                    }
-                    finally
-                    {
-                        parPlain.Players.Dispose();
-                    }
-
                     var parKind = RunKindScenario(kindLib, kindInput, opArr, opsPerStep, pulseArr, pulsesPerStep, forwards, entities, slotsPerEntity, w, null);
                     try
                     {
@@ -254,7 +173,6 @@ public sealed unsafe class WorkerDeterminismLaws
             }
             finally
             {
-                basePlain.Players.Dispose();
                 baseKind.Players.Dispose();
             }
         });
@@ -338,9 +256,9 @@ public sealed unsafe class WorkerDeterminismLaws
             }
 
             var entities = 64 + rng.NextInt(200);
-            var lib = LibraryGen.BuildPlainLibrary(ref rng, 3, 2, 60, true, true, true);
-            var input = new PlainInput[entities];
-            for (var e = 0; e < entities; e++) input[e] = new PlainInput { Mult = 1 };
+            var lib = LibraryGen.BuildKindLibrary(ref rng, 3, 2, 60, true, true, true, true);
+            var input = new KindInputCol[entities];
+            for (var e = 0; e < entities; e++) input[e] = new KindInputCol { Factor = 1 };
             var steps = 15;
             var ops = new FuzzRequestOp[steps * 4];
             var opsPerStep = new int[steps];
@@ -353,8 +271,9 @@ public sealed unsafe class WorkerDeterminismLaws
                     ops[s * 4 + k] = LibraryGen.NextRequest(ref rng, entities, lib.TimelineCount, lib.ChannelCount, lib.Durations);
             }
 
-            var seq = RunPlainScenario(lib, input, ops, opsPerStep, forwards, entities, 6, 0, null);
-            var reused = RunPlainScenario(lib, input, ops, opsPerStep, forwards, entities, 6, workerCount, pool);
+            var pulseCounts = new int[steps];
+            var seq = RunKindScenario(lib, input, ops, opsPerStep, [], pulseCounts, forwards, entities, 6, 0, null);
+            var reused = RunKindScenario(lib, input, ops, opsPerStep, [], pulseCounts, forwards, entities, 6, workerCount, pool);
             try
             {
                 Assert.Equal(seq.Hash, reused.Hash);

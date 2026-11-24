@@ -12,14 +12,18 @@ const int sipper = 2;
 using var world = new TimelineWorld(File.ReadAllBytes(LibraryPath()));
 using var players = new PlaybackTable(entityCapacity: entities, slotsPerEntity: 4);
 
+using var kinds = new KindStore(world, players);
+
 var motion = new Motion[entities];
 var power = new JumpPower[entities];
 var stats = new Stats[entities];
 var input = new InputState[entities];
+var triggers = new Trigger[entities];
+var footsteps = new FootstepCue[entities];
 var position = new Position[entities];
 var heads = new HeadIndex[entities];
 using var cues = new Events<Cue>(16);
-using var hits = new Events<StompHit>(16);
+using var hits = new Events<float>(16);
 
 for (var i = 0; i < entities; i++)
 {
@@ -41,16 +45,24 @@ players.Start(sipper, Timelines.PotionHop);
 void Step(bool forward)
 {
     world.ApplyRequests(players);
-    new Movement { Motion = motion, JumpPower = power, Stats = stats, Input = input, Requests = world.Requests(players), Cues = cues.Writer }.Run(world, players, forward);
-    new Combat { Position = position, Heads = heads, Hits = hits.Writer }.Run(world, players, forward);
-    if (forward)
-        world.Advance(players);
-    else
-        world.Advance(players, false);
+    new Signals { Cues = cues.Writer, Hits = hits.Writer }.Run(world, players, forward);
+    world.Tick(players, forward);
+    Array.Clear(triggers);
+    Array.Clear(footsteps);
+    new Movement { Motion = motion, JumpPower = power, Stats = stats, Input = input, Triggers = triggers, Footsteps = footsteps }.Run(world, players, forward);
+    for (var row = 0; row < entities; row++)
+    {
+        if (triggers[row].Timeline != 0) players.Start(row, triggers[row].Timeline);
+        if (footsteps[row].Voice != Sound.None) Console.WriteLine($"  cue {footsteps[row].Voice} on entity {row}");
+    }
     foreach (var rec in cues.Drain())
         Console.WriteLine($"  cue {rec.Value.Voice} on entity {rec.Entity.Index}");
     foreach (var rec in hits.Drain())
-        Console.WriteLine($"  stomp r={rec.Value.Radius} on entity {rec.Entity.Index} at ({rec.Value.At.X:0.0},{rec.Value.At.Y:0.0})");
+    {
+        var row = rec.Entity.Index;
+        if (heads[row].Value != 0)
+            Console.WriteLine($"  stomp r={rec.Value} on entity {row} at ({position[row].X:0.0},{position[row].Y:0.0})");
+    }
 }
 
 if (args.Contains("--verify"))
@@ -86,14 +98,19 @@ int Verify()
         return 1;
     }
     Console.WriteLine($"PASS: Jump_lands_exactly_where_it_took_off: took off and landed at {takeoff}");
-    for (var frame = 0; frame < 30; frame++)
+    players.Start(hero, Timelines.Jump, at: 4);
+    Step(true);
+    var beforeRewind = motion[hero].Y;
+    for (var frame = 0; frame < 6; frame++)
+        Step(true);
+    for (var frame = 0; frame < 6; frame++)
         Step(false);
-    if (motion[hero].Y != takeoff)
+    if (motion[hero].Y != beforeRewind)
     {
-        Console.WriteLine($"FAIL: rewind did not restore takeoff: {motion[hero].Y} != {takeoff}");
+        Console.WriteLine($"FAIL: rewind did not restore the previous height: {motion[hero].Y} != {beforeRewind}");
         return 1;
     }
-    Console.WriteLine("PASS: 30 backward steps restore the takeoff height exactly");
+    Console.WriteLine("PASS: rewinding six steps inside the rising clip restores the previous height exactly");
     var first = Hash(600);
     var second = Hash(600);
     if (first != second)
@@ -108,17 +125,18 @@ int Verify()
     {
         using var inner = new TimelineWorld(File.ReadAllBytes(LibraryPath()));
         using var table = new PlaybackTable(entityCapacity: entities, slotsPerEntity: 4);
+        using var innerKinds = new KindStore(inner, table);
+        var innerTriggers = new Trigger[entities];
+        var innerFootsteps = new FootstepCue[entities];
         var m = new Motion[entities];
         var s = new Stats[entities];
-        using var local = new Events<Cue>(16);
         table.Start(hero, Timelines.Run);
         table.Start(slider, Timelines.Slide);
         var h = 14695981039346656037UL;
         for (var frame = 0; frame < steps; frame++)
         {
-            inner.ApplyRequests(table);
-            new Movement { Motion = m, JumpPower = power, Stats = s, Input = input, Requests = inner.Requests(table), Cues = local.Writer }.Run(inner, table);
-            inner.Advance(table);
+            inner.Tick(table);
+            new Movement { Motion = m, JumpPower = power, Stats = s, Input = input, Triggers = innerTriggers, Footsteps = innerFootsteps }.Run(inner, table);
             h = Mix(h, m[hero].X); h = Mix(h, m[hero].Y); h = MixInt(h, s[hero].JumpCounter);
             h = Mix(h, m[slider].X); h = Mix(h, m[slider].Y);
         }

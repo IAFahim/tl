@@ -17,18 +17,25 @@ public readonly struct TwoTrackFoldTrack : IBlend<TwoTrackFoldClip>
         => result = new TwoTrackFoldClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+[TimelineSystemMember(typeof(TwoTrack))]
 public readonly struct TwoTrackFold : ITrack<TwoTrackFoldTrack, TwoTrackFoldClip>
 {
     public static void Fold(in Frame<TwoTrackFoldTrack, TwoTrackFoldClip> frame, out float lift)
         => lift = frame.Direction * frame.Track.Scale * frame.Clip.Amount;
 
-    public static void ExecuteActive(in Frame<TwoTrackFoldTrack, TwoTrackFoldClip> frame, in float lift, ref float total, ref int runs)
+    [Feeds(typeof(TrackEffect))]
+    public static float Evaluate(in float lift) => lift;
+}
+
+[TimelineKind(Mode = KindMode.Each)]
+public struct TrackEffect
+{
+    public static void Apply(in float lift, ref float total, ref int runs)
     {
         total += lift;
         runs++;
     }
 
-    public static void OnClipEnd(in Frame<TwoTrackFoldTrack, TwoTrackFoldClip> frame) { }
 }
 
 [TimelineSystem]

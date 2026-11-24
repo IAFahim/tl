@@ -50,8 +50,7 @@ internal static class SystemDigest
         static string OfDiag(DeclarationDiagnostic d) => $"{d.File}\0{d.Line}\0{d.Column}\0{d.Code}\0{d.Message}\0{d.SpanStart}\0{d.SpanLength}\0{d.EndLine}\0{d.EndColumn}";
         static string OfField(SystemField f) => $"{f.Name}\0{f.TypeName}\0{(byte)f.Kind}\0{f.ElementTypeName}";
         static string OfParam(ConsumerParam p) => $"{p.Name}\0{p.TypeName}\0{p.Modifier}\0{(byte)p.Kind}\0{p.FoldIndex}\0{(p.ByValue ? 1 : 0)}";
-        static string OfLane(DirectLane d) => $"{d.Eligible}\0{d.Op}\0{d.WrittenType}\0{d.WrittenMember}" + string.Join("\0", d.FoldOffsets.Select(x => x.ToString())) + "|" + string.Join("\0", d.ReadTypes);
-        static string OfMethod(ConsumerMethod m) => $"{(byte)m.Kind}" + (m.Direct == DirectLane.None ? "" : OfLane(m.Direct)) + string.Join("\0", m.Params.Select(OfParam)) + "|" + string.Join("\0", m.FoldTypes) + "|" + string.Join("\0", m.FoldSizes.Select(x => x.ToString()));
+        static string OfMethod(ConsumerMethod m) => $"{(byte)m.Kind}" + string.Join("\0", m.Params.Select(OfParam)) + "|" + string.Join("\0", m.FoldTypes) + "|" + string.Join("\0", m.FoldSizes.Select(x => x.ToString()));
         static string OfFeeder(FeederDecl f) => $"{f.KindName}\0{(byte)f.Trigger}\0{f.MethodName}\0{f.ConsumerMetadata}\0{f.ValueTypeName}\0{f.FlagRead}\0{OfMethod(f.Method)}";
         static string OfKind(KindDecl k) => $"{k.Name}\0{k.TypeName}\0{k.ValueTypeName}\0{k.Each}\0{k.Accepts}\0{k.Order}\0{k.Group}\0{k.Foreign}\0{k.Id}\0{k.Associative}\0{k.Monoid}" + string.Join("\0", k.LaneFields.Select(static f => f.Path + ":" + f.Type)) + "|" + string.Join("\0", k.ApplyParams.Select(OfParam)) + "|" + string.Join("\0", k.MemberSystems) + "|" + (k.IdleParams is null ? "" : string.Join("\0", k.IdleParams.Select(OfParam)));
         static string OfSystem(SystemDecl s) => $"{s.TypeName}\0{s.IsRef}\0{s.SystemKey}" + string.Join("\0", s.Fields.Select(OfField));
