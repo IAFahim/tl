@@ -1,0 +1,22 @@
+{
+  "name": "Tl.Pack.Clock.Tests",
+  "rootNamespace": "Tl.Pack.Clock.Tests",
+  "references": [
+    "Tl.Pack.Clock",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "noEngineReferences": false
+}

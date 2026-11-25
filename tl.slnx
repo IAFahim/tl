@@ -5,6 +5,7 @@
     <Project Path="src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj" />
   </Folder>
   <Folder Name="/packs/">
+    <Project Path="packs/Clock/Tl.Pack.Clock.csproj" />
     <Project Path="packs/Force/Tl.Pack.Force.csproj" />
     <Project Path="packs/Inventory/Tl.Pack.Inventory.csproj" />
     <Project Path="packs/Motion/Tl.Pack.Motion.csproj" />
