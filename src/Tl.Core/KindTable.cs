@@ -151,6 +151,12 @@ public unsafe struct KindTable
 
     public void Clear(int row)
     {
+        if (Length[row] > 32 && IsSpilled(row))
+        {
+            NativeMemory.AlignedFree(HeapOf(row));
+            if (Inline == 0) _heap[row] = null;
+            SetSpilled(row, false);
+        }
         Length[row] = 0;
         Active[row >> 6] &= ~(1ul << (row & 63));
     }

@@ -328,7 +328,12 @@ public sealed unsafe partial class KindStore : IDisposable
     {
         if ((uint)kind >= (uint)_kindCount) return;
         var buf = _pulseHits + kind;
-        if (limit >= _players.EntityCapacity) { buf->Count = 0; return; }
+        if (limit >= _players.EntityCapacity)
+        {
+            if (buf->Capacity > Math.Max(4096, buf->Count * 8)) buf->Free();
+            buf->Count = 0;
+            return;
+        }
         if (buf->Count == 0) return;
         var lo = buf->LowerBound(limit);
         var rem = buf->Count - lo;

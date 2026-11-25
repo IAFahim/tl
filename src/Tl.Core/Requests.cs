@@ -116,9 +116,9 @@ public unsafe struct RequestQueue
 
     internal static int CapacityOf(RequestQueue* queue) => queue->_capacity;
 
-    internal static void Trim(RequestQueue* queue)
+    internal static void Trim(RequestQueue* queue, int drained = 0)
     {
-        if (queue->_count != 0 || queue->_capacity <= 4096) return;
+        if (queue->_count != 0 || queue->_capacity <= Math.Max(4096, drained * 8)) return;
         NativeMemory.AlignedFree(queue->_items);
         NativeMemory.AlignedFree(queue->_scratch);
         queue->_items = queue->_scratch = null;

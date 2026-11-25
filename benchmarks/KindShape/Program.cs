@@ -231,8 +231,10 @@ unsafe
             rows, active, live, ms, medians[0], medians[^1], ms * 1e6 / ((double)rows * active), kindBytes, playerBytes, scoreBytes, residentBytes < 0 ? -1 : residentBytes / rows, setupMs, allocated, hash, domain, valueBytes));
     }
 
+    [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "malloc_trim")] static extern int Trim(nuint pad);
     static long ResidentAnon()
     {
+        if (OperatingSystem.IsLinux()) Trim(0);
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();

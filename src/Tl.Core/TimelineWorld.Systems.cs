@@ -165,10 +165,11 @@ public sealed partial class TimelineWorld
 
     unsafe void Drain(PlaybackTable players, RequestQueue* queue)
     {
-        if (queue->Count == 0) { RequestQueue.Trim(queue); return; }
+        var drained = queue->Count;
         RequestQueue.SortStable(queue);
         for (var i = 0; i < queue->Count; i++) ApplyRecord(players, queue->Item(i));
         RequestQueue.Clear(queue);
+        RequestQueue.Trim(queue, drained);
     }
 
     unsafe void SyncPlaybacks(PlaybackTable players)
