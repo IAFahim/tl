@@ -27,16 +27,10 @@ public struct Playback
     public byte Phase;
 }
 
-public readonly struct EntityRef
+public readonly struct EntityRef(int index, int version)
 {
-    public EntityRef(int index, int version)
-    {
-        Index = index;
-        Version = version;
-    }
-
-    public readonly int Index;
-    public readonly int Version;
+    public readonly int Index = index;
+    public readonly int Version = version;
 }
 
 public readonly unsafe struct PlaybackView
@@ -114,6 +108,9 @@ public sealed unsafe class PlaybackTable : IDisposable
     ushort* _blockOrigins;
     internal ushort DenseClock;
     internal bool Settled;
+    int _wait = -1, _back = 32, _seen, _total;
+    internal int Landed;
+    internal bool Resting => _wait >= 0;
 
     public PlaybackTable(int entityCapacity, int slotsPerEntity = 4) : this(entityCapacity, slotsPerEntity, 0)
     {
@@ -253,14 +250,25 @@ public sealed unsafe class PlaybackTable : IDisposable
 
     internal bool Lazy(TimelineWorld? world, bool forward)
     {
-        if (_limit == 0 || world == null) { Thaw(); return false; }
+        if (_limit == 0 || world == null || _wait >= 0 && _wait-- > 0) { Thaw(); return false; }
         if (_owner != world || Forward != forward) Thaw();
         _owner = world;
         Forward = forward;
         if (Frozen) return true;
         Frozen = true;
-        for (var e = 0; e < _entities; e++) Seal(e);
+        Landed = _total = 0;
+        _seen = -8;
+        for (var e = 0; e < _entities; e++) { Seal(e); _total += _counts[e]; }
         return true;
+    }
+
+    internal void Judge()
+    {
+        if (++_seen <= 0) Landed = 0;
+        if (_seen < 16) return;
+        if (Landed > _total && _total >= 64) { Thaw(); _wait = _back; _back = Math.Min(_back * 2, 4096); }
+        else _back = 32;
+        _seen = Landed = 0;
     }
 
     public RequestQueue* Pending => _pending;

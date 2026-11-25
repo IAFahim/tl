@@ -66,7 +66,7 @@ public sealed partial class TimelineWorld
         var timelines = _view.Timelines;
         if (timelines == null) return;
         var count = _view.TimelineCount;
-        if (players.Lazy(_glideViewEscaped ? null : this, forward)) AdvanceLazy(players, timelines, count, forward);
+        if (players.Lazy(_glideViewEscaped ? null : this, forward)) { AdvanceLazy(players, timelines, count, forward); players.Judge(); }
         else
             for (var w = 0; w < players.PlayingWords; w++)
                 for (var bits = players.PlayingBits[w]; bits != 0; bits &= bits - 1)
@@ -113,6 +113,7 @@ public sealed partial class TimelineWorld
 #if !NET
         for (var k = 0; k < held; k++) System.Threading.Volatile.Read(ref players.SlotsOf((int)(hits[k] >> 16))[(ushort)hits[k]].Tick);
 #endif
+        players.Landed += held;
         for (var k = 0; k < held; k++)
         {
             var entity = (int)(hits[k] >> 16);

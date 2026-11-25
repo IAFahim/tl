@@ -51,6 +51,35 @@ The VM is noisy: the same 50k x 100 binary ranges 27-44 ms across processes. Com
 
 3. Start-burst memory (commit de6f5d1). Request queue, pulse-hit buffers and spilled kind rows are released once steps are far lighter than the burst. Live memory after the burst (RssAnon after `malloc_trim`): 50k x 100 5491 -> 2229 B/row (2.46x less), 10k x 40 5116 -> 3334, 1M x 4 617 -> 572. Speed within noise.
 
+4. Clock pack (commit 1a61732). `packs/Clock` adds `FixedSteps(hz, maxStepsPerAdvance)`: exact integer remainder, capped catch-up with a `Dropped` count, `Alpha` for interpolation. No Tl.Core change.
+
+5. Lazy-tick fallback. A lazy (horizon) table measures how many slots it steps per tick after 8 settling ticks; above one slot in 16 per tick (tables of 64+ slots) it steps eagerly for 32 ticks, doubling to 4,096 on repeated failed probes. `benchmarks/Glide` (Tl.Bake.Bench), 20,000 x 100, capacity 4, limit 255, netstandard2.1 asset, one core, median ms, hashes and oracle unchanged:
+
+   | Duration | eager (limit 0) | lazy before | lazy after |
+   | ---: | ---: | ---: | ---: |
+   | 1 | 9.9 | 41.8-43.8 | 9.7-10.8 |
+   | 4 | 6.3 | 12.8-14.3 | 7.3-8.0 |
+   | 8 | 6.3 | 8.0-8.2 | 5.9-6.2 |
+   | 16 | | 5.8 | 5.7 |
+   | 120 | 7.2 | 2.85-3.15 | 2.83-2.97 |
+   | 600 | | 0.68-0.93 | 0.71-0.97 (noise) |
+
+   Calling `Judge` from inside `AdvanceLazy` cost 15 percent at duration 120 through JIT code layout; it is called from `Advance` after the lazy pass instead, and `Land` counts the stepped slots. The budget room came from primary constructors on 12 plain structs (same public API; `PlaybackView` keeps its internal constructor, `Frame` keeps its attribute).
+
+## Per-worker scaling (KindShape, `taskset -c 0-(W-1)`, `--workers W`, ms per step, three runs)
+
+| Cell | W=1 | W=2 | W=3 | W=4 | W=4 speedup |
+| --- | --- | --- | --- | --- | ---: |
+| 50k x 100 | 24.0-24.3 | 12.6-13.0 | 8.9-9.5 | 7.1-7.8 | 3.4x |
+| 1M x 4 | 18.7-20.6 | 9.8-10.6 | 7.4-7.7 | 5.9-6.2 | 3.2x |
+| 10k x 40 | 2.0-2.05 | 1.22-1.41 | 0.90-1.16 | 0.87-0.95 | 2.3x |
+
+Large cells add 83-94 percent per worker. 10k x 40 is a 2 ms step where fork and join of the tick plus each system dominate.
+
+## Open design: rollback ring and exact backward time
+
+Exact backward time for accumulating kinds (`+=` per tick on floats) and a 32-frame rollback ring both need a full copy of mutable world state: `PlaybackTable` (slots, counts, spill blocks, playing bits, dense origins and dues, lazy clock, request queues) and `KindStore` (kind tables with their spilled heaps, pulse queues and hits, dense records). Re-deriving kind state from slots is not exact: a library reload marks spans ReenterPending (see `PlaybackRebindTests`). The clean design is one arena per table and store so a snapshot is one `memcpy` of a fixed-size region and restore copies it back; that is several KB of core code and needs the owner's budget decision.
+
 ## Tried and rejected (exact but slower)
 
 - Four-entity interleave through a stackalloc struct: 44 vs 28 ms.
