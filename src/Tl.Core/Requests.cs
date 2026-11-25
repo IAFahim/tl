@@ -19,24 +19,14 @@ public enum RequestOp : byte
     Reset = 14,
 }
 
-public readonly struct RequestRecord
+public readonly struct RequestRecord(int entity, int slot, ushort timeline, ushort at, RequestOp op, int sequence)
 {
-    public RequestRecord(int entity, int slot, ushort timeline, ushort at, RequestOp op, int sequence)
-    {
-        Entity = entity;
-        Slot = slot;
-        Timeline = timeline;
-        At = at;
-        Op = op;
-        Sequence = sequence;
-    }
-
-    public readonly int Entity;
-    public readonly int Slot;
-    public readonly ushort Timeline;
-    public readonly ushort At;
-    public readonly RequestOp Op;
-    public readonly int Sequence;
+    public readonly int Entity = entity;
+    public readonly int Slot = slot;
+    public readonly ushort Timeline = timeline;
+    public readonly ushort At = at;
+    public readonly RequestOp Op = op;
+    public readonly int Sequence = sequence;
 }
 
 public unsafe struct RequestQueue
@@ -217,18 +207,12 @@ public unsafe struct ClosingList
     }
 }
 
-public readonly unsafe struct Requests
+public readonly unsafe struct Requests(RequestQueue* queue, int entity, int slot)
 {
-    readonly RequestQueue* _queue;
-    readonly int _entity;
-    readonly int _slot;
+    readonly RequestQueue* _queue = queue;
+    readonly int _entity = entity;
+    readonly int _slot = slot;
 
-    public Requests(RequestQueue* queue, int entity, int slot)
-    {
-        _queue = queue;
-        _entity = entity;
-        _slot = slot;
-    }
     public Requests For(int entity, int slot) => new(_queue, entity, slot);
     void Add(ushort timeline, ushort at, RequestOp op) => RequestQueue.Add(_queue, _entity, _slot, timeline, at, op);
     public void Start(ushort timeline, ushort at = 0) => Add(timeline, at, RequestOp.Start);

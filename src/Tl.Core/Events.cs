@@ -1,20 +1,12 @@
 namespace Tl;
 
-public readonly struct EventRecord<T>
+public readonly struct EventRecord<T>(EntityRef entity, int slot, int sequence, in T value)
     where T : unmanaged
 {
-    public EventRecord(EntityRef entity, int slot, int sequence, in T value)
-    {
-        Entity = entity;
-        Slot = slot;
-        Sequence = sequence;
-        Value = value;
-    }
-
-    public readonly EntityRef Entity;
-    public readonly int Slot;
-    public readonly int Sequence;
-    public readonly T Value;
+    public readonly EntityRef Entity = entity;
+    public readonly int Slot = slot;
+    public readonly int Sequence = sequence;
+    public readonly T Value = value;
 }
 
 public static class EventRecords

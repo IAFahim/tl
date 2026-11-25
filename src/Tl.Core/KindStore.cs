@@ -1,19 +1,11 @@
 namespace Tl;
 
-public readonly struct KindStats
+public readonly struct KindStats(int rows, int maxLength, int overflows, long bytesPerRow)
 {
-    public KindStats(int rows, int maxLength, int overflows, long bytesPerRow)
-    {
-        Rows = rows;
-        MaxLength = maxLength;
-        Overflows = overflows;
-        BytesPerRow = bytesPerRow;
-    }
-
-    public readonly int Rows;
-    public readonly int MaxLength;
-    public readonly int Overflows;
-    public readonly long BytesPerRow;
+    public readonly int Rows = rows;
+    public readonly int MaxLength = maxLength;
+    public readonly int Overflows = overflows;
+    public readonly long BytesPerRow = bytesPerRow;
 }
 
 public readonly unsafe struct KindPulses<T> where T : unmanaged
@@ -63,18 +55,12 @@ public sealed unsafe partial class KindStore : IDisposable
     int* _pairStart;
     int* _windowBase;
     [StructLayout(LayoutKind.Sequential, Size = 16)]
-    internal readonly unsafe struct WindowSteps
+    internal readonly unsafe struct WindowSteps(LibraryStep** steps, int firstStage, int stageCount)
     {
-        public readonly LibraryStep** Steps;
-        public readonly int FirstStage;
-        public readonly int StageCount;
+        public readonly LibraryStep** Steps = steps;
+        public readonly int FirstStage = firstStage;
+        public readonly int StageCount = stageCount;
 
-        public WindowSteps(LibraryStep** steps, int firstStage, int stageCount)
-        {
-            Steps = steps;
-            FirstStage = firstStage;
-            StageCount = stageCount;
-        }
     }
 
     WindowSteps* _windows;
