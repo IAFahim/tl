@@ -36,6 +36,21 @@ The VM is noisy: the same 50k x 100 binary ranges 27-44 ms across processes. Com
    | 1M x 2 | 11.0 | 11.3 |
    | 1M x 4 | 19.4 | 19.5 |
 
+2. Kind tick on TlWorkers (commit 5bbc69e). `TimelineWorld.Tick(players, forward, workers)` splits the dense kind pass into word chunks; each chunk pushes pulse hits into its own buffers, entities that need the general `Tick` path are deferred to a per-chunk list and ticked serially afterwards (steady state defers about one per entity per run), then lane hits merge into the kind buffers by entity so consumers still see sorted hits. `--workers N` in KindShape passes the same workers to the tick and the systems. One core is unchanged.
+
+   ABAB, `taskset -c 0-3`, hashes unchanged:
+
+   | Cell | 4 workers, serial tick ms | 4 workers, parallel tick ms | vs main one core |
+   | --- | ---: | ---: | ---: |
+   | 10k x 40 | 1.22 | 0.82 | 3.9x |
+   | 50k x 100 | 12.5 | 7.5 | 3.6x |
+   | 1M x 4 | 9.6 | 7.1 | 2.7x |
+   | 1M x 2 | 5.3 | 3.9 | 2.7x |
+
+   Systems scale 3.41x on 4 workers; the kind tick alone about 2.5x (serial deferred ticks, merge and request apply remain).
+
+3. Start-burst memory (commit de6f5d1). Request queue, pulse-hit buffers and spilled kind rows are released once steps are far lighter than the burst. Live memory after the burst (RssAnon after `malloc_trim`): 50k x 100 5491 -> 2229 B/row (2.46x less), 10k x 40 5116 -> 3334, 1M x 4 617 -> 572. Speed within noise.
+
 ## Tried and rejected (exact but slower)
 
 - Four-entity interleave through a stackalloc struct: 44 vs 28 ms.
@@ -46,7 +61,8 @@ The VM is noisy: the same 50k x 100 binary ranges 27-44 ms across processes. Com
 ## Local build notes
 
 - SDK 10.0.115 drops the second `ProjectReference` to Tl.Gen.CSharp in `tests/Tl.Systems.Tests` (same Include, analyzer form), so the test project does not compile. Locally the analyzer Include is spelled `..\..\src\Tl.Gen.CSharp\..\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj` and the file is marked skip-worktree. CI's newer SDK is unaffected.
-- `src` budget after the Pick change: 519,947 / 520,000 B.
+- `src` budget: 519,951 / 520,000 B after de6f5d1. Commit 5bbc69e compacted about 3 KB (global usings, `Free4`, shared `Inline` constant, default `StructLayout` removed) to fit the parallel tick without a waiver. Anything larger needs more compaction or the owner's waiver.
+- glibc keeps freed arenas resident, so RSS only reflects frees after `malloc_trim(0)`; KindShape calls it on Linux.
 
 ## Next
 
