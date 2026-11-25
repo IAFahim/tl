@@ -353,6 +353,13 @@ public sealed unsafe partial class KindStore : IDisposable
     public bool RowsAreEntities(int kind) => _tables[kind] != null && _tables[kind]->Rows == _players.EntityCapacity;
 
     public static int TrailingZeros(ulong value) => Tz(value);
+    [MethodImpl(Inline)]
+    public static void Pick(ref nuint at, ref long best, uint head, long priority, nuint row)
+    {
+        var mask = 0ul - ((ulong)(head & 1u) & ((ulong)(priority - best) >> 63 ^ 1ul));
+        at ^= (at ^ row) & (nuint)mask;
+        best ^= (best ^ priority) & (long)mask;
+    }
 
     struct Steps : IKindSteps
     {
@@ -516,10 +523,10 @@ public sealed unsafe partial class KindStore : IDisposable
         public int* Offset;
         public int* Row;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(Inline)]
         int RowOf(int entity, int kind) => Row[Offset[entity] + Pop(Mask[entity] & ((1ul << kind) - 1))];
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(Inline)]
         public KindEntry* Append(int entity, LibraryFeeder* feeder)
         {
             var kind = feeder->Kind;
@@ -537,7 +544,7 @@ public sealed unsafe partial class KindStore : IDisposable
         public byte* Samples;
         public int EntityCount;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(Inline)]
         public void Sampled(int entity, int samples)
         {
             if (samples != 0)

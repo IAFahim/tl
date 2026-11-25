@@ -466,16 +466,15 @@ internal static class SystemEmitter
             W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});\n}}\nif (__len != 0) __kt->Clear(__row);\n}}\n}}");
         }
         W(writer, "}\n}\nreturn true;\n}");
-        W(writer, "[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]");
         var typed = new List<string>();
         for (var c = 0; c < shape.Columns.Count; c++) if (shape.UsedColumns[c]) typed.Add($", {shape.Columns[c].ElementTypeName}* __c{c}");
-        var sig = $"(ulong __bits, ulong __apply, int __base, ushort* __porg, ushort* __pborg, Tl.Playback* __pslots, int* __pcounts, ulong __spw, nuint __pspe, ushort __clk, byte* __vdata, byte* __vhead, nuint __vstride, {string.Join(", ", fused.ConvertAll(i => $"ulong __kb{i}, int __vb{i}, int __vf{i}, {assignment.Kinds[i].ValueTypeName}* __dt{i}"))}, ulong* __dh{string.Concat(typed)})\n{{";
+        var sig = $"(ulong __bits, ulong __apply, int __base, ushort* __porg, ushort* __pborg, Tl.Playback* __pslots, int* __pcounts, ulong __spw, nuint __pspe, ushort __clk, byte* __vdata, byte* __vhead, nuint __vstride, {string.Join(", ", fused.ConvertAll(i => $"ulong __kb{i}, int __vb{i}, int __vf{i}, {assignment.Kinds[i].ValueTypeName}* __dt{i}"))}, ulong* __dh{string.Concat(typed)})\n{{{string.Concat(fused.ConvertAll(i => $"\nvar __vm{i} = 1u << __vb{i}; var __vd{i} = __vdata + __vf{i};"))}";
+        var hot = "[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]\nstatic ";
         var lanes = fused.Exists(i => Lanes(assignment.Kinds[i]));
-        W(writer, $"static ulong {name}Small{sig}");
-        foreach (var i in fused) W(writer, $"var __vm{i} = 1u << __vb{i}; var __vd{i} = __vdata + __vf{i};");
+        W(writer, $"{hot}ulong {name}Small{sig}");
         W(writer, $"var __hot = __bits & __apply & ~__spw & {string.Join(" & ", fused.ConvertAll(static i => $"__kb{i}"))}; __bits &= ~__hot;");
         W(writer, "for (; __hot != 0; __hot &= __hot - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__hot); var __e = __base + __bit; var __org = __porg + (nuint)__e * __pspe;");
-        DenseTotals(writer, assignment, fused, lanes);
+        DenseTotals(writer, assignment, fused, lanes, false);
         W(writer, "switch (__pcounts[__e])\n{");
         for (var c = 1; c <= 4; c++)
         {
@@ -484,18 +483,16 @@ internal static class SystemEmitter
             W(writer, "break;");
         }
         W(writer, "default:\n__bits |= 1ul << __bit;\ncontinue;\n}");
-        DenseHas(writer, assignment, fused);
+        DenseHas(writer, assignment, fused, false);
         foreach (var i in fused) W(writer, $"if (__fh{i}) {assignment.Kinds[i].TypeName}.Apply(in __ft{i}{ApplyTail(shape, assignment.Kinds[i])});");
         W(writer, "}\nreturn __bits;\n}");
-        W(writer, "[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]");
-        W(writer, $"static void {name}Dense{sig}");
-        foreach (var i in fused) W(writer, $"var __vm{i} = 1u << __vb{i}; var __vd{i} = __vdata + __vf{i};");
+        W(writer, $"{hot}void {name}Dense{sig}");
         W(writer, "for (; __bits != 0; __bits &= __bits - 1)\n{\nvar __bit = Tl.KindStore.TrailingZeros(__bits); var __e = __base + __bit;");
         W(writer, "var __org = (__spw >> __bit & 1) == 0 ? __porg + (nuint)__e * __pspe : __pborg + *(int*)(__pslots + (nuint)__e * __pspe);");
-        DenseTotals(writer, assignment, fused, lanes);
+        DenseTotals(writer, assignment, fused, lanes, true);
         W(writer, "for (nint __i = 0, __cnt = __pcounts[__e]; __i < __cnt; __i++)");
         DenseSlot(writer, assignment, fused, lanes, "__i");
-        DenseHas(writer, assignment, fused);
+        DenseHas(writer, assignment, fused, true);
         W(writer, "if ((__apply >> __bit & 1) != 0)\n{");
         foreach (var i in fused) W(writer, $"if ((__kb{i} >> __bit & 1) != 0 && __fh{i}) {assignment.Kinds[i].TypeName}.Apply(in __ft{i}{ApplyTail(shape, assignment.Kinds[i])});");
         W(writer, "continue;\n}");
@@ -503,32 +500,35 @@ internal static class SystemEmitter
         W(writer, "}\n}");
     }
 
-    static void DenseTotals(StringBuilder writer, SystemAssignment assignment, List<int> fused, bool lanes)
+    static void DenseTotals(StringBuilder writer, SystemAssignment assignment, List<int> fused, bool lanes, bool pick)
     {
         foreach (var i in fused)
         {
             var k = assignment.Kinds[i];
-            W(writer, Lanes(k) ? $"{k.ValueTypeName} __ft{i}; {Identity(k, $"__ft{i}")}" : $"{k.ValueTypeName} __ft{i} = default; var __fh{i} = false;");
+            W(writer, Lanes(k) ? $"{k.ValueTypeName} __ft{i}; {Identity(k, $"__ft{i}")}" : $"{k.ValueTypeName} __ft{i} = default; " + (pick && k.Monoid == 5 ? $"nuint __bo{i} = 0; long __bp{i} = -1L << 40;" : $"var __fh{i} = false;"));
         }
         if (lanes) W(writer, "var __any = 0u;");
     }
 
     static void DenseSlot(StringBuilder writer, SystemAssignment assignment, List<int> fused, bool lanes, string slot)
     {
+        var pick = slot == "__i";
         W(writer, $"{{\nvar __ro = (nuint)(ushort)(__org[{slot}] + __clk) * __vstride; var __m = *(uint*)(__vhead + __ro);" + (lanes ? " __any |= __m;" : ""));
         foreach (var i in fused)
         {
             var k = assignment.Kinds[i];
             W(writer, Lanes(k) ? $"{{ var __rv{i} = ({k.ValueTypeName}*)(__vd{i} + __ro); {LaneOp(k, $"__ft{i}", $"(*__rv{i})")}}}"
+                : pick && k.Monoid == 5 ? $"Tl.KindStore.Pick(ref __bo{i}, ref __bp{i}, __m >> __vb{i}, (({k.ValueTypeName}*)(__vd{i} + __ro))->{k.LaneFields[0].Path}, __ro);"
                 : $"if ((__m & __vm{i}) != 0) {{ ref readonly var __sv = ref *({k.ValueTypeName}*)(__vd{i} + __ro); {Acc(k, "__sv", $"__ft{i}", $"__fh{i}", " ")} }}");
         }
         W(writer, "}");
     }
 
-    static void DenseHas(StringBuilder writer, SystemAssignment assignment, List<int> fused)
+    static void DenseHas(StringBuilder writer, SystemAssignment assignment, List<int> fused, bool pick)
     {
         foreach (var i in fused)
             if (Lanes(assignment.Kinds[i])) W(writer, $"var __fh{i} = (__any & __vm{i}) != 0;");
+            else if (pick && assignment.Kinds[i].Monoid == 5) W(writer, $"var __fh{i} = __bp{i} != -1L << 40; if (__fh{i}) __ft{i} = *({assignment.Kinds[i].ValueTypeName}*)(__vd{i} + __bo{i});");
     }
 
     static List<(int consumer, FeederDecl feeder)> FeedersOf(SystemAssignment assignment, KindDecl kind)

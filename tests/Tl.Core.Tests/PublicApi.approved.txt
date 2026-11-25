@@ -316,6 +316,7 @@ type Tl.KindStore
   Method UInt64* ListedOf(Int32)
   Method UInt32 MarkerOf(UInt16, Int32)
   Method System.String NameOf(Int32)
+  Method Void Pick(UIntPtr ByRef, Int64 ByRef, UInt32, Int64, UIntPtr)
   Property UInt64* Playing
   Method Tl.KindPulseBuffer* PulseHitsOf(Int32)
   Method Int64 PulseValueBytes(Int32)

@@ -9,7 +9,7 @@ namespace Tl;
 
 public sealed unsafe partial class KindStore
 {
-    const MethodImplOptions Optimized = (MethodImplOptions)512;
+    const MethodImplOptions Optimized = (MethodImplOptions)512, Inline = MethodImplOptions.AggressiveInlining;
     const int WordSlots = 4096, ExactAt = WordSlots * 2 + WordSlots / 64 + WordSlots * 3 / 8;
     int* _rowBase;
     int _rowHalf = -1;
@@ -139,20 +139,20 @@ public sealed unsafe partial class KindStore
         _denseDir = step;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(Inline)]
     int Duration(int t) => (int)(_spanMeta[t] & 0x3FFF_FFFFu);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(Inline)]
     int RowOf(int t, bool reverse, int tick) => _rowBase[t] + (reverse ? _rowHalf + Duration(t) - 1 - tick : tick);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(Inline)]
     int TickAt(int t, bool reverse, int row)
     {
         var j = row - _rowBase[t] - (reverse ? _rowHalf : 0);
         return reverse ? Duration(t) - 1 - j : j;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(Inline)]
     ushort GapOf(int t, int direction, int tick) => _gap[(direction > 0 ? 0 : _rowHalf) + _rowBase[t] - 1 + tick];
 
     [MethodImpl(Optimized)]
@@ -317,7 +317,10 @@ public sealed unsafe partial class KindStore
             var dues = (spilled >> e & 1) == 0 ? dueBase + (nuint)e * (nuint)stride : _players.DuesOf(e);
             var records = _scratch + ExactAt;
             var due = (byte*)(records + PlaybackTable.MaxSlots);
-            var held = DueSlots(dues, counts[e], to, due);
+            var held = 0;
+            var map = stackalloc ulong[4];
+            for (int m = 0, words = DueMap(dues, counts[e], to, map); m < words; m++)
+                for (var bits = map[m]; bits != 0; bits &= bits - 1) due[held++] = (byte)((m << 6) + Tz(bits));
             var origins = _players.OriginsOf(e);
             var leave = _leave + (stepDir > 0 ? 0 : 1 + 2 * _rowHalf);
             var fast = _t.EntryPulse != null && (_t.EntryPulse[w] >> (e & 63) & 1) != 0 ? 0ul : _t.FastPulseMask;
@@ -353,7 +356,7 @@ public sealed unsafe partial class KindStore
         else Densify(e, to, stepDir);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(Inline)]
     static int DueMap(ushort* dues, int n, ushort at, ulong* map)
     {
         var words = (n + 63) >> 6;
@@ -367,21 +370,5 @@ public sealed unsafe partial class KindStore
         for (; i < n; i++)
             if (dues[i] == at) map[i >> 6] |= 1ul << (i & 63);
         return words;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static int DueSlots(ushort* dues, int n, ushort at, byte* hits)
-    {
-        var held = 0;
-        var i = 0;
-#if NET
-        if (Vector256.IsHardwareAccelerated)
-            for (var target = Vector256.Create(at); i + 16 <= n; i += 16)
-                for (var m = Vector256.Equals(Vector256.Load(dues + i), target).ExtractMostSignificantBits(); m != 0; m &= m - 1)
-                    hits[held++] = (byte)(i + BitOperations.TrailingZeroCount(m));
-#endif
-        for (; i < n; i++)
-            if (dues[i] == at) hits[held++] = (byte)i;
-        return held;
     }
 }
