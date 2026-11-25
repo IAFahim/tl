@@ -705,7 +705,7 @@ type Tl.TimelineWorld
   Method UInt16 Find(System.String)
   Method Void Reload(System.ReadOnlySpan`1[System.Byte])
   Method Tl.Requests Requests(Tl.PlaybackTable)
-  Method Void Tick(Tl.PlaybackTable, Boolean)
+  Method Void Tick(Tl.PlaybackTable, Boolean, Tl.TlWorkers)
   Property Tl.LibraryView View
 type Tl.TlAssetId
   Method Boolean Equals(Tl.TlAssetId)

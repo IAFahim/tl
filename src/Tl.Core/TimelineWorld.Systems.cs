@@ -49,13 +49,13 @@ public sealed partial class TimelineWorld
         return null;
     }
 
-    public unsafe void Tick(PlaybackTable players, bool forward = true)
+    public unsafe void Tick(PlaybackTable players, bool forward = true, TlWorkers? workers = null)
     {
         if (players is null) throw new ArgumentNullException(nameof(players));
         var kinds = players.Kinds ?? throw new InvalidOperationException("Tick needs a KindStore attached to the PlaybackTable; use Advance for kind-free playback.");
         ClosingList.Clear(players.Closing);
         ApplyRequests(players);
-        kinds.TickPass(forward);
+        kinds.TickPass(forward, workers);
     }
 
     public unsafe void Advance(PlaybackTable players, bool forward = true)

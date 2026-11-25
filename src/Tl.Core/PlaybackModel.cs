@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace Tl;
@@ -70,16 +68,16 @@ public readonly unsafe struct PlaybackView
 
     public int CountOf(int entity) => Counts[entity];
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(KindStore.Inline)]
     public bool IsDense(int entity) => Dense != null && (Dense[entity >> 6] >> (entity & 63) & 1) != 0;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(KindStore.Inline)]
     public Playback* RunOf(int entity)
         => (Spilled[entity >> 6] & (1ul << (entity & 63))) == 0
             ? Slots + (nuint)entity * (nuint)SlotsPerEntity
             : Blocks + *(int*)(Slots + (nuint)entity * (nuint)SlotsPerEntity);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(KindStore.Inline)]
     public Playback* SlotOf(int entity, int slot) => RunOf(entity) + slot;
 }
 
@@ -469,13 +467,13 @@ public sealed unsafe class PlaybackTable : IDisposable
 
         public int Length
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [MethodImpl(KindStore.Inline)]
             get => _table._counts[_entity];
         }
 
         public ref Playback this[int index]
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [MethodImpl(KindStore.Inline)]
             get => ref _items[index];
         }
 
@@ -533,19 +531,12 @@ public sealed unsafe class PlaybackTable : IDisposable
         if (_disposed) return;
         _disposed = true;
         _kinds?.Dispose();
-        NativeMemory.AlignedFree(_playing);
         RequestQueue.Free(_pending);
         RequestQueue.Free(_consumer);
         ClosingList.Free(_closing);
-        NativeMemory.AlignedFree(_slots);
-        NativeMemory.AlignedFree(_counts);
-        NativeMemory.AlignedFree(_spilled);
-        NativeMemory.AlignedFree(Next);
-        NativeMemory.AlignedFree(_blockDue);
-        NativeMemory.AlignedFree(_dense);
-        NativeMemory.AlignedFree(_origins);
-        NativeMemory.AlignedFree(_blockOrigins);
-        if (_blocks != null) NativeMemory.AlignedFree(_blocks);
+        KindStore.Free4(_playing, _slots, _counts, _spilled);
+        KindStore.Free4(Next, _blockDue, _dense, _origins);
+        KindStore.Free4(_blockOrigins, _blocks, null, null);
         GC.SuppressFinalize(this);
     }
 }

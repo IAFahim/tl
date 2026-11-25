@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-
 namespace Tl;
 
 public readonly struct EventRecord<T>
@@ -32,7 +30,6 @@ public static class EventRecords
     }
 }
 
-[StructLayout(LayoutKind.Sequential)]
 unsafe struct EventsHeader<T>
     where T : unmanaged
 {
@@ -327,7 +324,7 @@ public unsafe struct Events<T> : IDisposable
             _header = null;
             return;
         }
-        if (_header->Items != null) NativeMemory.AlignedFree(_header->Items);
+        NativeMemory.AlignedFree(_header->Items);
         NativeMemory.AlignedFree(_header);
         _header = null;
     }

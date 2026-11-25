@@ -1,6 +1,3 @@
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-
 namespace Tl;
 
 public readonly struct KindStats
@@ -37,7 +34,6 @@ public readonly unsafe struct KindPulses<T, TFold> where T : unmanaged where TFo
     public void To(int entity, T value) => _handle.Send<T, TFold>(entity, value);
 }
 
-[StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PulseQueue
 {
     public byte* Items;
@@ -224,7 +220,7 @@ public sealed unsafe partial class KindStore : IDisposable
             var capacity = q->Capacity == 0 ? 16 : q->Capacity * 2;
             var items = (byte*)NativeMemory.AlignedAlloc((nuint)capacity * (nuint)q->Stride, 8);
             if (q->Count > 0) new ReadOnlySpan<byte>(q->Items, q->Count * q->Stride).CopyTo(new Span<byte>(items, capacity * q->Stride));
-            if (q->Items != null) NativeMemory.AlignedFree(q->Items);
+            NativeMemory.AlignedFree(q->Items);
             q->Items = items;
             q->Capacity = capacity;
         }
@@ -630,7 +626,7 @@ public sealed unsafe partial class KindStore : IDisposable
         ph->Count = 0;
     }
 
-    internal void TickPass(bool forward)
+    internal void TickPass(bool forward, TlWorkers? workers)
     {
         Sync();
         var entities = _players.EntityCapacity;
@@ -656,7 +652,8 @@ public sealed unsafe partial class KindStore : IDisposable
         _tickTablePulses = fast;
         _t.FastPulseMask = fast;
         DenseBegin(forward ? 1 : -1);
-        TickPassRange(forward ? 1 : -1, 0, words);
+        if (_denseReady && workers?.WorkerCount > 1 && words > 1) Lanes(forward ? 1 : -1, words, workers);
+        else TickPassRange(forward ? 1 : -1, 0, words);
         DenseEnd(forward ? 1 : -1);
         if (_hasClosed)
         {
@@ -671,7 +668,7 @@ public sealed unsafe partial class KindStore : IDisposable
     {
         var playing = _players.PlayingBits;
         if (firstWord < 0) firstWord = 0; if (endWord > _players.PlayingWords) endWord = _players.PlayingWords;
-        if (_denseReady) { DenseRange(stepDir, firstWord, endWord); return; }
+        if (_denseReady) { DenseRange(stepDir, firstWord, endWord, _pulseHits); return; }
         var p = _players.RawView;
         var slots = p.Slots;
         var counts = p.Counts;
@@ -1028,12 +1025,12 @@ public sealed unsafe partial class KindStore : IDisposable
         if (_tables != null)
             for (var k = 0; k < _kindCount; k++) if (_owner[k] == k) KindTable.Free(_tables[k]);
         if (_queues != null)
-            for (var k = 0; k < _kindCount; k++) if (_queues[k].Items != null) NativeMemory.AlignedFree(_queues[k].Items);
+            for (var k = 0; k < _kindCount; k++) NativeMemory.AlignedFree(_queues[k].Items);
         if (_windows != null)
-            for (var g = 0; g < _windowTotal; g++) if (_windows[g].Steps != null) NativeMemory.AlignedFree(_windows[g].Steps);
+            for (var g = 0; g < _windowTotal; g++) NativeMemory.AlignedFree(_windows[g].Steps);
         _joined.Clear();
         _feeding.Clear();
-        for (var r = 0; r < _routes.Length; r++) if (_routes[r] != null) NativeMemory.AlignedFree(_routes[r]);
+        for (var r = 0; r < _routes.Length; r++) NativeMemory.AlignedFree(_routes[r]);
         _routes = new ushort*[0];
         _parts = Array.Empty<List<int>?>();
         _score.Free();
@@ -1066,7 +1063,7 @@ public sealed unsafe partial class KindStore : IDisposable
         _windowTotal = 0;
     }
 
-    static void Free4(void* a, void* b, void* c, void* d)
+    internal static void Free4(void* a, void* b, void* c, void* d)
     {
         NativeMemory.AlignedFree(a);
         NativeMemory.AlignedFree(b);

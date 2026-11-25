@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-
 namespace Tl;
 
 public enum RequestOp : byte
@@ -41,7 +39,6 @@ public readonly struct RequestRecord
     public readonly int Sequence;
 }
 
-[StructLayout(LayoutKind.Sequential)]
 public unsafe struct RequestQueue
 {
     RequestRecord* _items;
@@ -137,8 +134,8 @@ public unsafe struct RequestQueue
 
     public static void Free(RequestQueue* queue)
     {
-        if (queue->_items != null) NativeMemory.AlignedFree(queue->_items);
-        if (queue->_scratch != null) NativeMemory.AlignedFree(queue->_scratch);
+        NativeMemory.AlignedFree(queue->_items);
+        NativeMemory.AlignedFree(queue->_scratch);
         NativeMemory.AlignedFree(queue);
     }
 
@@ -151,14 +148,13 @@ public unsafe struct RequestQueue
             new ReadOnlySpan<RequestRecord>(queue->_items, queue->_count).CopyTo(new Span<RequestRecord>(block, next));
             NativeMemory.AlignedFree(queue->_items);
         }
-        if (queue->_scratch != null) NativeMemory.AlignedFree(queue->_scratch);
+        NativeMemory.AlignedFree(queue->_scratch);
         queue->_scratch = (RequestRecord*)NativeMemory.AlignedAlloc((nuint)next * (nuint)sizeof(RequestRecord), 8u);
         queue->_items = block;
         queue->_capacity = next;
     }
 }
 
-[StructLayout(LayoutKind.Sequential)]
 public unsafe struct ClosingList
 {
     int* _entities;
@@ -196,10 +192,7 @@ public unsafe struct ClosingList
 
     public static void Free(ClosingList* list)
     {
-        if (list->_entities != null) NativeMemory.AlignedFree(list->_entities);
-        if (list->_slots != null) NativeMemory.AlignedFree(list->_slots);
-        if (list->_playbacks != null) NativeMemory.AlignedFree(list->_playbacks);
-        NativeMemory.AlignedFree(list);
+        KindStore.Free4(list->_entities, list->_slots, list->_playbacks, list);
     }
 
     static void Grow(ClosingList* list)
