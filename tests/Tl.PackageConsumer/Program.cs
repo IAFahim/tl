@@ -23,9 +23,18 @@ for (var frame = 0; frame < rewind.Length; frame++)
     if (values[0] != rewind[frame]) return 2;
 }
 
+using var image = new PlaybackImage();
+players.Save(image);
+var saved = values[0];
 world.Tick(players, true);
 new PackageSystem { Values = values }.Run(world, players, true);
 if (values[0] != 7f) return 7;
+
+players.Restore(image);
+values[0] = saved;
+world.Tick(players, true);
+new PackageSystem { Values = values }.Run(world, players, true);
+if (values[0] != 7f) return 8;
 
 Console.WriteLine((int)values[0]);
 return 0;

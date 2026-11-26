@@ -154,6 +154,68 @@ public sealed class DenseOracleTests
                 return "";
             }
 
+            static Arm[] Seed(Arm[] arms, int rows, int slots, ref uint rng)
+            {
+                for (var e = 0; e < rows; e++)
+                    for (var k = 1 + (int)(Next(ref rng) % (uint)slots); k > 0; k--)
+                    {
+                        var timeline = (ushort)(1 + Next(ref rng) % Timelines);
+                        var at = (ushort)(Next(ref rng) % 40);
+                        foreach (var arm in arms) arm.Players.Start(e, timeline, at);
+                    }
+                return arms;
+            }
+
+            static void Script(Arm[] arms, byte[] second, int rows, int step, int steps, int calm, ref uint rng, ref bool forward, long[] stats)
+            {
+                if (step % 97 == 41 || Next(ref rng) % 211 == 0)
+                {
+                    forward = !forward;
+                    stats[0]++;
+                }
+                if (step == steps / 2)
+                {
+                    foreach (var arm in arms) arm.World.Reload(second);
+                    stats[4]++;
+                }
+                for (var e = 0; e < rows; e++)
+                {
+                    if (Next(ref rng) % (uint)calm != 0) continue;
+                    var roll = Next(ref rng);
+                    foreach (var arm in arms) Control(arm.Players, e, roll);
+                    stats[1]++;
+                }
+                if (step % 11 == 5)
+                    for (var e = step % 4; e < rows; e += 4)
+                    {
+                        foreach (var arm in arms) arm.Kinds.Pulses<int>("DenseGame.Count").To(e, 3 + e % 7);
+                        if (step % 33 != 5) continue;
+                        foreach (var arm in arms) arm.Kinds.Pulses<int>("DenseGame.Hits").To(e, 1 + e % 3);
+                        stats[5]++;
+                    }
+                if (step % 3 == 1)
+                    for (var e = step % 5; e < rows; e += 5)
+                        foreach (var arm in arms)
+                        {
+                            arm.Kinds.Pulses<float>("DenseGame.Glow").To(e, 0.7f + 0.01f * (e % 13));
+                            arm.Kinds.Pulses<int>("DenseGame.Trace").To(e, 40 + e % 9);
+                        }
+            }
+
+            static void Drive(Arm[] arms, int step, bool forward, TlWorkers? workers, long[] stats)
+            {
+                var tally = step % 23 is < 5 or > 10;
+                var flush = step % 19 is < 7 or > 8;
+                if (!tally) stats[7]++;
+                for (var i = 0; i < arms.Length; i++) arms[i].Step(forward, i == 0 ? workers : null, tally, flush);
+                for (var e = 0; e < arms[0].Bodies.Length; e++)
+                {
+                    if (arms[0].Players.SystemView.IsDense(e)) stats[2]++;
+                    if (arms.Length > 1 && arms[1].Players.SystemView.IsDense(e)) stats[3]++;
+                    if (arms[0].Players.CountOf(e) > arms[0].Players.SlotsPerEntity) stats[6]++;
+                }
+            }
+
             public static string Run(byte[] first, byte[] second, int rows, int slots, int steps, int calm, int workerCount, Action<KindStore> off, long[] stats)
             {
                 using var a = new Arm(first, rows, slots);
@@ -161,67 +223,67 @@ public sealed class DenseOracleTests
                 off(b.Kinds);
                 using var workers = workerCount > 0 ? new TlWorkers(workerCount) : null;
                 var rng = 0xC0FFEE12u;
-                for (var e = 0; e < rows; e++)
-                    for (var k = 1 + (int)(Next(ref rng) % (uint)slots); k > 0; k--)
-                    {
-                        var timeline = (ushort)(1 + Next(ref rng) % Timelines);
-                        var at = (ushort)(Next(ref rng) % 40);
-                        a.Players.Start(e, timeline, at);
-                        b.Players.Start(e, timeline, at);
-                    }
+                var arms = Seed([a, b], rows, slots, ref rng);
                 var forward = true;
                 for (var step = 0; step < steps; step++)
                 {
-                    if (step % 97 == 41 || Next(ref rng) % 211 == 0)
-                    {
-                        forward = !forward;
-                        stats[0]++;
-                    }
-                    if (step == steps / 2)
-                    {
-                        a.World.Reload(second);
-                        b.World.Reload(second);
-                        stats[4]++;
-                    }
-                    for (var e = 0; e < rows; e++)
-                    {
-                        if (Next(ref rng) % (uint)calm != 0) continue;
-                        var roll = Next(ref rng);
-                        Control(a.Players, e, roll);
-                        Control(b.Players, e, roll);
-                        stats[1]++;
-                    }
-                    if (step % 11 == 5)
-                        for (var e = step % 4; e < rows; e += 4)
-                        {
-                            a.Kinds.Pulses<int>("DenseGame.Count").To(e, 3 + e % 7);
-                            b.Kinds.Pulses<int>("DenseGame.Count").To(e, 3 + e % 7);
-                            if (step % 33 != 5) continue;
-                            a.Kinds.Pulses<int>("DenseGame.Hits").To(e, 1 + e % 3);
-                            b.Kinds.Pulses<int>("DenseGame.Hits").To(e, 1 + e % 3);
-                            stats[5]++;
-                        }
-                    if (step % 3 == 1)
-                        for (var e = step % 5; e < rows; e += 5)
-                        {
-                            a.Kinds.Pulses<float>("DenseGame.Glow").To(e, 0.7f + 0.01f * (e % 13));
-                            b.Kinds.Pulses<float>("DenseGame.Glow").To(e, 0.7f + 0.01f * (e % 13));
-                            a.Kinds.Pulses<int>("DenseGame.Trace").To(e, 40 + e % 9);
-                            b.Kinds.Pulses<int>("DenseGame.Trace").To(e, 40 + e % 9);
-                        }
-                    var tally = step % 23 is < 5 or > 10;
-                    var flush = step % 19 is < 7 or > 8;
-                    if (!tally) stats[7]++;
-                    a.Step(forward, workers, tally, flush);
-                    b.Step(forward, null, tally, flush);
-                    for (var e = 0; e < rows; e++)
-                    {
-                        if (a.Players.SystemView.IsDense(e)) stats[2]++;
-                        if (b.Players.SystemView.IsDense(e)) stats[3]++;
-                        if (a.Players.CountOf(e) > slots) stats[6]++;
-                    }
+                    Script(arms, second, rows, step, steps, calm, ref rng, ref forward, stats);
+                    Drive(arms, step, forward, workers, stats);
                     var differs = Differs(a, b, step);
                     if (differs.Length != 0) return differs;
+                }
+                return "";
+            }
+
+            static ulong Digest(Arm a)
+            {
+                var hash = TlStateHash.Begin();
+                fixed (Body* body = a.Bodies) hash.Bytes((byte*)body, a.Bodies.Length * sizeof(Body));
+                var view = a.Players.View;
+                for (var e = 0; e < a.Bodies.Length; e++) hash.Slots(view.RunOf(e), view.CountOf(e));
+                for (var w = 0; w < a.Players.PlayingWords; w++) hash.Lane(a.Players.Playing[w]);
+                hash.Lane((ulong)a.Kinds.DroppedPulses);
+                hash.Lane((ulong)a.Players.DroppedStarts);
+                return hash.Value;
+            }
+
+            public static string Rewind(byte[] first, byte[] second, int rows, int slots, int steps, int calm, int workerCount, long[] stats)
+            {
+                using var a = new Arm(first, rows, slots);
+                using var workers = workerCount > 0 ? new TlWorkers(workerCount) : null;
+                using var image = new PlaybackImage();
+                var rng = 0xC0FFEE12u;
+                var arms = Seed([a], rows, slots, ref rng);
+                var forward = true;
+                var at = steps * 5 / 8;
+                var digests = new ulong[steps];
+                var bodies = new Body[rows];
+                var saved = (Rng: 0u, Forward: true);
+                for (var step = 0; step < steps; step++)
+                {
+                    Script(arms, second, rows, step, steps, calm, ref rng, ref forward, stats);
+                    if (step == at)
+                    {
+                        a.Players.Save(image);
+                        a.Bodies.CopyTo(bodies, 0);
+                        saved = (rng, forward);
+                    }
+                    Drive(arms, step, forward, workers, stats);
+                    digests[step] = Digest(a);
+                }
+                for (var pass = 0; pass < 2; pass++)
+                {
+                    var before = GC.GetAllocatedBytesForCurrentThread();
+                    a.Players.Restore(image);
+                    if (pass == 1 && GC.GetAllocatedBytesForCurrentThread() != before) return "a warm restore allocated managed memory";
+                    bodies.CopyTo(a.Bodies, 0);
+                    (rng, forward) = saved;
+                    for (var step = at; step < steps; step++)
+                    {
+                        if (step != at) Script(arms, second, rows, step, steps, calm, ref rng, ref forward, stats);
+                        Drive(arms, step, forward, workers, stats);
+                        if (Digest(a) != digests[step]) return $"pass {pass} step {step}: the restored world left the first run";
+                    }
                 }
                 return "";
             }
@@ -309,6 +371,19 @@ public sealed class DenseOracleTests
         Assert.Equal(0, stats[OffDenseSteps]);
         Assert.True(stats[Rewinds] > 0 && stats[Reloads] == 1 && stats[GamePulses] > 0 && stats[SkippedTally] > 0, "the script skipped a world rewind, the reload, the game pulses or a step without the tally system.");
         return stats;
+    }
+
+    [Theory]
+    [InlineData(48, 3, 1200, 8, 0)]
+    [InlineData(40, 24, 300, 4, 0)]
+    [InlineData(256, 5, 400, 24, 3)]
+    public void RestoringASavedImageReplaysEverySlotAndColumnThroughDenseRowsPulsesAndWorkers(int rows, int slots, int steps, int calm, int workers)
+    {
+        var game = Game.Value;
+        var stats = new long[8];
+        var differs = (string)game.Host.GetType("DenseHost", true)!.GetMethod("Rewind")!.Invoke(null, [game.First, game.Second, rows, slots, steps, calm, workers, stats])!;
+        Assert.True(differs.Length == 0, differs);
+        Assert.True(stats[DenseSteps] > 0 && (stats[Spilled] > 0 || slots > 16) && stats[GamePulses] > 0 && stats[Rewinds] > 0, "the script ran no dense row, spill, game pulse or world rewind.");
     }
 
     const string WrongSource = """
