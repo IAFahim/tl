@@ -222,7 +222,7 @@ public sealed unsafe partial class KindStore : IDisposable
 
     public KindValues* SpanValues<TFill>(int kind, int part, ref TFill fill) where TFill : struct, IKindFill
     {
-        if ((uint)kind >= (uint)_kindCount) return null;
+        if ((uint)kind >= (uint)_kindCount || !SpanValuesEnabled) return null;
         var v = _values + kind;
         var ptr = Volatile.Read(ref *(nint*)&v->Data);
         if (ptr == default)

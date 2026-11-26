@@ -2,6 +2,13 @@ namespace Tl.Systems.Tests;
 
 static unsafe class KindSpans
 {
+    public static readonly Action<KindStore> EntriesOnly = static store =>
+    {
+        store.SpanValuesEnabled = false;
+        store.PulseHitsEnabled = false;
+        store.DenseEnabled = false;
+    };
+
     public static int Listed(TimelineWorld world, PlaybackTable players, KindStore store, int entity, string kindName)
     {
         var kind = store.IndexOf(kindName);

@@ -54,12 +54,13 @@ public sealed class PrecombineTests
                 return sent;
             }
 
-            public static ulong[] Single(byte[] first, byte[] second, int steps)
+            public static ulong[] Single(byte[] first, byte[] second, int steps, Action<KindStore> setup)
             {
                 const int rows = 12;
                 using var world = new TimelineWorld(first);
                 using var players = new PlaybackTable(rows);
                 using var kinds = new KindStore(world, players);
+                setup?.Invoke(kinds);
                 var pre = new Pre[rows];
                 var hashes = new ulong[steps + Kinds.Length + 3];
                 var fire = 0L;
@@ -111,14 +112,15 @@ public sealed class PrecombineTests
                 return Tail(kinds, hashes, steps, seen, fire);
             }
 
-            public static ulong[] Many(byte[] first, byte[] second, int steps, int rows, int workerCount)
-                => ManySpilled(first, second, steps, rows, workerCount, 8);
+            public static ulong[] Many(byte[] first, byte[] second, int steps, int rows, int workerCount, Action<KindStore> setup)
+                => ManySpilled(first, second, steps, rows, workerCount, 8, setup);
 
-            public static ulong[] ManySpilled(byte[] first, byte[] second, int steps, int rows, int workerCount, int slotsPerEntity)
+            public static ulong[] ManySpilled(byte[] first, byte[] second, int steps, int rows, int workerCount, int slotsPerEntity, Action<KindStore> setup)
             {
                 using var world = new TimelineWorld(first);
                 using var players = new PlaybackTable(rows, slotsPerEntity);
                 using var kinds = new KindStore(world, players);
+                setup?.Invoke(kinds);
                 using var workers = workerCount > 0 ? new TlWorkers(workerCount) : null;
                 var pre = new Pre[rows];
                 var hashes = new ulong[steps + Kinds.Length + 3];
@@ -207,11 +209,12 @@ public sealed class PrecombineTests
                 return state;
             }
 
-            public static ulong[] Play(byte[] library, int rows, int steps)
+            public static ulong[] Play(byte[] library, int rows, int steps, Action<KindStore> setup)
             {
                 using var world = new TimelineWorld(library);
                 using var players = new PlaybackTable(rows);
                 using var kinds = new KindStore(world, players);
+                setup?.Invoke(kinds);
                 var peak = new Peak[rows];
                 var gain = new Gain[rows];
                 var current = new ushort[rows];
@@ -411,8 +414,10 @@ public sealed class PrecombineTests
         ], pack, game);
     }
 
-    static ulong[] Play(Variant variant, string method, params object[] arguments)
-        => (ulong[])variant.Host.GetType(method == "Play" ? "PeakHost" : "PreHost", true)!.GetMethod(method)!.Invoke(null, arguments)!;
+    static ulong[] Play(Variant variant, string method, params object[] arguments) => Play(variant, method, null, arguments);
+
+    static ulong[] Play(Variant variant, string method, Action<KindStore>? setup, object[] arguments)
+        => (ulong[])variant.Host.GetType(method == "Play" ? "PeakHost" : "PreHost", true)!.GetMethod(method)!.Invoke(null, [.. arguments, setup])!;
 
     static void Same(ulong[] plain, ulong[] fast, int steps)
     {
@@ -435,6 +440,36 @@ public sealed class PrecombineTests
         Assert.Equal(0UL, fast[SingleSteps + SeenBytes]);
         Assert.Equal(0UL, fast[SingleSteps + GlowBytes]);
         Assert.True(fast[SingleSteps + Extra] > 0, "the Synthetic-reading feeder never saw a synthetic span.");
+    }
+
+    [Fact]
+    public void EveryPrecombinedFixtureReadsTheSameValuesFromItsLoadTimeTablesAsFromKindEntriesAlone()
+    {
+        var pre = Pre.Value;
+        foreach (var (method, arguments) in new (string, object[])[]
+        {
+            ("Single", new object[] { pre.First, pre.Second, SingleSteps }),
+            ("Many", new object[] { pre.First, pre.Second, ManySteps, 16, 0 }),
+            ("Many", new object[] { pre.First, pre.Second, ManySteps, 640, 4 }),
+            ("ManySpilled", new object[] { pre.First, pre.Second, ManySteps, 64, 2, 2 }),
+        })
+        {
+            var steps = (int)arguments[2];
+            var tables = Play(pre.Fast, method, arguments);
+            var entries = Play(pre.Fast, method, KindSpans.EntriesOnly, arguments);
+            for (var step = 0; step < steps; step++)
+                Assert.True(tables[step] == entries[step], $"{method}({string.Join(", ", arguments[2..])}): the load-time tables first differ from kind entries at step {step}.");
+            for (var k = 0; k < Extra; k++) Assert.Equal(0UL, entries[steps + k]);
+            Assert.True(tables[steps] > 0 && tables[steps + FlareBytes] > 0, $"{method} never read a load-time table.");
+            Assert.Equal(tables[steps + Extra], entries[steps + Extra]);
+            Assert.Equal(tables[steps + FirePulsesSent], entries[steps + FirePulsesSent]);
+        }
+        var peak = Peak.Value;
+        var peakTables = Play(peak.Fast, "Play", peak.First, 6, PeakSteps);
+        var peakEntries = Play(peak.Fast, "Play", KindSpans.EntriesOnly, [peak.First, 6, PeakSteps]);
+        Same(peakEntries, peakTables, PeakSteps);
+        Assert.True(peakTables[PeakSteps] > 0, "the two-assembly fixture never read a load-time table.");
+        Assert.Equal(0UL, peakEntries[PeakSteps]);
     }
 
     [Fact]
