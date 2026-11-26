@@ -135,6 +135,7 @@ Only what still differs, and why:
 | A marker with no data, or a clip whose bake throws | the bake throws | skipped with a warning, so the rest of the timeline still bakes | by design: the Editor keeps baking the scene |
 | Kind groups | run | skipped (TLUNITY9104) | |
 | Starts of timelines not baked onto the object | n/a | dropped with a warning (Also Plays) | per-object kind archetypes, #655 |
+| A start of an id past the library | the step throws an `ArgumentException` before any request applies | dropped and counted in `TimelineKindTick.DroppedStarts`; `TL_CHECKED` throws at the end of the step | a job cannot throw |
 | Checked builds | `Debug` or `TlChecked=true` | scripting define `TL_CHECKED` | |
 
 ## Migration: `ExecuteBatch` removed (#659)
