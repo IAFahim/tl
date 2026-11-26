@@ -104,7 +104,7 @@ Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __n, __first
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Burn", sizeof(float), "@Effects\nKindGame.Flame.Evaluate:0", 0, out var __me);
@@ -251,7 +251,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 }
 internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Chill", sizeof(int), "@Effects\nKindGame.Frost.Start:1", 0, out var __me);
@@ -364,7 +364,7 @@ if (__kept == 0) __kt->Clear(__row); else __kt->Length[__row] = (ushort)__kept;
 }
 internal static void Kind_2(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Lift", sizeof(float), "KindGame.Jump.Evaluate:0", 0, out var __me);
@@ -500,7 +500,7 @@ if (__len != 0) __kt->Clear(__row);
 }
 internal static void Kind_3(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Locomotion", sizeof(global::KindGame.Speed), "KindGame.Walk.Evaluate:0", 0, out var __me);
@@ -634,7 +634,7 @@ if (__len != 0) __kt->Clear(__row);
 }
 internal static void Kind_4(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Motion* __c0, global::KindGame.WalkStat* __c1, global::KindGame.JumpPower* __c2, global::KindGame.Stamina* __c3, global::KindGame.Heat* __c4, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.StatChange", sizeof(int), "KindGame.ChangeStat.Start:1\nKindGame.Steps.OnStep:3", 0, out var __me);
@@ -772,7 +772,7 @@ Kind_0(world, players, __ks, forward, __c0, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::KindGame.Health* __c0, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("KindGame.Damage", sizeof(int), "KindGame.Hit.Start:1", 0, out var __me);
@@ -1052,7 +1052,7 @@ fixed (global::KindGame.Stamina* __p3 = this.Stamina)
 fixed (global::KindGame.Heat* __p4 = this.Heat)
 {
 if (workers.WorkerCount == 1) { TlSystems.TlSystem_Kinds_global__KindGame_Movement.Run(world, players, forward, __p0, __p1, __p2, __p3, __p4, __len); return; }
-var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
+var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.SystemPlaying, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __c1 = __p1, __c2 = __p2, __c3 = __p3, __c4 = __p4, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
 }
@@ -1095,7 +1095,7 @@ if (__len > players.EntityCapacity) throw new System.ArgumentException("global::
 fixed (global::KindGame.Health* __p0 = this.Health)
 {
 if (workers.WorkerCount == 1) { TlSystems.TlSystem_Kinds_global__KindGame_Vitals.Run(world, players, forward, __p0, __len); return; }
-var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
+var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.SystemPlaying, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
 if (players.Kinds != null)

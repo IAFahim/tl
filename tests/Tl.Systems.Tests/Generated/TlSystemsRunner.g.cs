@@ -89,7 +89,7 @@ Kind_4(world, players, __ks, forward, __c0, __c1, __c2, __c3, __c4, __c5, __n, _
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, global::Game.Trigger* __c4, global::Game.FootstepCue* __c5, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("Game.Footstep", sizeof(global::Game.Sound), "Game.Footsteps.Evaluate:3", 0, out var __me);
@@ -179,7 +179,7 @@ if (__len != 0) __kt->Clear(__row);
 }
 internal static void Kind_1(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, global::Game.Trigger* __c4, global::Game.FootstepCue* __c5, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("Game.Lift", sizeof(float), "Game.Jump.Evaluate:0", 0, out var __me);
@@ -308,7 +308,7 @@ if (__len != 0) __kt->Clear(__row);
 }
 internal static void Kind_2(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, global::Game.Trigger* __c4, global::Game.FootstepCue* __c5, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("Game.Starts", sizeof(ushort), "Game.InputWindow.Evaluate:0", 0, out var __me);
@@ -437,7 +437,7 @@ if (__len != 0) __kt->Clear(__row);
 }
 internal static void Kind_3(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, global::Game.Trigger* __c4, global::Game.FootstepCue* __c5, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("Game.StatChange", sizeof(global::Game.StatClip), "Game.ChangeStat.Evaluate:1", 0, out var __me);
@@ -646,7 +646,7 @@ public void Combine(ref global::Game.StatClip total, in global::Game.StatClip ne
 }
 internal static void Kind_4(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, global::Game.Trigger* __c4, global::Game.FootstepCue* __c5, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("Game.Stride", sizeof(global::Game.Motion), "Game.Move.Evaluate:0", 0, out var __me);
@@ -817,7 +817,7 @@ internal static void Kinds(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.
 }
 internal static void RunClose(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int __n, Tl.Events<global::Game.Cue> __ev0, Tl.Events<float> __ev1)
 {
-var __view = world.View; _ = players.View;
+var __view = world.SystemView; _ = players.SystemPlaying;
 Tl.Events<global::Game.Cue> __eb0;
 Tl.Events<float> __eb1;
 var __closing = players.Closing;
@@ -840,10 +840,10 @@ var __def = __cstage->Steps + __i; if (__ctick < __def->WindowStart || __ctick >
 }
 internal static void RunEventRange(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, int __n, int __firstWord, int __endWord, Tl.Events<global::Game.Cue> __ev0, Tl.Events<float> __ev1)
 {
-var __view = world.View; var __pview = players.SystemView;
+var __view = world.SystemView; var __pview = players.SystemView;
 Tl.Events<global::Game.Cue> __eb0;
 Tl.Events<float> __eb1;
-var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
+var __pl = players.SystemPlaying; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
 for (var __w = __firstWord; __w < __w1; __w++)
 {
 for (var __b = __pl[__w]; __b != 0; __b &= __b - 1)
@@ -854,19 +854,21 @@ if (__e >= __n) continue;
 Tl.Checked.Visited();
 #endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
+var __prun = __count == 0 ? null : __pview.RunOf(__e);
 for (var __s = 0; __s < __count; __s++)
 {
-var __ps = __pview.SlotOf(__e, __s);
-if (__ps->Timeline == 0 || ((__ps->Flags & (__PF.Ended | __PF.Paused | __PF.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__ps->Flags, forward))) continue;
+var __ps = __prun + __s;
 var __pcopy = *__ps;
+if (__pcopy.Timeline == 0 || ((__pcopy.Flags & (__PF.Ended | __PF.Paused | __PF.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__pcopy.Flags, forward))) continue;
+var __pt = __pview.TickOf(__ps); __pcopy.Tick = __pt;
 var __pb = __ps->Rate == 0 ? __ps : &__pcopy;
-var __pk = Tl.PlaybackRules.Crossings(in *__ps);
+var __pk = Tl.PlaybackRules.Crossings(in __pcopy);
 for (var __j = 0; __j < __pk; __j++)
 {
 if (__j > 0 && (Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != Tl.AdvanceResult.Kept || (__pcopy.Flags & (__PF.Ended | __PF.Paused)) != 0)) break;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
-var __tick = __pb->Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;
+var __tick = __j == 0 ? __pt : __pcopy.Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
 var __base = ((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0 ? __FF.Synthetic : __FF.None;
 __eb0 = __ev0; __eb0.Bind(__e, __s);
@@ -978,7 +980,7 @@ fixed (global::Game.Trigger* __p4 = this.Triggers)
 fixed (global::Game.FootstepCue* __p5 = this.Footsteps)
 {
 if (workers.WorkerCount == 1) { TlSystems.TlSystem_Runner_global__Game_Movement.Run(world, players, forward, __p0, __p1, __p2, __p3, __p4, __p5, __len); return; }
-var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
+var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.SystemPlaying, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __c1 = __p1, __c2 = __p2, __c3 = __p3, __c4 = __p4, __c5 = __p5, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
 if (players.Kinds != null)
@@ -1023,7 +1025,7 @@ int __len = players.EntityCapacity;
 if (__len > players.EntityCapacity) throw new System.ArgumentException("global::Game.Signals: column length exceeds table capacity.");
 if (workers.WorkerCount == 1) { TlSystems.TlSystem_Runner_global__Game_Signals.Run(world, players, forward, __len, this.Cues, this.Hits); return; }
 TlSystems.TlSystem_Runner_global__Game_Signals.RunClose(world, players, forward, __len, this.Cues, this.Hits);
-var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
+var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.SystemPlaying, __words, __ends, __chunks);
 var __segs0 = stackalloc Tl.Events<global::Game.Cue>[__chunks]; for (var __i = 0; __i < __chunks; __i++) __segs0[__i] = new Tl.Events<global::Game.Cue>(128);
 var __segs1 = stackalloc Tl.Events<float>[__chunks]; for (var __i = 0; __i < __chunks; __i++) __segs1[__i] = new Tl.Events<float>(128);
 var __st = new __PS { __ev0 = __segs0, __ev1 = __segs1, __n = __len, __forward = forward ? 1 : 0 };
