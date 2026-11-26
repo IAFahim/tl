@@ -536,6 +536,9 @@ type Tl.PlaybackFlags
   Field Tl.PlaybackFlags StopAged
   Field Tl.PlaybackFlags Stopping
   Field Byte value__
+type Tl.PlaybackImage
+  Method Void Dispose()
+  Property Int64 Length
 type Tl.PlaybackRules
   Method Tl.AdvanceResult Advance(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32, Boolean)
   Method Void Apply[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Tl.RequestOp, UInt16, UInt16)
@@ -580,10 +583,12 @@ type Tl.PlaybackTable
   Property UInt64* Playing
   Property Int32 PlayingWords
   Method Void Reset(Int32)
+  Method Void Restore(Tl.PlaybackImage)
   Method Void Resume(Int32, UInt16)
   Method Void ResumeChannel(Int32, Byte)
   Method Void Reverse(Int32, UInt16, Boolean)
   Method Void ReverseChannel(Int32, Byte, Boolean)
+  Method Void Save(Tl.PlaybackImage)
   Method Void Seek(Int32, UInt16, UInt16)
   Method Void SeekChannel(Int32, Byte, UInt16)
   Method Void SetChannelSpeed(Int32, Byte, UInt16)
