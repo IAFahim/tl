@@ -57,11 +57,11 @@ public sealed class EventSpeedTests
 
         public static class SpeedyHost
         {
-            public static string[] Play(byte[] library, int rate, int steps)
+            public static string[] Play(byte[] library, int rate, int steps, bool kinds)
             {
                 using var world = new TimelineWorld(library);
                 using var players = new PlaybackTable(1);
-                using var kinds = new KindStore(world, players);
+                using var store = kinds ? new KindStore(world, players) : null;
                 using var dings = new Events<Speedy.Ding>(8);
                 using var dongs = new Events<Speedy.Dong>(8);
                 using var hums = new Events<Speedy.Hum>(8);
@@ -71,7 +71,12 @@ public sealed class EventSpeedTests
                 for (var step = 0; step < steps; step++)
                 {
                     if (step == 1 && rate != 16) players.SetSpeed(0, 1, (ushort)rate);
-                    world.Tick(players);
+                    if (kinds) world.Tick(players);
+                    else
+                    {
+                        world.ApplyRequests(players);
+                        world.Advance(players);
+                    }
                     new Tl.Generated.TlAuto_Speedy { C0_Chime = chime, E0_Ding = dings.Writer, E1_Dong = dongs.Writer, E2_Hum = hums.Writer }.Run(world, players);
                     var d = string.Join(",", dings.Drain().ToArray().Select(static r => r.Value.Rings).OrderBy(static x => x));
                     var e = string.Join(",", dongs.Drain().ToArray().Select(static r => r.Value.Rings).OrderBy(static x => x));
@@ -103,7 +108,7 @@ public sealed class EventSpeedTests
 
     static readonly (uint Start, uint End)[] Clips = [(5, 7), (7, 8), (8, 11), (12, 13), (13, 16)];
 
-    static string[] Play(int rate, int steps)
+    static string[] Play(int rate, int steps, bool kinds = true)
     {
         var built = Assemblies.Value;
         var chime = built.Domain.GetType("Speedy.ChimeClip", true)!;
@@ -111,7 +116,7 @@ public sealed class EventSpeedTests
         {
             new() { Name = "chimes", Duration = 20, Tracks = { TestDomain.Track(chime, Clips.Select(static c => (c.Start, c.End, TestDomain.Pack((int)c.Start))).ToArray()) } },
         };
-        return (string[])built.Host.GetType("SpeedyHost", true)!.GetMethod("Play")!.Invoke(null, [TestDomain.Library(timelines, built.Domain), rate, steps])!;
+        return (string[])built.Host.GetType("SpeedyHost", true)!.GetMethod("Play")!.Invoke(null, [TestDomain.Library(timelines, built.Domain), rate, steps, kinds])!;
     }
 
     static string[] Trace(int rate)
@@ -131,6 +136,15 @@ public sealed class EventSpeedTests
 
     internal static readonly Dictionary<int, string[]> Pinned = new()
     {
+        [8] =
+        [
+            "10: start 5 end  active 5 chime 5",
+            "12: start  end 5 active 5 chime 5",
+            "14: start 7 end 7 active 7 chime 12",
+            "16: start 8 end  active 8 chime 20",
+            "18: start  end  active 8 chime 20",
+            "20: start  end 8 active 8 chime 20"
+        ],
         [16] =
         [
             "5: start 5 end  active 5 chime 5",
@@ -146,38 +160,43 @@ public sealed class EventSpeedTests
         ],
         [24] =
         [
-            "3: start 5 end  active 5 chime 0",
-            "4: start  end 5 active 5 chime 5",
-            "5: start 7,8 end 7 active 7,8 chime 12",
-            "6: start  end  active 8 chime 20",
+            "4: start 5 end 5 active 5,5 chime 5",
+            "5: start 7 end 7 active 7 chime 12",
+            "6: start 8 end  active 8,8 chime 20",
             "7: start  end 8 active 8 chime 20",
             "8: start 12 end 12 active 12 chime 32",
-            "9: start 13 end  active 13,13 chime 45",
-            "10: start  end 13 active 13 chime 45"
+            "9: start 13 end  active 13 chime 45",
+            "10: start  end 13 active 13,13 chime 45"
         ],
         [32] =
         [
-            "2: start 5 end  active 5 chime 0",
-            "3: start 7 end 5,7 active 5,7 chime 5",
-            "4: start 8 end  active 8,8 chime 20",
-            "5: start  end 8 active 8 chime 20",
-            "6: start 12,13 end 12 active 12,13 chime 32",
-            "7: start  end 13 active 13,13 chime 45"
+            "3: start 5 end 5 active 5,5 chime 5",
+            "4: start 7,8 end 7 active 7,8 chime 20",
+            "5: start  end 8 active 8,8 chime 20",
+            "6: start 12 end 12 active 12 chime 32",
+            "7: start 13 end  active 13,13 chime 45",
+            "8: start  end 13 active 13 chime 45"
         ],
         [40] =
         [
+            "2: start 5 end  active 5 chime 5",
+            "3: start 7 end 5,7 active 5,7 chime 12",
+            "4: start 8 end 8 active 8,8,8 chime 20",
+            "5: start 12 end 12 active 12 chime 32",
+            "6: start 13 end 13 active 13,13,13 chime 45"
+        ],
+        [48] =
+        [
             "2: start 5 end 5 active 5,5 chime 5",
-            "3: start 7,8 end 7 active 7,8,8 chime 12",
-            "4: start  end 8 active 8 chime 20",
-            "5: start 12,13 end 12 active 12,13,13 chime 32",
-            "6: start  end 13 active 13 chime 45"
+            "3: start 7,8 end 7 active 7,8,8 chime 20",
+            "4: start 12 end 8,12 active 8,12 chime 32",
+            "5: start 13 end 13 active 13,13,13 chime 45"
         ],
         [64] =
         [
-            "1: start 5,7 end 5,7 active 5,5,7 chime 0",
-            "2: start 8 end 8 active 8,8,8 chime 20",
-            "3: start 12,13 end 12,13 active 12,13,13,13 chime 32",
-            "4: start  end  active  chime 45"
+            "2: start 5,7,8 end 5,7 active 5,5,7,8 chime 20",
+            "3: start 12 end 8,12 active 8,8,12 chime 32",
+            "4: start 13 end 13 active 13,13,13 chime 45"
         ],
     };
 
@@ -189,15 +208,22 @@ public sealed class EventSpeedTests
     }
 
     [Theory]
-    [InlineData(16)]
-    [InlineData(24)]
-    [InlineData(32)]
-    [InlineData(40)]
-    [InlineData(48)]
-    [InlineData(64)]
-    public void EveryClipStartEndAndActiveTickIsRaisedOnceAtEachSpeed(int rate)
+    [InlineData(8, true)]
+    [InlineData(16, true)]
+    [InlineData(24, true)]
+    [InlineData(32, true)]
+    [InlineData(40, true)]
+    [InlineData(48, true)]
+    [InlineData(64, true)]
+    [InlineData(8, false)]
+    [InlineData(16, false)]
+    [InlineData(24, false)]
+    [InlineData(32, false)]
+    [InlineData(48, false)]
+    [InlineData(64, false)]
+    public void EveryClipStartEndAndActiveTickIsRaisedOnceAtEachSpeed(int rate, bool kinds)
     {
-        var steps = Play(rate, 24);
+        var steps = Play(rate, 48, kinds);
         var starts = new List<int>();
         var ends = new List<int>();
         var active = new List<int>();
@@ -212,7 +238,27 @@ public sealed class EventSpeedTests
         Assert.Equal(rings, starts.Order());
         Assert.Equal(rings, ends.Order());
         Assert.Equal(Clips.SelectMany(static c => Enumerable.Repeat((int)c.Start, (int)(c.End - c.Start))), active.Order());
-        Assert.EndsWith("chime 45", steps[^1], StringComparison.Ordinal);
+        Assert.EndsWith(kinds ? "chime 45" : "chime 0", steps[^1], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(16)]
+    [InlineData(24)]
+    [InlineData(32)]
+    [InlineData(40)]
+    [InlineData(48)]
+    [InlineData(64)]
+    public void EachClipStartIsRaisedOnTheStepItsKindPulseLands(int rate)
+    {
+        var before = 0;
+        foreach (var line in Play(rate, 48))
+        {
+            var parts = line.Split(' ');
+            var chime = int.Parse(parts[^1]);
+            Assert.Equal(chime - before, Numbers(parts[1]).Sum());
+            before = chime;
+        }
     }
 
     static IEnumerable<int> Numbers(string list) => list.Length == 0 ? [] : list.Split(',').Select(int.Parse);

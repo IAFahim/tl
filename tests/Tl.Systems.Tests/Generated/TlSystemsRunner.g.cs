@@ -843,6 +843,7 @@ internal static void RunEventRange(Tl.TimelineWorld world, Tl.PlaybackTable play
 var __view = world.SystemView; var __pview = players.SystemView;
 Tl.Events<global::Game.Cue> __eb0;
 Tl.Events<float> __eb1;
+var __eks = players.Kinds; var __ehs = __eks != null && __eks.HasSamples;
 var __pl = players.SystemPlaying; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;
 for (var __w = __firstWord; __w < __w1; __w++)
 {
@@ -855,20 +856,26 @@ Tl.Checked.Visited();
 #endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 var __prun = __count == 0 ? null : __pview.RunOf(__e);
+var __smp = __ehs ? __eks.SamplesOf(__e) : 0; var __pcs = __prun + __count; var __pq = 0;
 for (var __s = 0; __s < __count; __s++)
 {
 var __ps = __prun + __s;
 var __pcopy = *__ps;
-if (__pcopy.Timeline == 0 || ((__pcopy.Flags & (__PF.Ended | __PF.Paused | __PF.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__pcopy.Flags, forward))) continue;
+if (__pcopy.Timeline == 0) continue;
 var __pt = __pview.TickOf(__ps); __pcopy.Tick = __pt;
-var __pb = __ps->Rate == 0 ? __ps : &__pcopy;
-var __pk = Tl.PlaybackRules.Crossings(in __pcopy);
+var __pb = __ps; var __pk = 1; Tl.Playback* __pc = null; var __pw = false;
+if (__pcopy.Rate != 0)
+{
+__pb = &__pcopy; __pk = Tl.KindRules.CopiesOf(__pcs, __smp, ref __pq, in __pcopy, out __pc);
+if (__pc == null && (__pk = Tl.PlaybackRules.Crossed(in __pcopy)) > 1) { __pw = __eks == null && (__pk = Tl.PlaybackRules.Rewind(ref __pcopy, __pk, __view.Timelines, __view.TimelineCount, forward)) != 0; if (!__pw) __pk = 1; }
+}
 for (var __j = 0; __j < __pk; __j++)
 {
-if (__j > 0 && (Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != Tl.AdvanceResult.Kept || (__pcopy.Flags & (__PF.Ended | __PF.Paused)) != 0)) break;
+if (__pc != null) __pb = __pc + __j; else if (__pw) Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward);
+if ((__pb->Flags & (__PF.Ended | __PF.Paused | __PF.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__pb->Flags, forward)) continue;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
-var __tick = __j == 0 ? __pt : __pcopy.Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;
+var __tick = __pb == __ps ? __pt : __pb->Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
 var __base = ((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0 ? __FF.Synthetic : __FF.None;
 __eb0 = __ev0; __eb0.Bind(__e, __s);
