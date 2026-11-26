@@ -45,6 +45,8 @@
     <EmbeddedResource Include="Precombine\*.cs" />
     <Compile Remove="Dense\**" />
     <EmbeddedResource Include="Dense\*.cs" />
+    <Compile Remove="PureControls\**" />
+    <EmbeddedResource Include="PureControls\*.cs" />
     <EmbeddedResource Include="Generated\TlSystemsKinds.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsIdle.g.cs" />
     <EmbeddedResource Include="Generated\ParityGoldens.json" />
