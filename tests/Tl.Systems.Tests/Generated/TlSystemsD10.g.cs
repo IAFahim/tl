@@ -175,6 +175,7 @@ public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool fo
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world));
 if (players is null) throw new System.ArgumentNullException(nameof(players));
+var __bind = players.Kinds; if (__bind != null) { if (this.Total.IsEmpty) this.Total = __bind.Column<float>(); if (this.Runs.IsEmpty) this.Runs = __bind.Column<int>(); }
 int __len = players.EntityCapacity;
 __len = this.Total.Length;
 if (this.Runs.Length != __len) throw new System.ArgumentException("global::D10.TwoTrack: column Runs lengths differ.");
@@ -198,6 +199,7 @@ var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_D10_global__D10_T
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players)); if (workers is null) throw new System.ArgumentNullException(nameof(workers));
+var __bind = players.Kinds; if (__bind != null) { if (this.Total.IsEmpty) this.Total = __bind.Column<float>(); if (this.Runs.IsEmpty) this.Runs = __bind.Column<int>(); }
 int __len = players.EntityCapacity;
 __len = this.Total.Length;
 if (this.Runs.Length != __len) throw new System.ArgumentException("global::D10.TwoTrack: column Runs lengths differ.");

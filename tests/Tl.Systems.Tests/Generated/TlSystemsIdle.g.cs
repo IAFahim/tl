@@ -340,6 +340,7 @@ public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool fo
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world));
 if (players is null) throw new System.ArgumentNullException(nameof(players));
+var __bind = players.Kinds; if (__bind != null) { if (this.Screen.IsEmpty) this.Screen = __bind.Column<global::IdleGame.Screen>(); }
 int __len = players.EntityCapacity;
 __len = this.Screen.Length;
 if (__len > players.EntityCapacity) throw new System.ArgumentException("global::IdleGame.Stage: column length exceeds table capacity.");
@@ -358,6 +359,7 @@ var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Idle_global__Idle
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players)); if (workers is null) throw new System.ArgumentNullException(nameof(workers));
+var __bind = players.Kinds; if (__bind != null) { if (this.Screen.IsEmpty) this.Screen = __bind.Column<global::IdleGame.Screen>(); }
 int __len = players.EntityCapacity;
 __len = this.Screen.Length;
 if (__len > players.EntityCapacity) throw new System.ArgumentException("global::IdleGame.Stage: column length exceeds table capacity.");

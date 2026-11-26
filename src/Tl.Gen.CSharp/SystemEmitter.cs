@@ -1045,6 +1045,9 @@ internal static class SystemEmitter
         var safe = $"{id}_{Sanitize(system.TypeName)}";
         void LenCheck()
         {
+            var columns = system.Fields.Where(static f => f.Kind is SystemFieldKind.Column or SystemFieldKind.ColumnReadOnly).ToList();
+            if (columns.Count > 0)
+                W(writer, $"var __bind = players.Kinds; if (__bind != null) {{ {string.Concat(columns.Select(static f => $"if (this.{f.Name}.IsEmpty) this.{f.Name} = __bind.Column<{f.ElementTypeName}>(); "))}}}");
             W(writer, "int __len = players.EntityCapacity;");
             var first = true;
             foreach (var field in system.Fields)

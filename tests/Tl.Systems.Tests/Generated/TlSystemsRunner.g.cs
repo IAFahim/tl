@@ -923,6 +923,7 @@ public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool fo
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world));
 if (players is null) throw new System.ArgumentNullException(nameof(players));
+var __bind = players.Kinds; if (__bind != null) { if (this.Motion.IsEmpty) this.Motion = __bind.Column<global::Game.Motion>(); if (this.JumpPower.IsEmpty) this.JumpPower = __bind.Column<global::Game.JumpPower>(); if (this.Stats.IsEmpty) this.Stats = __bind.Column<global::Game.Stats>(); if (this.Input.IsEmpty) this.Input = __bind.Column<global::Game.InputState>(); if (this.Triggers.IsEmpty) this.Triggers = __bind.Column<global::Game.Trigger>(); if (this.Footsteps.IsEmpty) this.Footsteps = __bind.Column<global::Game.FootstepCue>(); }
 int __len = players.EntityCapacity;
 __len = this.Motion.Length;
 if (this.JumpPower.Length != __len) throw new System.ArgumentException("global::Game.Movement: column JumpPower lengths differ.");
@@ -966,6 +967,7 @@ var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Runner_global__Ga
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players)); if (workers is null) throw new System.ArgumentNullException(nameof(workers));
+var __bind = players.Kinds; if (__bind != null) { if (this.Motion.IsEmpty) this.Motion = __bind.Column<global::Game.Motion>(); if (this.JumpPower.IsEmpty) this.JumpPower = __bind.Column<global::Game.JumpPower>(); if (this.Stats.IsEmpty) this.Stats = __bind.Column<global::Game.Stats>(); if (this.Input.IsEmpty) this.Input = __bind.Column<global::Game.InputState>(); if (this.Triggers.IsEmpty) this.Triggers = __bind.Column<global::Game.Trigger>(); if (this.Footsteps.IsEmpty) this.Footsteps = __bind.Column<global::Game.FootstepCue>(); }
 int __len = players.EntityCapacity;
 __len = this.Motion.Length;
 if (this.JumpPower.Length != __len) throw new System.ArgumentException("global::Game.Movement: column JumpPower lengths differ.");

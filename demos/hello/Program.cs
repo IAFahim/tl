@@ -12,7 +12,7 @@ public static class Host
         using var world = new TimelineWorld(library);
         using var players = new PlaybackTable(1);
         using var kinds = new KindStore(world, players);
-        var player = new Teleported[1];
+        var player = kinds.Column<Teleported>();
         var changes = new List<(int, float)>();
 
         players.Start(0, 1);
@@ -20,7 +20,7 @@ public static class Host
         for (var step = 0; step < Steps; step++)
         {
             world.Tick(players, true);
-            new Tl.Generated.TlAuto_HelloTl { C0_Teleported = player }.Run(world, players, true);
+            new Tl.Generated.TlAuto_HelloTl().Run(world, players, true);
             if (player[0].Offset != last)
             {
                 changes.Add((step, player[0].Offset));
