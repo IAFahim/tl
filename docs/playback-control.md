@@ -113,6 +113,21 @@ On .NET take the sender once per `KindStore` and keep it: `Pulses` allocates a s
 
 When an entity's kind set misses a kind the timeline (or its `next` chain) feeds, both hosts drop the start, count it (`PlaybackTable.DroppedStarts`, `TimelineKindTick.DroppedStarts`) and leave the entity as it was: a playback on the same channel keeps playing. Checked builds throw instead: on .NET (`Debug`, or `-p:TlChecked=true`) `Tick` and `ApplyRequests` throw an `ArgumentException` before any request of that batch applies; in Unity, with the scripting define `TL_CHECKED`, `TlCheckedStartsSystem` (in `TlSimulationGroup`, last) throws an `InvalidOperationException` at the end of the step that dropped it, which Unity logs as an exception.
 
+## Save and restore
+
+`PlaybackTable.Save(image)` copies the table's playback state into a `PlaybackImage`, and `Restore(image)` puts it back, so a rewinding host (rollback netcode, a replay scrubber) gets the exact steps again. The image holds every slot and spill block, the playing bits, the queued and drained requests, the closing list, the counters and, with a `KindStore` attached, every kind table entry, queued pulse and pulse hit. Your own columns (the `Span<T>` fields of a system, `[TlState]` data) stay yours: save and restore them beside the image.
+
+```csharp
+using var image = new PlaybackImage();
+players.Save(image);
+var saved = (Health[])health.Clone();
+// ... steps ...
+players.Restore(image);
+saved.CopyTo(health, 0);
+```
+
+The image is native memory that grows to fit on the first save and is reused after that, so a warm save or restore allocates no managed memory; keep one image per frame you may return to and dispose them. Restore throws `InvalidOperationException` when the image is empty, or was saved from a table of another capacity or slot count, another kind set, or before the world loaded another library. Save settles lazy and dense rows first, which changes no value.
+
 ## Host differences
 
 Only what still differs, and why:
@@ -132,13 +147,21 @@ Only what still differs, and why:
 | Kind groups | run | skipped (TLUNITY9104) | |
 | Starts of timelines not baked onto the object | n/a | dropped with a warning (Also Plays) | per-object kind archetypes, #655 |
 | Checked builds | `Debug` or `TlChecked=true` | scripting define `TL_CHECKED` | |
+| Save and restore | `PlaybackTable.Save`/`Restore` with a `PlaybackImage` | n/a | ECS worlds snapshot themselves |
+
+## Migration: save and restore (#681)
+
+Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
+
+- New `PlaybackImage` and `PlaybackTable.Save(PlaybackImage)` / `Restore(PlaybackImage)` (see Save and restore). Nothing else changes. A host that rebuilt a rewind by `Reset`, `Start` and writing ticks back can drop that code: it lost kind table entries and pulses, which a restore keeps.
+- The src budget rises from 520,000 B to 525,100 B for this API.
 
 ## Migration: `ExecuteBatch` removed (#659)
 
 Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
 
 - The `ExecuteBatch(in Frame, ReadOnlySpan<BatchItem<R>>, Span<T>...)` consumer form and `Tl.BatchItem<R>` are removed. Unity never ran it (TLUNITY9105). A consumer that still declares `ExecuteBatch` fails with TLGEN95. Move the loop body into `ExecuteActive(in Frame, in R fold, ref T column)`, which runs once per playback per step with the same fold value and the entity's own column element, or feed a kind. A consumer whose only methods are `Fold` and `ExecuteActive` is read as a timeline job (TLGEN65 rules), not a system consumer; keep its `OnClipStart`/`OnClipEnd` (an empty one is enough) or a `Requests`/`Events` parameter to stay in the system.
-- The source budget pays for #655's precombined spans with this deletion (src stays under 520,000 B).
+- The source budget pays for #655's precombined spans with this deletion (src stayed under 520,000 B).
 
 ## Migration: one control, event and pulse API (#656)
 
