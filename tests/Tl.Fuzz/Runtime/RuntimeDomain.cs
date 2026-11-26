@@ -145,11 +145,14 @@ public unsafe ref struct PlainFuzzSystem
             var tick = (ushort)Math.Min(playback.Tick, timeline->Duration - 1);
             Visit(world, timeline, in playback, row, slot, tick, forward, true);
         }
+        var view = players.SystemView;
         for (var row = 0; row < Motion.Length; row++)
         {
             for (var slot = 0; slot < players.CountOf(row); slot++)
             {
-                var playback = players.SystemSlot(row, slot);
+                var at = view.SlotOf(row, slot);
+                var playback = *at;
+                playback.Tick = view.TickOf(at);
                 if (playback.Timeline == 0 || (playback.Flags & (PlaybackFlags.Ended | PlaybackFlags.Paused | PlaybackFlags.Stopping)) != 0 && !PlaybackRules.Resumes(playback.Flags, forward))
                     continue;
                 var crossings = PlaybackRules.Crossings(in playback);

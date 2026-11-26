@@ -600,7 +600,6 @@ type Tl.PlaybackTable
   Method Void StopAll(Int32)
   Method Void StopChannel(Int32, Byte)
   Property UInt64* SystemPlaying
-  Method Tl.Playback SystemSlot(Int32, Int32)
   Property Tl.PlaybackView SystemView
   Property Tl.PlaybackView View
 type Tl.PlaybackView
@@ -618,6 +617,7 @@ type Tl.PlaybackView
   Field Tl.Playback* Slots
   Field Int32 SlotsPerEntity
   Field UInt64* Spilled
+  Method UInt16 TickOf(Tl.Playback*)
 type Tl.PulseAttribute
   Property System.Type Kind
   Property Tl.ClipEvent On

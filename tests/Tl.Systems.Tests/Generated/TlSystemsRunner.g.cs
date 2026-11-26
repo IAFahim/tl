@@ -854,18 +854,21 @@ if (__e >= __n) continue;
 Tl.Checked.Visited();
 #endif
 var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
+var __prun = __count == 0 ? null : __pview.RunOf(__e);
 for (var __s = 0; __s < __count; __s++)
 {
-var __pcopy = players.SystemSlot(__e, __s);
+var __ps = __prun + __s;
+var __pcopy = *__ps;
 if (__pcopy.Timeline == 0 || ((__pcopy.Flags & (__PF.Ended | __PF.Paused | __PF.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__pcopy.Flags, forward))) continue;
-var __pb = &__pcopy;
+var __pt = __pview.TickOf(__ps); __pcopy.Tick = __pt;
+var __pb = __ps->Rate == 0 ? __ps : &__pcopy;
 var __pk = Tl.PlaybackRules.Crossings(in __pcopy);
 for (var __j = 0; __j < __pk; __j++)
 {
 if (__j > 0 && (Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != Tl.AdvanceResult.Kept || (__pcopy.Flags & (__PF.Ended | __PF.Paused)) != 0)) break;
 var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
-var __tick = __pb->Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;
+var __tick = __j == 0 ? __pt : __pcopy.Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;
 var __backward = forward ? (__pb->Flags & __PF.Reverse) != 0 : (__pb->Flags & __PF.Reverse) == 0;
 var __base = ((__pb->Flags & __PF.StartPending) != 0 && __tick > 0) || (__pb->Flags & __PF.ReenterPending) != 0 ? __FF.Synthetic : __FF.None;
 __eb0 = __ev0; __eb0.Bind(__e, __s);
