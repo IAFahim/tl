@@ -68,6 +68,15 @@ The VM is noisy: the same 50k x 100 binary ranges 27-44 ms across processes. Com
 
 6. netstandard2.1 lazy compare. `LazyTicks.Scan` uses `Vector<ushort>` when `Vector.IsHardwareAccelerated` on the netstandard2.1 asset (the .NET 10 asset keeps `Vector128`). Glide, 20,000 x 100, netstandard2.1 asset on .NET 10, one core, hashes unchanged: duration 120 3.0 -> 1.08 ms, duration 600 0.69 -> 0.37 ms. Core tests pass with `-p:TlCoreTfm=netstandard2.1`, and fail when the vector hit test is mutated. Unity's Mono may not accelerate `Vector<T>`; it then takes the scalar loop as before.
 
+7. Lazy tables under generated systems (commits 95cd78e, 764d3da). Generated event loops used `players.View`, `players.Playing` and `world.View`, each an escape, so a table driven by a generated system stepped eagerly for good. They now read `SystemView`, `SystemPlaying` and `PlaybackView.TickOf` and keep the table lazy. A first version returned a decoded copy per slot and read through a pointer to it; that ran the system loop 2.7x slower even on an eager table (Glide, 1,152 ticks: 6.5 s against 2.1 s). Reading through the table pointer and decoding only the tick in a register brought it to 2.3 s. Glide `system` mode, 20,000 x 100, capacity 4, limit 255, one core, ABAB, median ms, hashes equal, 0 B retained:
+
+   | Duration | base (escapes, eager) | head (lazy) |
+   | ---: | ---: | ---: |
+   | 120 | 26.3, 26.8 | 21.9, 23.7 |
+   | 3000 | 31.5, 31.0 | 21.3, 23.6 |
+
+   `advance` mode is unchanged (1.20-1.34 against 1.20-1.25 ms at 120, 0.09-0.13 ms at 3000).
+
 ## Per-worker scaling (KindShape, `taskset -c 0-(W-1)`, `--workers W`, ms per step, three runs)
 
 | Cell | W=1 | W=2 | W=3 | W=4 | W=4 speedup |
@@ -78,9 +87,9 @@ The VM is noisy: the same 50k x 100 binary ranges 27-44 ms across processes. Com
 
 Large cells add 83-94 percent per worker. 10k x 40 is a 2 ms step where fork and join of the tick plus each system dominate.
 
-## Open design: rollback ring and exact backward time
+## Rollback ring and exact backward time
 
-Exact backward time for accumulating kinds (`+=` per tick on floats) and a 32-frame rollback ring both need a full copy of mutable world state: `PlaybackTable` (slots, counts, spill blocks, playing bits, dense origins and dues, lazy clock, request queues) and `KindStore` (kind tables with their spilled heaps, pulse queues and hits, dense records). Re-deriving kind state from slots is not exact: a library reload marks spans ReenterPending (see `PlaybackRebindTests`). The clean design is one arena per table and store so a snapshot is one `memcpy` of a fixed-size region and restore copies it back; that is several KB of core code and needs the owner's budget decision.
+Landed on main as `PlaybackImage` (#681): `PlaybackTable.Save(image)` and `Restore(image)` copy the whole mutable world (slots with their stale run tails, counts, spill and playing bits, blocks and free heads, clocks, queues, the closing list and the kind tables, pulse queues and hits). A ring is N images; exact backward time for accumulating kinds is a restore to an earlier image. `DenseOracleTests.RestoringAfterDivergentFramesRejoinsTheWorldThatNeverLeft` (this branch) runs 1 to 6 divergent frames on one arm, restores, and checks byte equality with an arm that never left, at 48 x 3, 256 x 5 (spilled) and 40 x 24; it catches dropped free heads, slow pulse masks and pulse hits that the older restore test missed.
 
 ## Tried and rejected (exact but slower)
 
@@ -92,14 +101,16 @@ Exact backward time for accumulating kinds (`+=` per tick on floats) and a 32-fr
 ## Local build notes
 
 - SDK 10.0.115 drops the second `ProjectReference` to Tl.Gen.CSharp in `tests/Tl.Systems.Tests` (same Include, analyzer form), so the test project does not compile. Locally the analyzer Include is spelled `..\..\src\Tl.Gen.CSharp\..\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj` and the file is marked skip-worktree. CI's newer SDK is unaffected.
-- `src` budget: 519,951 / 520,000 B after de6f5d1. Commit 5bbc69e compacted about 3 KB (global usings, `Free4`, shared `Inline` constant, default `StructLayout` removed) to fit the parallel tick without a waiver. Anything larger needs more compaction or the owner's waiver.
+- `src` budget: 560,000 B (was 525,100 on main after #681). Vex allowed the raise; the open issues PR #680 uses the same number so the two merge cleanly. This branch is at 525,838 B: the non-escaping system readers did not fit under 525,100.
 - glibc keeps freed arenas resident, so RSS only reflects frees after `malloc_trim(0)`; KindShape calls it on Linux.
 
 ## Unity tick job (tl.unity#56)
 
 Measured on the self-hosted Unity runner (Unity 7000.0.0a21, Ryzen 5 8500G) with `OwnerScaleBench` at 20,000 rows x 200 playbacks; full tables are in tl.unity `docs/PERF-UNITY-LIMITS.md` section 11.
 
-- The tick itself scales about 80 to 90 % per added worker up to 5 workers and flattens past that; the CPU has 4 full Zen4 cores and 8 slower Zen4c cores. The serial pulse phases were not the bottleneck: the kind jobs were 97 % of the frame.
+- The tick itself scales about 80 to 90 % per added worker up to 5 workers and flattens past that. The serial pulse phases were not the bottleneck: the kind jobs were 97 % of the frame.
+- Why it flattens: the runner has 6 physical cores and 12 threads (SMT pairs 0/6 to 5/11). One pinned thread per CPU on a Python spin loop takes 1.33-1.54 s on cores 0 and 4 and 1.93-2.18 s on cores 1, 2, 3 and 5, so 2 cores are full Zen4 and 4 are Zen4c, about 1.4x slower; lscpu reports the same 5.08 GHz maximum for all of them. Six pinned threads on six cores finish in 1.93 s; from 7 threads on, two share a core and the slowest takes 2.1-3.1 s. Unity's main thread plus 5 workers fill the 6 cores, so a 6th to 11th worker only adds SMT siblings. This is the hardware, not tl.
+- Sweep of 1 to 11 workers, head 0514525 (tl.unity main), lazy d=120, one run, total ms: 12.8, 10.8, 11.8, 8.7, 11.2, 5.2, 5.8, 5.4, 5.3, 4.8 (workers 1, 2, 3, 4, 5, 6, 7, 8, 9, 11). Hashes equal, 0 B. One run on this runner varies up to 3x, so only the trend is supported: about 2.7x at 11 workers.
 - The kind jobs walked every playback slot for every kind, even kinds with no spans, and ran the event walk for timelines with no consumer pair. tl.unity#56 adds `KindIndex.SpanKinds` and a per-timeline pair filter (`KindIndex.PairBloom`) so generated jobs skip only slots the old walk already ignored.
 - Base 5a15151 against head, 1 worker, median of 4 samples per arm, kind ms: eager d=120 19.9 -> 13.8, lazy d=120 17.9 -> 14.6, eager d=3000 32.4 -> 32.5, lazy d=3000 31.1 -> 29.6. Hashes are equal in every cell, allocation 0 B, EditMode and PlayMode pass.
 - Samples of one build vary up to 3x between runs on this runner, so only the duration 120 gain (about 30 % eager, 18 % lazy) is supported. What is left is the Locomotion feeder, evaluated for every live span every frame.
