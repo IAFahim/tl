@@ -95,6 +95,10 @@ Exact backward time for accumulating kinds (`+=` per tick on floats) and a 32-fr
 - `src` budget: 519,951 / 520,000 B after de6f5d1. Commit 5bbc69e compacted about 3 KB (global usings, `Free4`, shared `Inline` constant, default `StructLayout` removed) to fit the parallel tick without a waiver. Anything larger needs more compaction or the owner's waiver.
 - glibc keeps freed arenas resident, so RSS only reflects frees after `malloc_trim(0)`; KindShape calls it on Linux.
 
+## Unity tick job (tl.unity 4b23471, read only)
+
+This session can clone tl.unity but cannot push to it, so the self-hosted Unity runner was not used and nothing there was measured. From reading `com.tl.unity/Runtime/KindSystems.cs`, the kind step schedules three phases: `KindPulseClearJob` (an `IJob`), `KindTickJob` (`ScheduleParallel` over chunks) and one `KindMergeJob` (`IJob`) per pulse sender. The two `IJob` phases run on one worker and their work grows with the pulse count: `KindPulseClearJob.FlushKind` resizes and memmoves each target row for every pending lane item, and `KindMergeJob` appends every streamed pulse. With pulse-heavy worlds these serial phases bound scaling (Amdahl), which matches a low per-worker gain. Candidate fixes, in order: move the lane flush into `KindTickJob` so each chunk flushes its own rows (the same split as `KindStore.Lanes` here), then sort merge input by chunk and run it as an `IJobParallelForDefer` over chunks. The core copy in `com.tl.unity/Core` picks up this branch's dense parallel tick only once it is synced with `eng/sync-tl-core.sh`.
+
 ## Next
 
 See the thread checklist; update this file at each pushed checkpoint.
