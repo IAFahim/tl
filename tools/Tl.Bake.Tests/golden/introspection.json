@@ -1860,6 +1860,38 @@
         "TwinB.TwinClip"
       ],
       "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Txt",
+        "name": "CaptionTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Weight",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Txt",
+        "name": "CaptionClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 16,
+        "fields": [
+          {
+            "name": "Size",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Txt.CaptionClip"
+      ],
+      "consumers": []
     }
   ]
 }

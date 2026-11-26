@@ -110,6 +110,15 @@ its `NextId`/`Channel`/`Hold`/marker section already resolved against the
 manifest. `BlobLength` is the exact TLB file length; each blob start is
 8-aligned with zero padding between blobs (padding is not part of any blob).
 
+## Texts
+
+A library has no text section of its own. Each timeline blob carries the
+strings its `TlText` fields use (TLB header words 72 and 76, see
+`docs/tlb1-layout.md`), so the container layout and version stay the same. At
+load the runtime gathers every blob's rows into one table sorted by key,
+pointing into the loaded bytes. A row whose string does not hash to its key,
+or two different strings with one key, rejects the library.
+
 ## Content identity digest
 
 SHA-256 over `[0, TotalBytes - 32)`; the 32 digest bytes are the file tail.

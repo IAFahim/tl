@@ -133,6 +133,7 @@ Each timeline file is the whole input format — authored by a designer, naming 
 - `channel` names an exclusive lane per entity with replacement semantics; a timeline with no channel stacks with everything
 - `markers` are unmanaged structs resolved at marker ticks in either direction
 - enum fields take member names case-sensitively (`"Voice": "Boom"`); `TimelineId` fields take timeline names resolved against the manifest (`"OnPress": "barrel_explode"`, unknown names fail the bake)
+- `TlText` fields take strings (`"Line": "Hello, world"`, `""` is none). The bake keeps each string once in the timeline, the library looks them up by key at load, and code reads one with `world.Text(clip.Line)` (or `LibraryViewReader.Text(view, clip.Line)` for UTF-8 bytes); decode writes the strings back. The key is a 64-bit hash of the string, `TlText.Of("Hello, world")`, so two libraries agree without a manifest
 - unknown keys are rejected; a timeline may mix track and clip types freely; steps resolve per stage, with per-step frame tables built at load
 - every baked pair carries a layout fingerprint of its two structs (a hash over field names, field types, and declaration order). The generator folds the pair's field shape from source symbols; a struct edit between bake and bind fails fast with a rebake repair instead of silently misreading
 

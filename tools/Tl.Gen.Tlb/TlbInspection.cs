@@ -118,6 +118,20 @@ public static class TlbInspection
                     at += 16 + ((size + 3) & ~3);
                 }
                 writer.WriteEndArray();
+                var textAt = Word(tlb, 72);
+                if (Word(tlb, 76) > 0)
+                {
+                    A("texts");
+                    for (var i = 0; i < Word(tlb, 76); i++)
+                    {
+                        var row = textAt + 16 * i;
+                        writer.WriteStartObject();
+                        S("key", Hex(tlb, row));
+                        S("text", Encoding.UTF8.GetString(tlb.Slice(Word(tlb, row + 8), Word(tlb, row + 12))));
+                        E();
+                    }
+                    writer.WriteEndArray();
+                }
             }
             writer.WriteEndObject();
         }

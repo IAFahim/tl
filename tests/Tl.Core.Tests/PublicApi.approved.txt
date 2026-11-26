@@ -471,6 +471,10 @@ type Tl.LibraryStep
   Field UInt16 TrackValueIndex
   Field UInt32 WindowEnd
   Field UInt32 WindowStart
+type Tl.LibraryText
+  Field UInt64 Key
+  Field Int32 Length
+  Field Byte* Utf8
 type Tl.LibraryTimeline
   Field UInt16 Channel
   Field UInt32 Duration
@@ -487,6 +491,8 @@ type Tl.LibraryView
   Field UInt32 AbiVersion
   Field UInt32 ByteCount
   Field Tl.KindSectionView Kinds
+  Field Int32 TextCount
+  Field Tl.LibraryText* Texts
   Field Int32 TimelineCount
   Field Tl.LibraryTimeline* Timelines
   Field UInt32 Version
@@ -498,6 +504,7 @@ type Tl.LibraryViewReader
   Method Boolean HasEvent(Tl.LibraryTimeline*, UInt32)
   Method Tl.LibraryStage* StageAt(Tl.LibraryTimeline*, UInt16)
   Method System.Span`1[Tl.LibraryStep] StepsFor(Tl.LibraryTimeline*, Tl.LibraryStage*)
+  Method System.ReadOnlySpan`1[System.Byte] Text(Tl.LibraryView ByRef, Tl.TlText)
 type Tl.LibraryWindow
   Field UInt16 End
   Field UInt32 Flags
@@ -717,6 +724,7 @@ type Tl.TimelineWorld
   Method Void Reload(System.ReadOnlySpan`1[System.Byte])
   Method Tl.Requests Requests(Tl.PlaybackTable)
   Property Tl.LibraryView SystemView
+  Method System.String Text(Tl.TlText)
   Method Void Tick(Tl.PlaybackTable, Boolean, Tl.TlWorkers)
   Property Tl.LibraryView View
 type Tl.TlAssetId
@@ -780,6 +788,14 @@ type Tl.TlStateHash
   Method Void Slots(Tl.Playback*, Int32)
   Field UInt64 Value
   Method Void Word(UInt32)
+type Tl.TlText
+  Method Boolean Equals(Tl.TlText)
+  Method Boolean Equals(System.Object)
+  Method Int32 GetHashCode()
+  Property Boolean IsNone
+  Property Tl.TlText None
+  Method Tl.TlText Of(System.String)
+  Field UInt64 Value
 type Tl.TlTimeline
   Field Tl.TlAssetId Asset
   Method Boolean Equals(Tl.TlTimeline)
