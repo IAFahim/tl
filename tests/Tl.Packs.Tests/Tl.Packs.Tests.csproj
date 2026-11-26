@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\packs\Stats\Tl.Pack.Stats.csproj" />
     <ProjectReference Include="..\..\packs\Inventory\Tl.Pack.Inventory.csproj" />
     <ProjectReference Include="..\..\packs\Motion\Tl.Pack.Motion.csproj" />
+    <ProjectReference Include="..\..\packs\Clock\Tl.Pack.Clock.csproj" />
     <ProjectReference Include="..\..\demos\crowd\Server\Server.csproj" />
     <ProjectReference Include="..\..\demos\hello\HelloTl.csproj" />
     <ProjectReference Include="..\..\demos\hello-side\HelloSide.csproj" />

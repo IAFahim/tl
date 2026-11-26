@@ -549,4 +549,37 @@ public sealed unsafe class GlideWorldTests
         Assert.True(second.Frozen);
         Assert.Equal(Wait(first, 0), Wait(second, 0));
     }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(600, true)]
+    public void ATableWhoseSlotsAreDueMostTicksStepsEagerlyUntilItsNextProbeAndStaysExact(int duration, bool stays)
+    {
+        using var world = new TimelineWorld(Library(duration));
+        using var old = new PlaybackTable(64);
+        using var fast = new PlaybackTable(64, 4, 255);
+        foreach (var table in new[] { old, fast })
+        {
+            for (var row = 0; row < 64; row++)
+                for (ushort timeline = 1; timeline <= 2; timeline++) table.Start(row, timeline, (ushort)((row + timeline) % duration));
+            world.ApplyRequests(table);
+        }
+        var eager = 0;
+        for (var tick = 0; tick < 400; tick++)
+        {
+            world.Advance(old);
+            world.Advance(fast);
+            if (!fast.Frozen) { Assert.True(fast.Resting); eager++; }
+            for (var row = 0; row < 64; row++) Same(old, fast, row);
+        }
+        if (stays) Assert.Equal(0, eager);
+        else Assert.InRange(eager, 300, 399);
+        world.Advance(fast);
+        if (!stays)
+        {
+            for (var tick = 0; tick < 4096 && !fast.Frozen; tick++) world.Advance(fast);
+            Assert.True(fast.Frozen);
+        }
+    }
 }

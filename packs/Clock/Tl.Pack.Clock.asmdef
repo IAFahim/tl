@@ -1,0 +1,8 @@
+{
+  "name": "Tl.Pack.Clock",
+  "rootNamespace": "Tl.Pack.Clock",
+  "references": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

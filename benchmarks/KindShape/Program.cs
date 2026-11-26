@@ -22,10 +22,12 @@ unsafe
     if (domain is not ("entity" or "pure")) throw new ArgumentException("--domain is entity or pure.");
     var pure = domain == "pure";
     var split = args.Contains("--split");
+    var workerCount = int.Parse(Arg("--workers", "1"), CultureInfo.InvariantCulture);
+    using var workers = workerCount > 1 ? new TlWorkers(workerCount) : null;
     var space = pure ? "KindPure" : "KindGame";
     var kindNames = typeof(KindGame.WalkTrack).Assembly.GetTypes().Where(t => t.Namespace == space && t.IsDefined(typeof(TimelineKindAttribute), false)).Select(static t => t.FullName!).OrderBy(static n => n, StringComparer.Ordinal).ToArray();
 
-    Console.WriteLine($"env dotnet={Environment.Version} cpus={Environment.ProcessorCount} domain={domain} timelines={timelineCount} tracks={tracksPerTimeline} durations={shortest}-{shortest + spread - 1} warmup={warmup} measure={measure} runs={runs}");
+    Console.WriteLine($"env dotnet={Environment.Version} cpus={Environment.ProcessorCount} workers={workerCount} domain={domain} timelines={timelineCount} tracks={tracksPerTimeline} durations={shortest}-{shortest + spread - 1} warmup={warmup} measure={measure} runs={runs}");
     foreach (var liveText in liveList.Split(','))
     {
         var live = int.Parse(liveText, CultureInfo.InvariantCulture);
@@ -159,11 +161,11 @@ unsafe
             }
             void Step()
             {
-                world.Tick(players, true);
+                world.Tick(players, true, workers);
                 if (pure)
                 {
-                    new KindPure.Movement { Motion = pureMotion, WalkStat = pureStat, JumpPower = purePower, Stamina = pureStamina }.Run(world, players, true);
-                    new KindPure.Vitals { Health = pureHealth }.Run(world, players, true);
+                    { var m = new KindPure.Movement { Motion = pureMotion, WalkStat = pureStat, JumpPower = purePower, Stamina = pureStamina }; if (workers is null) m.Run(world, players, true); else m.Run(world, players, true, workers); }
+                    { var v = new KindPure.Vitals { Health = pureHealth }; if (workers is null) v.Run(world, players, true); else v.Run(world, players, true, workers); }
                     return;
                 }
                 new Movement { Motion = motion, WalkStat = stat, JumpPower = power, Stamina = stamina, Heat = heat }.Run(world, players, true);
@@ -203,11 +205,11 @@ unsafe
                 for (var i = 0; i < measure; i++)
                 {
                     var t0 = Stopwatch.GetTimestamp();
-                    world.Tick(players, true);
+                    world.Tick(players, true, workers);
                     var t1 = Stopwatch.GetTimestamp();
-                    new KindPure.Movement { Motion = pureMotion, WalkStat = pureStat, JumpPower = purePower, Stamina = pureStamina }.Run(world, players, true);
+                    { var m = new KindPure.Movement { Motion = pureMotion, WalkStat = pureStat, JumpPower = purePower, Stamina = pureStamina }; if (workers is null) m.Run(world, players, true); else m.Run(world, players, true, workers); }
                     var t2 = Stopwatch.GetTimestamp();
-                    new KindPure.Vitals { Health = pureHealth }.Run(world, players, true);
+                    { var v = new KindPure.Vitals { Health = pureHealth }; if (workers is null) v.Run(world, players, true); else v.Run(world, players, true, workers); }
                     var t3 = Stopwatch.GetTimestamp();
                     parts[0][i] = Stopwatch.GetElapsedTime(t0, t1).TotalMilliseconds;
                     parts[1][i] = Stopwatch.GetElapsedTime(t1, t2).TotalMilliseconds;
@@ -229,8 +231,10 @@ unsafe
             rows, active, live, ms, medians[0], medians[^1], ms * 1e6 / ((double)rows * active), kindBytes, playerBytes, scoreBytes, residentBytes < 0 ? -1 : residentBytes / rows, setupMs, allocated, hash, domain, valueBytes));
     }
 
+    [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "malloc_trim")] static extern int Trim(nuint pad);
     static long ResidentAnon()
     {
+        if (OperatingSystem.IsLinux()) Trim(0);
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();

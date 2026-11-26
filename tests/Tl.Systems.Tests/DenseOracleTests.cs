@@ -46,7 +46,7 @@ public sealed class DenseOracleTests
 
                 public void Step(bool forward, TlWorkers? workers, bool tally, bool flush)
                 {
-                    World.Tick(Players, forward);
+                    World.Tick(Players, forward, workers);
                     if (workers == null)
                     {
                         if (flush) new FlushSystem { Body = Bodies }.Run(World, Players, forward);
@@ -412,6 +412,8 @@ public sealed class DenseOracleTests
     [InlineData(64, 4, 1500, 48, 0)]
     [InlineData(256, 5, 400, 24, 3)]
     [InlineData(40, 24, 300, 4, 0)]
+    [InlineData(512, 5, 400, 24, 4)]
+    [InlineData(192, 4, 1500, 48, 2)]
     public void DenseAndExplicitWorldsMatchEverySlotAndColumnEveryStepThroughEveryControl(int rows, int slots, int steps, int calm, int workers)
     {
         var stats = Play(rows, slots, steps, calm, workers);

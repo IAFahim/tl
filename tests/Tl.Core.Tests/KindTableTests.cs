@@ -37,6 +37,33 @@ public sealed unsafe class KindTableTests
     });
 
     [Fact]
+    public void ClearingABurstReleasesItsHeapAndClearingASmallRowKeepsIt() => With([0, 1], 2, 12, p =>
+    {
+        var table = (KindTable*)p;
+        for (ushort i = 0; i < 40; i++) Add(table, 0, 1, i);
+        for (ushort i = 0; i < 9; i++) Add(table, 1, 1, i);
+        Assert.Equal(2, table->ColdOverflows());
+        table->Clear(0);
+        table->Clear(1);
+        Assert.Equal(1, table->ColdOverflows());
+        Assert.True((table->Spilled[0] & 1ul) == 0);
+        for (ushort i = 0; i < 40; i++) Add(table, 0, 2, i);
+        Assert.Equal(Enumerable.Range(0, 40).Select(i => (ushort)i), Steps(table, 0));
+        Assert.Equal(2, table->At(0, 39)->Timeline);
+    });
+
+    [Fact]
+    public void AnInlineFreeTableReleasesABurstAndGrowsAgain() => With([0], 0, 8, p =>
+    {
+        var table = (KindTable*)p;
+        for (ushort i = 0; i < 64; i++) Add(table, 0, 1, i);
+        table->Clear(0);
+        Assert.Equal(0, table->ColdOverflows());
+        Add(table, 0, 3, 7);
+        Assert.Equal([(ushort)7], Steps(table, 0));
+    });
+
+    [Fact]
     public void AppendKeepsOrderAndSpillsToTheHeapPastInline() => With([0, 1], 2, 12, p =>
     {
         var table = (KindTable*)p;

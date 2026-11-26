@@ -237,7 +237,7 @@ public sealed unsafe class GlideDifferentialLaws
 
                 world0.Advance(players0, forward);
                 (rng.NextInt(40) == 0 ? guest : worldL).Advance(playersL, forward);
-                Assert.True(playersL.Frozen, $"step {step}: the lazy table thawed");
+                Assert.True(playersL.Frozen || playersL.Resting, $"step {step}: the lazy table thawed");
 
                 var err = FuzzRunner.ComparePlaybacks(players0, playersL);
                 Assert.True(err == null, $"step {step}: {err}");
