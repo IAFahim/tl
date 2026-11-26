@@ -36,7 +36,7 @@ Kind_0(world, players, __ks, forward, __c0, __c1, __n, __firstWord, __endWord);
 }
 internal static void Kind_0(Tl.TimelineWorld world, Tl.PlaybackTable players, Tl.KindStore __ks, bool forward, float* __c0, int* __c1, int __n, int __firstWord, int __endWord)
 {
-var __view = world.View;
+var __view = world.SystemView;
 var __pview = players.SystemView;
 {
 var __routes = __ks.Join("D10.TrackEffect", sizeof(float), "D10.TwoTrackFold.Evaluate:0", 0, out var __me);
@@ -207,7 +207,7 @@ fixed (float* __p0 = this.Total)
 fixed (int* __p1 = this.Runs)
 {
 if (workers.WorkerCount == 1) { TlSystems.TlSystem_D10_global__D10_TwoTrack.Run(world, players, forward, __p0, __p1, __len); return; }
-var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);
+var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.SystemPlaying, __words, __ends, __chunks);
 var __st = new __PS { __c0 = __p0, __c1 = __p1, __n = __len, __forward = forward ? 1 : 0 };
 var __wh = Tl.TlWorkers.Pin(world); var __ph = Tl.TlWorkers.Pin(players); __st.__w = __wh; __st.__p = __ph; try { workers.Run(&__PChunk, &__st, __ends, __chunks); } finally { Tl.TlWorkers.Free(__wh); Tl.TlWorkers.Free(__ph); }
 }

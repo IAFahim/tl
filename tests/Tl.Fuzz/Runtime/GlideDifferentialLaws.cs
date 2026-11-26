@@ -158,6 +158,7 @@ public sealed unsafe class GlideDifferentialLaws
 
                 err = FuzzRunner.ComparePlaybacks(players0, playersG);
                 Assert.True(err == null, $"step {step}: {err}");
+                Assert.True(dropViewAt >= 0 && step >= dropViewAt || playersG.HorizonLimit == limit, $"step {step}: a system read turned the lazy table eager");
 
                 var h0 = TlStateHash.Begin();
                 fixed (PlainMotion* pm0 = motion0) h0.Bytes((byte*)pm0, motion0.Length * sizeof(PlainMotion));

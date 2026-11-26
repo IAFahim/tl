@@ -13,22 +13,33 @@ using Tl.TestSupport;
 
 namespace GlideBench;
 
+public struct GlideClip
+{
+    public int Value;
+}
+
+public struct GlideTrack : IBlend<GlideClip>
+{
+    public void Blend(in GlideClip first, in GlideClip second, float factor, out GlideClip result) => result = first;
+}
+
+public readonly struct GlideStart : ITrack<GlideTrack, GlideClip>
+{
+    public static void OnClipStart(in Frame<GlideTrack, GlideClip> frame, ref Events<int> starts) => starts.Raise(frame.Clip.Value);
+}
+
+[TimelineSystem]
+public ref partial struct GlideCount
+{
+    public Events<int> Starts;
+}
+
 static unsafe class Program
 {
     const int TimelineCount = 1000;
     const int StartBatchEntities = 256;
     const ulong HashOffset = 14695981039346656037ul;
     const ulong HashPrime = 1099511628211ul;
-
-    struct Clip
-    {
-        public int Value;
-    }
-
-    struct Track : IBlend<Clip>
-    {
-        public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
-    }
 
     static int Main(string[] args)
     {
@@ -38,6 +49,7 @@ static unsafe class Program
             if (args.Length == 0 || args[0] is "--help" or "-h")
             {
                 Console.WriteLine("fixture: Glide --fixture <duration> <output.tlib>");
+                Console.WriteLine("run: Glide <fixture.tlib> <entities> <active> <capacity> <limit> [warmup] [steps] [rounds] [auto|scalar] [advance|system]");
                 Console.WriteLine("run: Glide <fixture.tlib> <entities> <active> <capacity> <limit> [warmup=256] [steps=32] [rounds=6] [auto|scalar]");
                 Console.WriteLine("shapes: 4000000 4 4; 4000000 1 1; 1000000 4 4; 10000 150 4");
                 Console.WriteLine("retained median and allocation sum exclude round 0; all raw rounds are retained");
@@ -48,7 +60,7 @@ static unsafe class Program
                 WriteFixture(Parse(args[1], 1, ushort.MaxValue, "duration"), args[2]);
                 return 0;
             }
-            if (args.Length < 5 || args.Length > 9) throw new ArgumentException("Use --help for arguments.");
+            if (args.Length < 5 || args.Length > 10) throw new ArgumentException("Use --help for arguments.");
             var entities = Parse(args[1], 1, int.MaxValue - 63, "entities");
             var active = Parse(args[2], 1, 256, "active");
             var capacity = Parse(args[3], 1, 256, "capacity");
@@ -58,7 +70,9 @@ static unsafe class Program
             var rounds = args.Length > 7 ? Parse(args[7], 2, 10000, "rounds") : 6;
             var isa = args.Length > 8 ? args[8] : "auto";
             if (isa is not ("auto" or "scalar")) throw new ArgumentException("ISA must be auto or scalar.");
-            Run(args[0], entities, active, capacity, limit, warmup, steps, rounds, isa);
+            var mode = args.Length > 9 ? args[9] : "advance";
+            if (mode is not ("advance" or "system")) throw new ArgumentException("Mode must be advance or system.");
+            Run(args[0], entities, active, capacity, limit, warmup, steps, rounds, isa, mode == "system");
             return 0;
         }
         catch (Exception error)
@@ -77,7 +91,7 @@ static unsafe class Program
 
     static void WriteFixture(int duration, string path)
     {
-        var tlb = new DomainBaker().Track<Track, Clip>(default).Clip(0, 0, (uint)duration, new Clip { Value = 1 }).Looping().Bake();
+        var tlb = new DomainBaker().Track<GlideTrack, GlideClip>(default).Clip(0, 0, (uint)duration, new GlideClip { Value = 1 }).Looping().Bake();
         var parts = new LibraryPart[TimelineCount];
         for (var i = 0; i < parts.Length; i++) parts[i] = new LibraryPart { Name = "Glide" + i.ToString("D4", CultureInfo.InvariantCulture), Tlb = tlb };
         var bytes = LibraryAssembler.Assemble(parts, 60, LibrarySettings.Default);
@@ -112,7 +126,7 @@ static unsafe class Program
 
     static uint Read32(ReadOnlySpan<byte> bytes, int offset) => BinaryPrimitives.ReadUInt32LittleEndian(bytes.Slice(offset, 4));
 
-    static void Run(string fixture, int entities, int active, int capacity, int limit, int warmup, int steps, int rounds, string isa)
+    static void Run(string fixture, int entities, int active, int capacity, int limit, int warmup, int steps, int rounds, string isa, bool system)
     {
         var vector128 = Vector128.IsHardwareAccelerated;
         var vector256 = Vector256.IsHardwareAccelerated;
@@ -142,19 +156,21 @@ static unsafe class Program
             if ((entity + 1) % StartBatchEntities == 0) world.ApplyRequests(players);
         }
         world.ApplyRequests(players);
+        using var starts = new Events<int>(1 << 16);
+        var counts = new long[entities];
         var setupMs = Milliseconds(Stopwatch.GetTimestamp() - setupStart);
         var firstStart = Stopwatch.GetTimestamp();
-        world.Advance(players);
+        Step(world, players, starts, counts, system);
         var firstMs = Milliseconds(Stopwatch.GetTimestamp() - firstStart);
         var warmStart = Stopwatch.GetTimestamp();
-        for (var tick = 1; tick < warmup; tick++) world.Advance(players);
+        for (var tick = 1; tick < warmup; tick++) Step(world, players, starts, counts, system);
         var warmupMs = firstMs + Milliseconds(Stopwatch.GetTimestamp() - warmStart);
         var timedBefore = GC.GetTotalAllocatedBytes(true);
         for (var round = 0; round < rounds; round++)
         {
             var before = GC.GetTotalAllocatedBytes(true);
             var start = Stopwatch.GetTimestamp();
-            for (var tick = 0; tick < steps; tick++) world.Advance(players);
+            for (var tick = 0; tick < steps; tick++) Step(world, players, starts, counts, system);
             samples[round] = Milliseconds(Stopwatch.GetTimestamp() - start) / steps;
             allocations[round] = GC.GetTotalAllocatedBytes(true) - before;
         }
@@ -162,11 +178,13 @@ static unsafe class Program
         process.Refresh();
         var privateAfter = process.PrivateMemorySize64;
         var actualLimit = ActualLimit(players);
-        if (actualLimit != limit) throw new InvalidOperationException($"Cache was unexpectedly disabled: requested={limit}, actual={actualLimit}.");
+        if (actualLimit != limit && !system) throw new InvalidOperationException($"Cache was unexpectedly disabled: requested={limit}, actual={actualLimit}.");
         var positiveHorizons = PositiveHorizons(players, entities);
         var ticks = checked((long)warmup + (long)rounds * steps);
         var view = players.View;
         var hash = VerifyAndHash(view, players.Playing, entities, active, capacity, duration, ticks);
+        long started = 0;
+        for (var entity = 0; entity < entities; entity++) { started += counts[entity]; hash = Mix32(hash, (uint)counts[entity]); }
         var retained = samples.AsSpan(1).ToArray();
         Array.Sort(retained);
         var median = retained.Length % 2 == 0 ? (retained[retained.Length / 2 - 1] + retained[retained.Length / 2]) / 2 : retained[retained.Length / 2];
@@ -178,7 +196,18 @@ static unsafe class Program
 #else
         const string build = "baseline";
 #endif
-        Console.WriteLine($"host=dotnet build={build} coreTfm={coreTfm} coreSha256={coreHash} runtime={Environment.Version} entities={entities} active={active} capacity={capacity} duration={duration} requestedLimit={limit} actualLimit={actualLimit} positiveHorizons={positiveHorizons} participants=1 setupMs={setupMs:F6} firstMs={firstMs:F6} readySetupMs={setupMs + firstMs:F6} warmupMs={warmupMs:F6} privateBefore={privateBefore} privateAfter={privateAfter} privateDelta={privateAfter - privateBefore} allocTimed={allocatedTimed} allocRetained={allocatedRetained} allocZero={(allocatedRetained == 0 ? 1 : 0)} roundAlloc={string.Join(',', allocations)} warmup={warmup} rounds={rounds} steps={steps} ticks={ticks} medianMs={median:F6} nsPerActive={median * 1000000.0 / slotVisits:F6} samplesMs={string.Join(',', samples.Select(value => value.ToString("F6", CultureInfo.InvariantCulture)))} oracle=1 hash={hash:X16} fixtureSha256={fixtureHash} scalarRequested={(scalarRequested ? 1 : 0)} vector128={(vector128 ? 1 : 0)} vector256={(vector256 ? 1 : 0)} vector512={(vector512 ? 1 : 0)} sse2={(Sse2.IsSupported ? 1 : 0)} avx2={(Avx2.IsSupported ? 1 : 0)} advSimd={(AdvSimd.IsSupported ? 1 : 0)}");
+        Console.WriteLine($"host=dotnet build={build} coreTfm={coreTfm} coreSha256={coreHash} runtime={Environment.Version} entities={entities} active={active} capacity={capacity} duration={duration} requestedLimit={limit} actualLimit={actualLimit} positiveHorizons={positiveHorizons} mode={(system ? "system" : "advance")} clipStarts={started} participants=1 setupMs={setupMs:F6} firstMs={firstMs:F6} readySetupMs={setupMs + firstMs:F6} warmupMs={warmupMs:F6} privateBefore={privateBefore} privateAfter={privateAfter} privateDelta={privateAfter - privateBefore} allocTimed={allocatedTimed} allocRetained={allocatedRetained} allocZero={(allocatedRetained == 0 ? 1 : 0)} roundAlloc={string.Join(',', allocations)} warmup={warmup} rounds={rounds} steps={steps} ticks={ticks} medianMs={median:F6} nsPerActive={median * 1000000.0 / slotVisits:F6} samplesMs={string.Join(',', samples.Select(value => value.ToString("F6", CultureInfo.InvariantCulture)))} oracle=1 hash={hash:X16} fixtureSha256={fixtureHash} scalarRequested={(scalarRequested ? 1 : 0)} vector128={(vector128 ? 1 : 0)} vector256={(vector256 ? 1 : 0)} vector512={(vector512 ? 1 : 0)} sse2={(Sse2.IsSupported ? 1 : 0)} avx2={(Avx2.IsSupported ? 1 : 0)} advSimd={(AdvSimd.IsSupported ? 1 : 0)}");
+    }
+
+    static void Step(TimelineWorld world, PlaybackTable players, Events<int> starts, long[] counts, bool system)
+    {
+        if (system)
+        {
+            new GlideCount { Starts = starts.Writer }.Run(world, players, true);
+            for (var i = 0; i < starts.Count; i++) counts[starts.Item(i).Entity.Index] += starts.Item(i).Value;
+            starts.Drain();
+        }
+        world.Advance(players);
     }
 
     static PlaybackTable CreatePlayers(int entities, int capacity, int limit)

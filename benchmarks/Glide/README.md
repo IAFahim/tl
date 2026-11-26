@@ -1,6 +1,6 @@
 # Kind-free lazy tick benchmark
 
-This measures `TimelineWorld.Advance` on a `PlaybackTable` with lazy slot ticks on (horizon limit 1 to 255) or off (limit 0), with 1,000 looping definitions, varied timeline IDs and phases, native playback buffers and one caller. It does not measure kind evaluation, generated systems or Unity's integrated tick. The verdict and the numbers are in `docs/PERF-GLIDE.md`.
+This measures `TimelineWorld.Advance` on a `PlaybackTable` with lazy slot ticks on (horizon limit 1 to 255) or off (limit 0), with 1,000 looping definitions, varied timeline IDs and phases, native playback buffers and one caller. With the last argument `system` each tick also runs a generated `[TimelineSystem]` with one `OnClipStart` consumer over every slot before `Advance`, and the hash includes the clip starts it counted. It does not measure kind evaluation or Unity's integrated tick. The verdict and the numbers are in `docs/PERF-GLIDE.md`.
 
 Build against one runtime asset and bake a shared fixture:
 
@@ -11,7 +11,7 @@ dotnet benchmarks/Glide/bin/Release/net10.0/Tl.Bake.Bench.dll --fixture 3000 sca
 
 `CoreTfm` defaults to `netstandard2.1`, the asset Unity consumes; its due compare is scalar. The executable reuses the existing `Tl.Bake.Bench` friend identity to link the unchanged cold fixture baker. The project name is `Glide`.
 
-Run arguments: fixture, entity count, active timelines, inline capacity, horizon limit, warmup ticks, ticks per round, number of rounds, ISA expectation:
+Run arguments: fixture, entity count, active timelines, inline capacity, horizon limit, warmup ticks, ticks per round, number of rounds, ISA expectation, and `advance` (default) or `system`:
 
 ```sh
 dotnet benchmarks/Glide/bin/Release/net10.0/Tl.Bake.Bench.dll scale-3000.tlib 20000 200 4 255 8192 256 8 auto

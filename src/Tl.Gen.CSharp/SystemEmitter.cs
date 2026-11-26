@@ -193,7 +193,7 @@ internal static class SystemEmitter
 
     static void EmitEntityScanOpen(StringBuilder writer)
     {
-        W(writer, "var __pl = players.Playing; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;");
+        W(writer, "var __pl = players.SystemPlaying; var __w1 = __endWord < players.PlayingWords ? __endWord : players.PlayingWords;");
         W(writer, "for (var __w = __firstWord; __w < __w1; __w++)");
         W(writer, "{");
         W(writer, "for (var __b = __pl[__w]; __b != 0; __b &= __b - 1)");
@@ -210,19 +210,21 @@ internal static class SystemEmitter
         EmitLocalDecls(writer, shape);
         EmitEntityScanOpen(writer);
         W(writer, "var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
+        W(writer, "var __prun = __count == 0 ? null : __pview.RunOf(__e);");
         W(writer, "for (var __s = 0; __s < __count; __s++)");
         W(writer, "{");
-        W(writer, "var __ps = __pview.SlotOf(__e, __s);");
-        W(writer, "if (__ps->Timeline == 0 || ((__ps->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused | Tl.PlaybackFlags.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__ps->Flags, forward))) continue;");
+        W(writer, "var __ps = __prun + __s;");
         W(writer, "var __pcopy = *__ps;");
+        W(writer, "if (__pcopy.Timeline == 0 || ((__pcopy.Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused | Tl.PlaybackFlags.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__pcopy.Flags, forward))) continue;");
+        W(writer, "var __pt = __pview.TickOf(__ps); __pcopy.Tick = __pt;");
         W(writer, "var __pb = __ps->Rate == 0 ? __ps : &__pcopy;");
-        W(writer, "var __pk = Tl.PlaybackRules.Crossings(in *__ps);");
+        W(writer, "var __pk = Tl.PlaybackRules.Crossings(in __pcopy);");
         W(writer, "for (var __j = 0; __j < __pk; __j++)");
         W(writer, "{");
         W(writer, "if (__j > 0 && (Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != Tl.AdvanceResult.Kept || (__pcopy.Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0)) break;");
         W(writer, "var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));");
         W(writer, "if (__tl is null || __tl->Duration == 0) continue;");
-        W(writer, "var __tick = __pb->Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;");
+        W(writer, "var __tick = __j == 0 ? __pt : __pcopy.Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;");
         W(writer, "var __backward = forward ? (__pb->Flags & Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & Tl.PlaybackFlags.Reverse) == 0;");
         W(writer, "var __base = ((__pb->Flags & Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & Tl.PlaybackFlags.ReenterPending) != 0 ? Tl.FrameFlags.Synthetic : Tl.FrameFlags.None;");
         EmitBind(writer, shape, "__e", "__s");
@@ -262,8 +264,8 @@ internal static class SystemEmitter
     static string KindArgs(KernelShape shape, bool typed, string words = "0, 2147483647")
         => ListArgs(shape, i => typed ? $"{shape.Columns[i].ElementTypeName}* __c{i}" : $"__c{i}", typed ? "int __n, int __firstWord, int __endWord" : $"__n, {words}", i => $"ref {(typed ? shape.Contexts[i].ElementTypeName + " " : "")}__ctx{i}");
 
-    static void EmitCloseMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunClose", false)); W(w, "{"); W(w, "var __view = world.View; _ = players.View;"); EmitLocalDecls(w, s); EmitCloseLoop(w, a, s); W(w, "}"); }
-    static void EmitEventRangeMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunEventRange", true)); W(w, "{"); W(w, "var __view = world.View; var __pview = players.SystemView;"); EmitEventLoop(w, a, s); W(w, "}"); }
+    static void EmitCloseMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunClose", false)); W(w, "{"); W(w, "var __view = world.SystemView; _ = players.SystemPlaying;"); EmitLocalDecls(w, s); EmitCloseLoop(w, a, s); W(w, "}"); }
+    static void EmitEventRangeMethod(StringBuilder w, SystemAssignment a, KernelShape s) { W(w, BaseSig(s, "RunEventRange", true)); W(w, "{"); W(w, "var __view = world.SystemView; var __pview = players.SystemView;"); EmitEventLoop(w, a, s); W(w, "}"); }
     static string PArgs(KernelShape s, bool tail = true)
         => ListArgs(s, i => $"__s->__c{i}", "__s->__n, __fw, __ew", i => $"ref *({s.Contexts[i].ElementTypeName}*)__s->__x{i}", tail ? i => $"__se{i}" : null);
     static void EmitKindMethods(StringBuilder writer, SystemAssignment assignment, KernelShape shape, int feedKey)
@@ -304,7 +306,7 @@ internal static class SystemEmitter
         {
             W(writer, $"internal static void Kind_{i}" + head);
             W(writer, "{");
-            W(writer, "var __view = world.View;");
+            W(writer, "var __view = world.SystemView;");
             W(writer, "var __pview = players.SystemView;");
             EmitKind(writer, assignment, shape, assignment.Kinds[i], feedKey, i, values.Contains(i));
             W(writer, "}");
@@ -398,7 +400,7 @@ internal static class SystemEmitter
     static void EmitFused(StringBuilder writer, SystemAssignment assignment, KernelShape shape, List<int> fused, string head, string name)
     {
         var f0 = fused[0];
-        W(writer, $"internal static bool {name}{head}\n{{\nvar __view = world.View; var __pview = players.SystemView; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
+        W(writer, $"internal static bool {name}{head}\n{{\nvar __view = world.SystemView; var __pview = players.SystemView; var __kfill = new KindFill {{ Store = __ks }}; var __pl = __ks.Playing;");
         foreach (var i in fused)
         {
             var kind = assignment.Kinds[i];
@@ -1084,7 +1086,7 @@ internal static class SystemEmitter
             {
                 W(writer, $"if (workers.WorkerCount == 1) {{ TlSystems.TlSystem_{safe}.Run(world, players, forward{Args()}); return; }}");
                 if (hasEvents) W(writer, $"TlSystems.TlSystem_{safe}.RunClose(world, players, forward{Args()});");
-                W(writer, "var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.Playing, __words, __ends, __chunks);");
+                W(writer, "var __words = players.PlayingWords; var __chunks = System.Math.Min(workers.WorkerCount * 8, __words); if (__chunks <= 0) return; var __ends = stackalloc int[__chunks]; Tl.TlWorkers.Split(players.SystemPlaying, __words, __ends, __chunks);");
                 for (var i = 0; i < shape.Events.Count; i++) { W(writer, $"var __segs{i} = stackalloc {shape.Events[i].TypeName}[__chunks]; for (var __i = 0; __i < __chunks; __i++) __segs{i}[__i] = new {shape.Events[i].TypeName}(128);"); init.Append($"__ev{i} = __segs{i}, "); }
                 for (var i = 0; i < shape.Contexts.Count; i++) if (shape.UsedContexts[i]) init.Append($"__x{i} = System.Runtime.CompilerServices.Unsafe.AsPointer(ref this.{shape.Contexts[i].Name}), ");
                 init.Append("__n = __len, __forward = forward ? 1 : 0 };");
