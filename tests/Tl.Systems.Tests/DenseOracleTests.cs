@@ -287,6 +287,68 @@ public sealed class DenseOracleTests
                 }
                 return "";
             }
+
+            static bool Swerve(Arm arm, uint state, int step, int rows, int calm)
+            {
+                for (var e = 0; e < rows; e++)
+                    if (Next(ref state) % (uint)calm == 0) Control(arm.Players, e, Next(ref state));
+                if (step % 11 == 5)
+                    for (var e = step % 4; e < rows; e += 4)
+                    {
+                        arm.Kinds.Pulses<int>("DenseGame.Count").To(e, 3 + e % 7);
+                        if (step % 33 == 5) arm.Kinds.Pulses<int>("DenseGame.Hits").To(e, 1 + e % 3);
+                    }
+                if (step % 3 == 1)
+                    for (var e = step % 5; e < rows; e += 5)
+                    {
+                        arm.Kinds.Pulses<float>("DenseGame.Glow").To(e, 0.7f + 0.01f * (e % 13));
+                        arm.Kinds.Pulses<int>("DenseGame.Trace").To(e, 40 + e % 9);
+                    }
+                return Next(ref state) % 7 != 0;
+            }
+
+            public static string Return(byte[] first, byte[] second, int rows, int slots, int steps, int calm, int workerCount, long[] stats)
+            {
+                using var a = new Arm(first, rows, slots);
+                using var b = new Arm(first, rows, slots);
+                using var workers = workerCount > 0 ? new TlWorkers(workerCount) : null;
+                var images = new PlaybackImage[6];
+                var columns = new Body[6][];
+                for (var i = 0; i < images.Length; i++) (images[i], columns[i]) = (new PlaybackImage(), new Body[rows]);
+                try
+                {
+                    var rng = 0xC0FFEE12u;
+                    var arms = Seed([a, b], rows, slots, ref rng);
+                    var forward = true;
+                    for (var step = 0; step < steps; step++)
+                    {
+                        Script(arms, second, rows, step, steps, calm, ref rng, ref forward, stats);
+                        var frames = step != steps / 2 && Next(ref rng) % 5 == 0 ? 1 + (int)(Next(ref rng) % 6) : 0;
+                        for (var j = 0; j < frames; j++)
+                        {
+                            b.Players.Save(images[j]);
+                            b.Bodies.CopyTo(columns[j], 0);
+                            var swerve = Swerve(b, rng ^ 0x9E3779B9u * (uint)(j + 1), step + j + 1, rows, Math.Max(1, calm / 4));
+                            b.Step(swerve, workers, j % 2 == 0, j % 3 != 1);
+                        }
+                        if (frames > 0)
+                        {
+                            b.Players.Restore(images[0]);
+                            columns[0].CopyTo(b.Bodies, 0);
+                            stats[8]++;
+                            stats[9] += frames;
+                        }
+                        Drive(arms, step, forward, workers, stats);
+                        var differs = Differs(a, b, step);
+                        if (differs.Length != 0) return frames > 0 ? $"after {frames} divergent frames, " + differs : differs;
+                    }
+                    return "";
+                }
+                finally
+                {
+                    foreach (var image in images) image.Dispose();
+                }
+            }
         }
         """;
 
@@ -384,6 +446,20 @@ public sealed class DenseOracleTests
         var differs = (string)game.Host.GetType("DenseHost", true)!.GetMethod("Rewind")!.Invoke(null, [game.First, game.Second, rows, slots, steps, calm, workers, stats])!;
         Assert.True(differs.Length == 0, differs);
         Assert.True(stats[DenseSteps] > 0 && (stats[Spilled] > 0 || slots > 16) && stats[GamePulses] > 0 && stats[Rewinds] > 0, "the script ran no dense row, spill, game pulse or world rewind.");
+    }
+
+    [Theory]
+    [InlineData(48, 3, 1200, 8, 0)]
+    [InlineData(256, 5, 400, 24, 3)]
+    [InlineData(40, 24, 300, 4, 0)]
+    public void RestoringAfterDivergentFramesRejoinsTheWorldThatNeverLeft(int rows, int slots, int steps, int calm, int workers)
+    {
+        var game = Game.Value;
+        var stats = new long[10];
+        var differs = (string)game.Host.GetType("DenseHost", true)!.GetMethod("Return")!.Invoke(null, [game.First, game.Second, rows, slots, steps, calm, workers, stats])!;
+        Assert.True(differs.Length == 0, "the restored world left the one that never went back " + differs);
+        Assert.True(stats[8] * 8 > steps && stats[9] > 2 * stats[8] && stats[Reloads] == 1, $"only {stats[8]} returns over {stats[9]} frames in {steps} steps.");
+        Assert.True(stats[DenseSteps] * 10 > (long)rows * steps && (stats[Spilled] > 0 || slots > 16), $"only {stats[DenseSteps]} of {(long)rows * steps} entity-steps ran dense, {stats[Spilled]} spilled.");
     }
 
     const string WrongSource = """
