@@ -66,6 +66,8 @@ The VM is noisy: the same 50k x 100 binary ranges 27-44 ms across processes. Com
 
    Calling `Judge` from inside `AdvanceLazy` cost 15 percent at duration 120 through JIT code layout; it is called from `Advance` after the lazy pass instead, and `Land` counts the stepped slots. The budget room came from primary constructors on 12 plain structs (same public API; `PlaybackView` keeps its internal constructor, `Frame` keeps its attribute).
 
+6. netstandard2.1 lazy compare. `LazyTicks.Scan` uses `Vector<ushort>` when `Vector.IsHardwareAccelerated` on the netstandard2.1 asset (the .NET 10 asset keeps `Vector128`). Glide, 20,000 x 100, netstandard2.1 asset on .NET 10, one core, hashes unchanged: duration 120 3.0 -> 1.08 ms, duration 600 0.69 -> 0.37 ms. Core tests pass with `-p:TlCoreTfm=netstandard2.1`, and fail when the vector hit test is mutated. Unity's Mono may not accelerate `Vector<T>`; it then takes the scalar loop as before.
+
 ## Per-worker scaling (KindShape, `taskset -c 0-(W-1)`, `--workers W`, ms per step, three runs)
 
 | Cell | W=1 | W=2 | W=3 | W=4 | W=4 speedup |
