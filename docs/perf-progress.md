@@ -95,9 +95,14 @@ Exact backward time for accumulating kinds (`+=` per tick on floats) and a 32-fr
 - `src` budget: 519,951 / 520,000 B after de6f5d1. Commit 5bbc69e compacted about 3 KB (global usings, `Free4`, shared `Inline` constant, default `StructLayout` removed) to fit the parallel tick without a waiver. Anything larger needs more compaction or the owner's waiver.
 - glibc keeps freed arenas resident, so RSS only reflects frees after `malloc_trim(0)`; KindShape calls it on Linux.
 
-## Unity tick job (tl.unity 4b23471, read only)
+## Unity tick job (tl.unity#56)
 
-This session can clone tl.unity but cannot push to it, so the self-hosted Unity runner was not used and nothing there was measured. From reading `com.tl.unity/Runtime/KindSystems.cs`, the kind step schedules three phases: `KindPulseClearJob` (an `IJob`), `KindTickJob` (`ScheduleParallel` over chunks) and one `KindMergeJob` (`IJob`) per pulse sender. The two `IJob` phases run on one worker and their work grows with the pulse count: `KindPulseClearJob.FlushKind` resizes and memmoves each target row for every pending lane item, and `KindMergeJob` appends every streamed pulse. With pulse-heavy worlds these serial phases bound scaling (Amdahl), which matches a low per-worker gain. Candidate fixes, in order: move the lane flush into `KindTickJob` so each chunk flushes its own rows (the same split as `KindStore.Lanes` here), then sort merge input by chunk and run it as an `IJobParallelForDefer` over chunks. The core copy in `com.tl.unity/Core` picks up this branch's dense parallel tick only once it is synced with `eng/sync-tl-core.sh`.
+Measured on the self-hosted Unity runner (Unity 7000.0.0a21, Ryzen 5 8500G) with `OwnerScaleBench` at 20,000 rows x 200 playbacks; full tables are in tl.unity `docs/PERF-UNITY-LIMITS.md` section 11.
+
+- The tick itself scales about 80 to 90 % per added worker up to 5 workers and flattens past that; the CPU has 4 full Zen4 cores and 8 slower Zen4c cores. The serial pulse phases were not the bottleneck: the kind jobs were 97 % of the frame.
+- The kind jobs walked every playback slot for every kind, even kinds with no spans, and ran the event walk for timelines with no consumer pair. tl.unity#56 adds `KindIndex.SpanKinds` and a per-timeline pair filter (`KindIndex.PairBloom`) so generated jobs skip only slots the old walk already ignored.
+- Base 5a15151 against head, 1 worker, median of 4 samples per arm, kind ms: eager d=120 19.9 -> 13.8, lazy d=120 17.9 -> 14.6, eager d=3000 32.4 -> 32.5, lazy d=3000 31.1 -> 29.6. Hashes are equal in every cell, allocation 0 B, EditMode and PlayMode pass.
+- Samples of one build vary up to 3x between runs on this runner, so only the duration 120 gain (about 30 % eager, 18 % lazy) is supported. What is left is the Locomotion feeder, evaluated for every live span every frame.
 
 ## Next
 
