@@ -87,6 +87,8 @@ public sealed partial class TwoAssemblyTests
         var play = context.LoadFromStream(new MemoryStream(host)).GetType("PushDenseHost", true)!.GetMethod("Play")!;
         var differs = (string)play.Invoke(null, [Library(loadedPack, loadedGame), 16, 300, true, (Action<KindStore>)(static store => store.DenseEnabled = false)])!;
         Assert.True(differs.Length == 0, "the dense world left the explicit one at " + differs);
+        differs = (string)play.Invoke(null, [Library(loadedPack, loadedGame), 16, 300, true, KindSpans.EntriesOnly])!;
+        Assert.True(differs.Length == 0, "the dense world left the entries-only one at " + differs);
         Assert.Equal(0, (int)play.DeclaringType!.GetMethod("Dense")!.Invoke(null, [Library(loadedPack, loadedGame), 16, 300])!);
     }
 }

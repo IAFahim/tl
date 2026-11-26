@@ -208,23 +208,30 @@ internal static class SystemEmitter
     static void EmitEventLoop(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
     {
         EmitLocalDecls(writer, shape);
+        W(writer, "var __eks = players.Kinds; var __ehs = __eks != null && __eks.HasSamples;");
         EmitEntityScanOpen(writer);
         W(writer, "var __count = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
         W(writer, "var __prun = __count == 0 ? null : __pview.RunOf(__e);");
+        W(writer, "var __smp = __ehs ? __eks.SamplesOf(__e) : 0; var __pcs = __prun + __count; var __pq = 0;");
         W(writer, "for (var __s = 0; __s < __count; __s++)");
         W(writer, "{");
         W(writer, "var __ps = __prun + __s;");
         W(writer, "var __pcopy = *__ps;");
-        W(writer, "if (__pcopy.Timeline == 0 || ((__pcopy.Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused | Tl.PlaybackFlags.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__pcopy.Flags, forward))) continue;");
+        W(writer, "if (__pcopy.Timeline == 0) continue;");
         W(writer, "var __pt = __pview.TickOf(__ps); __pcopy.Tick = __pt;");
-        W(writer, "var __pb = __ps->Rate == 0 ? __ps : &__pcopy;");
-        W(writer, "var __pk = Tl.PlaybackRules.Crossings(in __pcopy);");
+        W(writer, "var __pb = __ps; var __pk = 1; Tl.Playback* __pc = null; var __pw = false;");
+        W(writer, "if (__pcopy.Rate != 0)");
+        W(writer, "{");
+        W(writer, "__pb = &__pcopy; __pk = Tl.KindRules.CopiesOf(__pcs, __smp, ref __pq, in __pcopy, out __pc);");
+        W(writer, "if (__pc == null && (__pk = Tl.PlaybackRules.Crossed(in __pcopy)) > 1) { __pw = __eks == null && (__pk = Tl.PlaybackRules.Rewind(ref __pcopy, __pk, __view.Timelines, __view.TimelineCount, forward)) != 0; if (!__pw) __pk = 1; }");
+        W(writer, "}");
         W(writer, "for (var __j = 0; __j < __pk; __j++)");
         W(writer, "{");
-        W(writer, "if (__j > 0 && (Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward) != Tl.AdvanceResult.Kept || (__pcopy.Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused)) != 0)) break;");
+        W(writer, "if (__pc != null) __pb = __pc + __j; else if (__pw) Tl.PlaybackRules.Advance(ref __pcopy, __view.Timelines, __view.TimelineCount, forward);");
+        W(writer, "if ((__pb->Flags & (Tl.PlaybackFlags.Ended | Tl.PlaybackFlags.Paused | Tl.PlaybackFlags.Stopping)) != 0 && !Tl.PlaybackRules.Resumes(__pb->Flags, forward)) continue;");
         W(writer, "var __tl = Tl.LibraryViewReader.GetTimeline(in __view, new Tl.TimelineId(__pb->Timeline));");
         W(writer, "if (__tl is null || __tl->Duration == 0) continue;");
-        W(writer, "var __tick = __j == 0 ? __pt : __pcopy.Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;");
+        W(writer, "var __tick = __pb == __ps ? __pt : __pb->Tick; var __stage = Tl.LibraryViewReader.StageAt(__tl, __tick); if (__stage == null) continue;");
         W(writer, "var __backward = forward ? (__pb->Flags & Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & Tl.PlaybackFlags.Reverse) == 0;");
         W(writer, "var __base = ((__pb->Flags & Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & Tl.PlaybackFlags.ReenterPending) != 0 ? Tl.FrameFlags.Synthetic : Tl.FrameFlags.None;");
         EmitBind(writer, shape, "__e", "__s");

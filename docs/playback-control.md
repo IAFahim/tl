@@ -30,7 +30,7 @@ Over any number of steps, a playback at any speed applies exactly what 1x applie
 
 What is exact: kinds and `[Pulse]`. Tests: `KindSpeedTests`, `SpeedRunTests`, `TwoAssemblyRateTests` (rates 0.5x, 1.5x, 2x, 2.5x, 3x, 4x across a handover, a loop, a foreign feeder and a world rewind equal a 1x run bit for bit), and the Inventory scenes `inventory-fast` and `inventory-mixed`, whose hashes `tl run`, Unity and the IL2CPP and CoreCLR players agree on.
 
-Known limit in Unity: `ITlTrack` event consumers (`OnClipStart`, `OnClipEnd`, `ExecuteActive` with `Events<T>`) run once per step at the playback's final tick. At speeds above 1x a clip boundary crossed in an earlier tick of the same step raises no event. Use `[Pulse]` and kinds when a clip boundary must be seen at every speed.
+Event consumers (`OnClipStart`, `OnClipEnd`, `ExecuteActive` with `Events<T>`) walk the same crossings, the same way on both hosts: each run after `Tick` raises events for the ticks the step just crossed, in order, reading the per-crossing copies the kinds applied (`KindRules.CopiesOf`). So every clip start, end and active tick is raised once at any speed, also across a speed change, and in the same step as the kind pulse it feeds. A step that crosses no tick (below 1x) raises nothing. Without a `KindStore` (`ApplyRequests` and `Advance`), the run rebuilds the step from the playback's tick and phase (`PlaybackRules.Crossed`, `PlaybackRules.Rewind`); a fast step that crosses a loop, the end or a handover there raises its last tick only. Tests: `EventSpeedTests` (.NET) and `ClipEventsAtEachSpeedRaiseWhatTheDotNetHostRaisesOnTheSameSteps` (Unity) pin the same per-step trace at 0.5x, 1x, 1.5x, 2x, 2.5x, 3x and 4x.
 
 ## Derived kinds
 
@@ -50,7 +50,7 @@ The generator writes an internal `[TimelineKind]` struct `Tl.Derived.<Template>_
 
 ## Finding a timeline by name
 
-`world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
+`world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. A start of id 0 is a no-op on both hosts: nothing plays and nothing is counted (#666). Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
 
 ## One verb list on both hosts
 
@@ -142,10 +142,14 @@ Only what still differs, and why:
 | Generated sender for a derived kind (`Sum<T>`, `Set<T>`) | none; `kinds.Pulses<T>("Tl.Derived.<Name>")` | `Tl.Derived.<Name>Kind.Pulses(writer)` | src budget |
 | A pulse to a row outside the table | throws | n/a (an `Entity` without the kind is counted) | |
 | Event record fields | `Entity` = row, `Sequence` across the drain | `Entity` unused, `Sequence` per entity | per-entity buffers |
-| Event methods above 1x speed | see Speed | once per step, at the last tick | Unity limit; use `[Pulse]` |
-| Legacy consumers (`Fold`, `ExecuteActive` with columns, `ref Requests`) | run | not run (TLUNITY9105) | out of scope for #656 |
+| Columns | any unmanaged struct | a partial top-level `[TlState]` struct or an `IComponentData`; a kind that writes anything else fits no system | ECS components; the shared rule is open in #665 |
+| A declared `[TimelineSystem]` with events and no kinds of its own | its event methods run | not run (the generated job calls an empty `RunStep`); warns `TLUNITY9109`. Consumers outside `[TimelineSystem]` run in the generated system | open in #665 |
+| `TLGEN107` (context taken by `ref`) | warning; the system runs sequentially | not reported | ECS schedules the job |
+| `FoldsPulses` | game pulses fold | accepted, not folded; warns `TLUNITY9108` | open: Unity has no folding sender yet |
+| A marker with no data, or a clip whose bake throws | the bake throws | skipped with a warning, so the rest of the timeline still bakes | by design: the Editor keeps baking the scene |
 | Kind groups | run | skipped (TLUNITY9104) | |
 | Starts of timelines not baked onto the object | n/a | dropped with a warning (Also Plays) | per-object kind archetypes, #655 |
+| A start of an id past the library | the step throws an `ArgumentException` before any request applies | dropped and counted in `TimelineKindTick.DroppedStarts`; `TL_CHECKED` throws at the end of the step | a job cannot throw |
 | Checked builds | `Debug` or `TlChecked=true` | scripting define `TL_CHECKED` | |
 | Save and restore | `PlaybackTable.Save`/`Restore` with a `PlaybackImage` | n/a | ECS worlds snapshot themselves |
 

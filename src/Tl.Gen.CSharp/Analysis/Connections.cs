@@ -48,12 +48,14 @@ internal static class Connections
                     if (parameter.Type is INamedTypeSymbol { IsGenericType: true } framed && Symbols.Same(framed.OriginalDefinition, frame)
                         && framed.TypeArguments[0] is INamedTypeSymbol clip && clips.TryGetValue(clip, out var read))
                         ScanClip(body, model, parameter, read);
+                    else if (parameter.Type is INamedTypeSymbol whole && clips.TryGetValue(whole, out var held))
+                        ScanWhole(body, model, parameter, held);
             }
         }
         foreach (var pair in clips)
             if (pair.Value.Seen && !pair.Value.Escaped)
                 foreach (var field in Fields(pair.Key))
-                    if (!pair.Value.Names.Contains(field.Name))
+                    if (!pair.Value.Names.Contains(field.Name) && !Reference(field.Type))
                         Symbols.Error(diagnostics, Symbols.Site(field, pair.Value.Site), "TLGEN113", $"Clip '{Symbols.Name(pair.Key)}' field '{field.Name}' is never read by a track of this clip, so it is never connected and stays 0. Read it as frame.Clip.{field.Name}, remove it, or silence TLGEN113.");
         if (states.Count == 0) return;
         var mentions = new HashSet<string>(StringComparer.Ordinal);
@@ -69,6 +71,9 @@ internal static class Connections
 
     static IEnumerable<IFieldSymbol> Fields(INamedTypeSymbol type)
         => type.GetMembers().OfType<IFieldSymbol>().Where(static f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared);
+
+    static bool Reference(ITypeSymbol type)
+        => type.Name is "TimelineId" or "TlTimeline" && type.ContainingNamespace is { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true };
 
     static IEnumerable<IdentifierNameSyntax> Uses(SyntaxNode body, SemanticModel model, IParameterSymbol parameter)
         => body.DescendantNodes().OfType<IdentifierNameSyntax>().Where(id => id.Identifier.ValueText == parameter.Name && Symbols.Same(model.GetSymbolInfo(id).Symbol, parameter));
@@ -89,5 +94,12 @@ internal static class Connections
                 else use.Escaped = true;
             }
         }
+    }
+
+    static void ScanWhole(SyntaxNode body, SemanticModel model, IParameterSymbol parameter, Use use)
+    {
+        foreach (var id in Uses(body, model, parameter))
+            if (Target(id) is { } access) use.Names.Add(access.Name.Identifier.ValueText);
+            else use.Escaped = true;
     }
 }

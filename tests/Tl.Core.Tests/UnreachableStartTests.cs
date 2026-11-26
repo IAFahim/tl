@@ -49,6 +49,41 @@ public sealed unsafe class UnreachableStartTests
 #endif
     }
 
+#if !TL_CHECKED
+    [Fact]
+    public void ARetriedUnreachableStartAllocatesNothing()
+    {
+        using var world = new TimelineWorld(Kinds());
+        using var players = new PlaybackTable(2);
+        var timeline = FirstTimelineWithKinds(world);
+        using var kinds = new KindStore(world, players, KindNames(world), [~0ul, 0ul]);
+        for (var i = 0; i < 8; i++) { players.Start(1, timeline); world.Tick(players); }
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 256; i++) { players.Start(1, timeline); world.Tick(players); }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(0L, allocated);
+        Assert.Equal(264L, players.DroppedStarts);
+    }
+#endif
+
+    [Fact]
+    public void AStartOfIdZeroFromAFindMissIsANoOp()
+    {
+        using var world = new TimelineWorld(Kinds());
+        using var players = new PlaybackTable(1);
+        using var kinds = new KindStore(world, players);
+        players.Start(0, world.Find("no such timeline"));
+        world.Tick(players);
+        Assert.Equal(0, players.CountOf(0));
+        Assert.Equal(0L, players.DroppedStarts);
+        var timeline = FirstTimelineWithKinds(world);
+        players.Start(0, 0);
+        players.Start(0, timeline);
+        world.Tick(players);
+        Assert.True(players.IsPlaying(0, timeline));
+        Assert.Equal(1, players.CountOf(0));
+    }
+
     [Fact]
     public void AReachableStartCountsNothing()
     {

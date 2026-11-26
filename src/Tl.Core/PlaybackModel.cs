@@ -517,7 +517,7 @@ public sealed unsafe class PlaybackTable : IDisposable
 #if TL_CHECKED
             _table._kinds?.ValidateStart(_entity, timeline);
 #else
-            if (_table._kinds?.Unreachable(_entity, timeline) != null) { _table.DroppedStarts++; return false; }
+            if (_table._kinds is { } kinds && !kinds.Reaches(_entity, timeline)) { _table.DroppedStarts++; return false; }
 #endif
             return true;
         }

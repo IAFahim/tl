@@ -203,6 +203,27 @@ public sealed class DerivedKindTests
     }
 
     [Fact]
+    public void AClipFieldReadByABakerAndATimelineReferenceFieldDoNotWarn()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            [TlClip("Hello/Teleport")] public struct TeleportClip { public float Distance; public float Echo; public TimelineId Next; }
+            [TlState] public partial struct Place { public float X; }
+            [TlKind(Mode = KindMode.Each, Accepts = KindEntries.Pulses)] public struct TeleportKind { public static void Apply(in float move, ref Place place) { place.X += move; } }
+            public struct TeleportTrack : ITlTrack<TeleportClip>
+            {
+                [Pulse(typeof(TeleportKind), On = ClipEvent.Start)]
+                public static float Jump(in TlFrame<TeleportClip> frame) => frame.Clip.Distance;
+            }
+            public struct TeleportBaking { public float Bake(in TeleportClip clip) => clip.Echo; }
+            """;
+        Assert.DoesNotContain("TLGEN113", Codes(source));
+        var warning = Assert.Single(Emit(source.Replace("=> clip.Echo;", "=> 0;")).Diagnostics, static d => d.Code == "TLGEN113");
+        Assert.Contains("'Echo'", warning.Message);
+    }
+
+    [Fact]
     public void AStateFieldNothingMentionsWarns()
     {
         const string source = """

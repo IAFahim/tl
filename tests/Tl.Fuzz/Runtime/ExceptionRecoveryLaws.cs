@@ -298,7 +298,7 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
                     else if (badMode == 2)
                         pPA.Start(entities + rng.NextInt(5), 1);
                     else
-                        wPA.Requests(pPA).For(rng.NextInt(entities), 0).Start((ushort)(badMode == 4 ? 0 : timelines + 1 + rng.NextInt(10)));
+                        wPA.Requests(pPA).For(rng.NextInt(entities), 0).Start((ushort)(badMode == 4 ? ushort.MaxValue : timelines + 1 + rng.NextInt(10)));
 
                     pPA.Start(rng.NextInt(entities), 1);
                     Assert.ThrowsAny<ArgumentException>(() => wPA.ApplyRequests(pPA));
@@ -314,7 +314,7 @@ public readonly struct B5Consumer : ITrack<B5Track, B5Clip>
 #endif
                     }
                     else
-                        wKA.Requests(pKA).For(1 + rng.NextInt(entities - 1), 0).Start((ushort)(badMode == 4 ? 0 : timelines + 2));
+                        wKA.Requests(pKA).For(1 + rng.NextInt(entities - 1), 0).Start((ushort)(badMode == 4 ? ushort.MaxValue : timelines + 2));
 
                     pKA.Start(1, 1);
                     Assert.ThrowsAny<ArgumentException>(() =>

@@ -253,6 +253,7 @@ type Tl.KindPulses`2
   Method Void To(Int32, T)
 type Tl.KindRules
   Method Void Close[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
+  Method Int32 CopiesOf(Tl.Playback*, Int32, Int32 ByRef, Tl.Playback ByRef, Tl.Playback* ByRef)
   Method Int32 Depth(Tl.Playback*, Int32)
   Method Boolean Due(Tl.KindEntry*, Int32, Tl.Playback*, Int32)
   Field Int32 MaxSampleSlots
@@ -543,6 +544,7 @@ type Tl.PlaybackRules
   Method Tl.AdvanceResult Advance(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32, Boolean)
   Method Void Apply[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Tl.RequestOp, UInt16, UInt16)
   Method Int32 Cross(Tl.Playback ByRef)
+  Method Int32 Crossed(Tl.Playback ByRef)
   Method Int32 Crossings(Tl.Playback ByRef)
   Method Int32 Find[TSlots](TSlots ByRef, UInt16)
   Method Boolean Find[TSlots](TSlots ByRef, Byte, Tl.Playback ByRef)
@@ -557,6 +559,7 @@ type Tl.PlaybackRules
   Method Boolean Rebind(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32)
   Method Boolean Resumes(Tl.PlaybackFlags, Boolean)
   Method Boolean Reverse[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, Boolean)
+  Method Int32 Rewind(Tl.Playback ByRef, Int32, Tl.LibraryTimeline*, Int32, Boolean)
   Method Boolean Seek[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, UInt16)
   Method Boolean SetSpeed[TSlots](TSlots ByRef, Int32, UInt16)
   Method Boolean Start[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, UInt16, UInt16, Boolean ByRef)
