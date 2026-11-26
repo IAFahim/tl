@@ -129,7 +129,7 @@ Only what still differs, and why:
 | Event record fields | `Entity` = row, `Sequence` across the drain | `Entity` unused, `Sequence` per entity | per-entity buffers |
 | Event methods above 1x speed | see Speed | once per step, at the last tick | Unity limit; use `[Pulse]` |
 | Columns | any unmanaged struct | a partial top-level `[TlState]` struct or an `IComponentData`; a kind that writes anything else fits no system | ECS components; the shared rule is open in #665 |
-| A declared `[TimelineSystem]` with events and no kinds of its own | its event methods run | not run (the generated job calls an empty `RunStep`) | open in #665 |
+| A declared `[TimelineSystem]` with events and no kinds of its own | its event methods run | not run (the generated job calls an empty `RunStep`); warns `TLUNITY9109`. Consumers outside `[TimelineSystem]` run in the generated system | open in #665 |
 | `TLGEN107` (context taken by `ref`) | warning; the system runs sequentially | not reported | ECS schedules the job |
 | `FoldsPulses` | game pulses fold | accepted, not folded; warns `TLUNITY9108` | open: Unity has no folding sender yet |
 | A marker with no data, or a clip whose bake throws | the bake throws | skipped with a warning, so the rest of the timeline still bakes | by design: the Editor keeps baking the scene |
