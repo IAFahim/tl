@@ -442,6 +442,8 @@ public sealed unsafe partial class KindStore : IDisposable
         if (Unreachable(entity, timeline) is { } bad) throw bad;
     }
 
+    internal bool Reaches(int entity, ushort timeline) => (_closure[timeline - 1] & ~_mask[entity]) == 0;
+
     internal ArgumentException? Unreachable(int entity, ushort timeline)
     {
         var missing = _closure[timeline - 1] & ~_mask[entity];

@@ -50,7 +50,7 @@ The generator writes an internal `[TimelineKind]` struct `Tl.Derived.<Template>_
 
 ## Finding a timeline by name
 
-`world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
+`world.Find("name")` binary-searches the sorted manifest of the loaded library and returns the timeline id, or 0 when no timeline has that (ordinal) name. A start of id 0 is a no-op on both hosts: nothing plays and nothing is counted (#666). Generated `Timelines` id constants stay available and are now optional: a project that calls `Find` compiles without them and without a library file on disk.
 
 ## One verb list on both hosts
 
