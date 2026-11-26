@@ -30,7 +30,7 @@ Every document starts with `"schema": 1`. Any other value, a missing value where
 - `schema` is optional in a timeline (a timeline without it bakes the same bytes); when present it must be `1`.
 - Root keys: `name`, `duration` (ticks, at most 65,535), `loop`, `hold`, `next` (timeline name), `channel` (channel name), `tracks`, `markers`.
 - Types are `namespace` (dotted, may be empty) plus `type`. A generic type spells its arguments with their namespaces: `TlNoSettings<Game.Hit>`, `IndependentTrack<System.Int32>`. No assembly name is needed: pair keys use the full type name only.
-- `data` sets struct fields by name. Numbers must fit the field and be finite; `bool` is `true`/`false`; enums are member names; `TimelineId` fields are timeline names; nested structs are objects; `TlCurve` is an array of exactly 16 numbers; a `fixed` buffer is an array of exactly its length. Fields left out are zero.
+- `data` sets struct fields by name. Numbers must fit the field and be finite; `bool` is `true`/`false`; enums are member names; `TimelineId` fields are timeline names; `TlText` fields are strings (`""` is none), kept once per timeline and looked up with `world.Text(...)`; nested structs are objects; `TlCurve` is an array of exactly 16 numbers; a `fixed` buffer is an array of exactly its length. Fields left out are zero.
 
 ## Project (`tl.project.json`)
 

@@ -106,6 +106,7 @@ type Tl.Gen.Tlb.TypedTimeline
   Property System.Collections.Generic.List`1[Tl.Gen.Tlb.TypedMarker] Markers
   Property System.String Name
   Property System.String Next
+  Property System.Collections.Generic.List`1[System.String] Texts
   Property System.Collections.Generic.List`1[Tl.Gen.Tlb.TypedTrack] Tracks
 type Tl.Gen.Tlb.TypedTrack
   Property System.Collections.Generic.List`1[Tl.Gen.Tlb.TypedClip] Clips
