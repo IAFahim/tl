@@ -134,8 +134,8 @@ public unsafe ref struct PlainFuzzSystem
         ArgumentNullException.ThrowIfNull(players);
         if (Motion.Length != Stats.Length || Motion.Length != Input.Length || Motion.Length > players.EntityCapacity)
             throw new ArgumentException("Plain playback oracle columns must have a common length within the table capacity.");
-        var library = world.View;
-        var view = players.View;
+        var library = world.SystemView;
+        _ = players.SystemPlaying;
         var closing = players.Closing;
         for (var i = 0; i < closing->Count; i++)
         {
@@ -147,9 +147,9 @@ public unsafe ref struct PlainFuzzSystem
         }
         for (var row = 0; row < Motion.Length; row++)
         {
-            for (var slot = 0; slot < view.Counts[row]; slot++)
+            for (var slot = 0; slot < players.CountOf(row); slot++)
             {
-                var playback = *view.SlotOf(row, slot);
+                var playback = players.SystemSlot(row, slot);
                 if (playback.Timeline == 0 || (playback.Flags & (PlaybackFlags.Ended | PlaybackFlags.Paused | PlaybackFlags.Stopping)) != 0 && !PlaybackRules.Resumes(playback.Flags, forward))
                     continue;
                 var crossings = PlaybackRules.Crossings(in playback);

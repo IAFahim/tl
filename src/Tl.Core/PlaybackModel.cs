@@ -172,6 +172,14 @@ public sealed unsafe class PlaybackTable : IDisposable
     public int SlotsPerEntity => _slotsPerEntity;
     public PlaybackView View { get { Escape(); SettleAll(); return RawView; } }
     public PlaybackView SystemView => RawView;
+    public ulong* SystemPlaying { get { SettleAll(); return _playing; } }
+
+    public Playback SystemSlot(int entity, int slot)
+    {
+        var p = SlotsOf(entity)[slot];
+        if (Frozen) LazyTicks.Shift(&p, 1, Clock, Forward);
+        return p;
+    }
     internal PlaybackView RawView => new(_slots, _counts, _spilled, _blocks, _entities, _slotsPerEntity, _dense, _origins, _blockOrigins, DenseClock);
     internal ulong* DenseBits => _dense;
 
