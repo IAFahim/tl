@@ -244,6 +244,27 @@ public sealed class DerivedKindTests
     }
 
     [Fact]
+    public void AKindColumnThatIsNotATlStateStructWarnsSoBothHostsRunIt()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public struct Teleported { public float Offset; }
+            [TlClip("Hello/Teleport")] public struct TeleportClip { public float Distance; }
+            [TlKind(Mode = KindMode.Each, Accepts = KindEntries.Pulses)] public struct TeleportKind { public static void Apply(in float move, ref Teleported player) { player.Offset += move; } }
+            public struct TeleportTrack : ITlTrack<TeleportClip>
+            {
+                [Pulse(typeof(TeleportKind), On = ClipEvent.Start)]
+                public static float Jump(in TlFrame<TeleportClip> frame) => frame.Clip.Distance;
+            }
+            """;
+        var warning = Assert.Single(Emit(source).Diagnostics, static d => d.Code == "TLGEN117");
+        Assert.Contains("'global::Domain.Teleported'", warning.Message);
+        Assert.DoesNotContain("TLGEN117", Codes(source.Replace("public struct Teleported", "[TlState] public partial struct Teleported")));
+        Assert.DoesNotContain("TLGEN117", Codes(source + "\n[TimelineSystem] public ref partial struct Moves { public Teleported Shared; }\n"));
+    }
+
+    [Fact]
     public void ANewColumnFieldSharingTheNameOfANewClipFieldStillWarns()
     {
         const string source = """

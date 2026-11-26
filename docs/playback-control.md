@@ -46,7 +46,7 @@ The generator writes an internal `[TimelineKind]` struct `Tl.Derived.<Template>_
 
 ## Unconnected fields
 
-`TLGEN113` is a warning for a `[TlClip]` field that no track of the clip reads (`frame.Clip.<Field>` never appears; a clip passed whole to a helper counts as read). `TLGEN114` warns for a `[TlState]` field whose name appears nowhere else in the assembly. Both are ordinary warnings: silence them with `NoWarn` or `#pragma`.
+`TLGEN113` is a warning for a `[TlClip]` field that no track of the clip reads (`frame.Clip.<Field>` never appears; a clip passed whole to a helper counts as read). `TLGEN114` warns for a `[TlState]` field whose name appears nowhere else in the assembly. `TLGEN117` warns for a kind's `Apply` or `Idle` column whose type is not a `[TlState]` struct (a declared system's context type is fine), because Unity runs no system for that kind; a later version makes it an error. All three are ordinary warnings: silence them with `NoWarn` or `#pragma`.
 
 ## Finding a timeline by name
 
@@ -142,7 +142,7 @@ Only what still differs, and why:
 | Generated sender for a derived kind (`Sum<T>`, `Set<T>`) | none; `kinds.Pulses<T>("Tl.Derived.<Name>")` | `Tl.Derived.<Name>Kind.Pulses(writer)` | src budget |
 | A pulse to a row outside the table | throws | n/a (an `Entity` without the kind is counted) | |
 | Event record fields | `Entity` = row, `Sequence` across the drain | `Entity` unused, `Sequence` per entity | per-entity buffers |
-| Columns | any unmanaged struct | a partial top-level `[TlState]` struct or an `IComponentData`; a kind that writes anything else fits no system | ECS components; the shared rule is open in #665 |
+| Columns | any unmanaged struct; a kind column that is not a `[TlState]` struct warns `TLGEN117`, and a later version requires it | a partial top-level `[TlState]` struct or an `IComponentData`; a kind that writes anything else fits no system | ECS components |
 | A declared `[TimelineSystem]` with events and no kinds of its own | its event methods run | not run (the generated job calls an empty `RunStep`); warns `TLUNITY9109`. Consumers outside `[TimelineSystem]` run in the generated system | open in #665 |
 | `TLGEN107` (context taken by `ref`) | warning; the system runs sequentially | not reported | ECS schedules the job |
 | `FoldsPulses` | game pulses fold | accepted, not folded; warns `TLUNITY9108` | open: Unity has no folding sender yet |

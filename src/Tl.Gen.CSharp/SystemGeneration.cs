@@ -21,7 +21,7 @@ internal static class SystemGeneration
 
     internal static IReadOnlyList<CompileArtifact> ArtifactsFor(IReadOnlyList<SystemAssignment> assignments, IReadOnlyList<DeclarationDiagnostic> diagnostics, string autoSource, string assemblyName, string id)
     {
-        var errors = diagnostics.Any(static diagnostic => diagnostic.Code is not ("TLGEN98" or "TLGEN107" or "TLGEN113" or "TLGEN114" or "TLGEN115"));
+        var errors = diagnostics.Any(static diagnostic => diagnostic.Code is not ("TLGEN98" or "TLGEN107" or "TLGEN113" or "TLGEN114" or "TLGEN115" or "TLGEN117"));
         var artifacts = new List<CompileArtifact>();
         if (!errors)
         {
