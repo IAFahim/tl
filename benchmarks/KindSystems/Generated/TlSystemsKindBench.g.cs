@@ -9623,6 +9623,7 @@ public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool fo
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world));
 if (players is null) throw new System.ArgumentNullException(nameof(players));
+var __bind = players.Kinds; if (__bind != null) { if (this.Fx.IsEmpty) this.Fx = __bind.Column<float>(); if (this.Hp.IsEmpty) this.Hp = __bind.Column<int>(); }
 int __len = players.EntityCapacity;
 __len = this.Fx.Length;
 if (this.Hp.Length != __len) throw new System.ArgumentException("global::KindBench.KSys: column Hp lengths differ.");
@@ -9646,6 +9647,7 @@ var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_KindBench_global_
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players)); if (workers is null) throw new System.ArgumentNullException(nameof(workers));
+var __bind = players.Kinds; if (__bind != null) { if (this.Fx.IsEmpty) this.Fx = __bind.Column<float>(); if (this.Hp.IsEmpty) this.Hp = __bind.Column<int>(); }
 int __len = players.EntityCapacity;
 __len = this.Fx.Length;
 if (this.Hp.Length != __len) throw new System.ArgumentException("global::KindBench.KSys: column Hp lengths differ.");

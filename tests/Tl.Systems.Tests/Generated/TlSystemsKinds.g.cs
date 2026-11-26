@@ -996,6 +996,7 @@ public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool fo
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world));
 if (players is null) throw new System.ArgumentNullException(nameof(players));
+var __bind = players.Kinds; if (__bind != null) { if (this.Motion.IsEmpty) this.Motion = __bind.Column<global::KindGame.Motion>(); if (this.WalkStat.IsEmpty) this.WalkStat = __bind.Column<global::KindGame.WalkStat>(); if (this.JumpPower.IsEmpty) this.JumpPower = __bind.Column<global::KindGame.JumpPower>(); if (this.Stamina.IsEmpty) this.Stamina = __bind.Column<global::KindGame.Stamina>(); if (this.Heat.IsEmpty) this.Heat = __bind.Column<global::KindGame.Heat>(); }
 int __len = players.EntityCapacity;
 __len = this.Motion.Length;
 if (this.WalkStat.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column WalkStat lengths differ.");
@@ -1034,6 +1035,7 @@ var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__Kin
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players)); if (workers is null) throw new System.ArgumentNullException(nameof(workers));
+var __bind = players.Kinds; if (__bind != null) { if (this.Motion.IsEmpty) this.Motion = __bind.Column<global::KindGame.Motion>(); if (this.WalkStat.IsEmpty) this.WalkStat = __bind.Column<global::KindGame.WalkStat>(); if (this.JumpPower.IsEmpty) this.JumpPower = __bind.Column<global::KindGame.JumpPower>(); if (this.Stamina.IsEmpty) this.Stamina = __bind.Column<global::KindGame.Stamina>(); if (this.Heat.IsEmpty) this.Heat = __bind.Column<global::KindGame.Heat>(); }
 int __len = players.EntityCapacity;
 __len = this.Motion.Length;
 if (this.WalkStat.Length != __len) throw new System.ArgumentException("global::KindGame.Movement: column WalkStat lengths differ.");
@@ -1071,6 +1073,7 @@ public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool fo
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world));
 if (players is null) throw new System.ArgumentNullException(nameof(players));
+var __bind = players.Kinds; if (__bind != null) { if (this.Health.IsEmpty) this.Health = __bind.Column<global::KindGame.Health>(); }
 int __len = players.EntityCapacity;
 __len = this.Health.Length;
 if (__len > players.EntityCapacity) throw new System.ArgumentException("global::KindGame.Vitals: column length exceeds table capacity.");
@@ -1089,6 +1092,7 @@ var __ks = players.Kinds; if (__ks != null) TlSystems.TlSystem_Kinds_global__Kin
 public unsafe void Run(Tl.TimelineWorld world, Tl.PlaybackTable players, bool forward, Tl.TlWorkers workers)
 {
 if (world is null) throw new System.ArgumentNullException(nameof(world)); if (players is null) throw new System.ArgumentNullException(nameof(players)); if (workers is null) throw new System.ArgumentNullException(nameof(workers));
+var __bind = players.Kinds; if (__bind != null) { if (this.Health.IsEmpty) this.Health = __bind.Column<global::KindGame.Health>(); }
 int __len = players.EntityCapacity;
 __len = this.Health.Length;
 if (__len > players.EntityCapacity) throw new System.ArgumentException("global::KindGame.Vitals: column length exceeds table capacity.");

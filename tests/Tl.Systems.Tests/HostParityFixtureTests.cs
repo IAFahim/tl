@@ -22,13 +22,13 @@ public sealed class HostParityFixtureTests
 
         public static class ParityHost
         {
-            public static string[] Play(byte[] library, string script, int rows)
+            public static string[] Play(byte[] library, string script, int rows, bool owned)
             {
                 using var world = new TimelineWorld(library);
                 using var players = new PlaybackTable(rows);
                 using var kinds = new KindStore(world, players);
-                var screen = new ParityPack.Screen[rows];
-                var stage = new ParityGame.Stage[rows];
+                var screen = owned ? kinds.Column<ParityPack.Screen>() : new ParityPack.Screen[rows];
+                var stage = owned ? kinds.Column<ParityGame.Stage>() : new ParityGame.Stage[rows];
                 for (var e = 0; e < rows; e++) stage[e].Offset = e * 100;
                 var lines = script.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                 var result = new string[lines.Length];
@@ -46,8 +46,16 @@ public sealed class HostParityFixtureTests
                             else players.StopAll(row);
                         }
                     world.Tick(players, forward);
-                    new Tl.Generated.TlAuto_Tl_Unity_ParityGame { C0_Stage = stage }.Run(world, players, forward);
-                    new Tl.Generated.TlAuto_Tl_Unity_ParityPack { C0_Screen = screen }.Run(world, players, forward);
+                    if (owned)
+                    {
+                        new Tl.Generated.TlAuto_Tl_Unity_ParityGame().Run(world, players, forward);
+                        new Tl.Generated.TlAuto_Tl_Unity_ParityPack().Run(world, players, forward);
+                    }
+                    else
+                    {
+                        new Tl.Generated.TlAuto_Tl_Unity_ParityGame { C0_Stage = stage }.Run(world, players, forward);
+                        new Tl.Generated.TlAuto_Tl_Unity_ParityPack { C0_Screen = screen }.Run(world, players, forward);
+                    }
                     result[t] = Convert.ToHexString(MemoryMarshal.AsBytes<ParityPack.Screen>(screen));
                 }
                 return result;
@@ -157,8 +165,17 @@ public sealed class HostParityFixtureTests
 
     static readonly Lazy<Built> Assemblies = new(Build);
 
-    static string[] Play(Built built, byte[] library, string script)
-        => (string[])built.Host.GetType("ParityHost", true)!.GetMethod("Play")!.Invoke(null, [library, script, Rows])!;
+    static string[] Play(Built built, byte[] library, string script, bool owned = false)
+        => (string[])built.Host.GetType("ParityHost", true)!.GetMethod("Play")!.Invoke(null, [library, script, Rows, owned])!;
+
+    [Fact]
+    public void ASystemLeftWithoutColumnsRunsOnTheKindStoreColumnsAndMatchesTheFixture()
+    {
+        var built = Assemblies.Value;
+        var library = Library(built.Pack, built.Game);
+        var script = Script();
+        Assert.Equal(Play(built, library, script), Play(built, library, script, owned: true));
+    }
 
     [Fact]
     public void TheIdleKindStaysInThePackAndIsFedByATrackInTheGameAssembly()

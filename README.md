@@ -69,18 +69,18 @@ public struct TeleportKind
 public partial struct Teleported { public float Offset; }
 ```
 
-The host attaches a `KindStore` to its `PlaybackTable`, calls `world.Tick(players)`, and runs the generated system with its own component array:
+The host attaches a `KindStore` to its `PlaybackTable`, calls `world.Tick(players)`, and runs the generated system. A column the system is not given is the store's own, one per type, as a Unity component is one per entity; `kinds.Column<T>()` reads and writes it, and a host can still pass its own span:
 
 ```cs
 using var world = new TimelineWorld(File.ReadAllBytes("game.tlib"));
 using var players = new PlaybackTable(entityCapacity: 1);
 using var kinds = new KindStore(world, players);
-var state = new Teleported[1];
+var state = kinds.Column<Teleported>();
 players.Start(0, 1);
 for (var frame = 0; frame < 60; frame++)
 {
     world.Tick(players);
-    new Tl.Generated.TlAuto_HelloTl { C0_Teleported = state }.Run(world, players);
+    new Tl.Generated.TlAuto_HelloTl().Run(world, players);
 }
 ```
 

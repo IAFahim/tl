@@ -307,6 +307,7 @@ type Tl.KindStats
   Field Int32 Rows
 type Tl.KindStore
   Method Void ClearPulseHits(Int32, Int32)
+  Method System.Span`1[T] Column[T]()
   Method Void Dispose()
   Property Int64 DroppedPulses
   Method Tl.KindStats GetStats(Int32)
