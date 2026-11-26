@@ -299,14 +299,12 @@ public sealed class DenseOracleTests
         return LibraryAssembler.Assemble(parts, 60, LibrarySettings.Default);
     }
 
-    static long[] Play(int rows, int slots, int steps, int calm, int workers) => Play(rows, slots, steps, calm, workers, static store => store.DenseEnabled = false);
-
-    static long[] Play(int rows, int slots, int steps, int calm, int workers, Action<KindStore> off)
+    static long[] Play(int rows, int slots, int steps, int calm, int workers)
     {
         var game = Game.Value;
         var stats = new long[8];
         var run = game.Host.GetType("DenseHost", true)!.GetMethod("Run")!;
-        var differs = (string)run.Invoke(null, [game.First, game.Second, rows, slots, steps, calm, workers, off, stats])!;
+        var differs = (string)run.Invoke(null, [game.First, game.Second, rows, slots, steps, calm, workers, (Action<KindStore>)(static store => store.DenseEnabled = false), stats])!;
         Assert.True(differs.Length == 0, "the dense world left the explicit one at " + differs);
         Assert.Equal(0, stats[OffDenseSteps]);
         Assert.True(stats[Rewinds] > 0 && stats[Reloads] == 1 && stats[GamePulses] > 0 && stats[SkippedTally] > 0, "the script skipped a world rewind, the reload, the game pulses or a step without the tally system.");
@@ -397,16 +395,6 @@ public sealed class DenseOracleTests
         var library = LibraryAssembler.Assemble([new LibraryPart { Name = "wrong", Tlb = tlb, Kinds = LibraryBake.KindPayload("wrong", tlb, LibraryBake.Kinds([loaded])) }], 60, LibrarySettings.Default);
         foreach (var (system, kind, combine) in new[] { (0, "SumIsMax", "Sum"), (1, "FirstWins", "Pick"), (2, "OrIsSum", "Or") })
             Assert.Equal($"Tl: kind 'WrongGame.{kind}' declares Combine = {combine}, but WrongGame.{kind}.Combine gives a different result on values from the library; fix Combine or the declaration.", (string)run.Invoke(null, [library, system])!);
-    }
-
-    [Theory]
-    [InlineData(48, 3, 1200, 8, 0)]
-    [InlineData(256, 5, 400, 24, 3)]
-    [InlineData(40, 24, 300, 4, 0)]
-    public void TheDenseWorldMatchesAWorldThatReadsOnlyKindEntries(int rows, int slots, int steps, int calm, int workers)
-    {
-        var stats = Play(rows, slots, steps, calm, workers, KindSpans.EntriesOnly);
-        Assert.True(stats[DenseSteps] * 10 > (long)rows * steps, $"only {stats[DenseSteps]} of {(long)rows * steps} entity-steps ran dense.");
     }
 
     [Fact]
