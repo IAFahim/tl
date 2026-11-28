@@ -237,7 +237,7 @@ public static class TlInstaller
             foreach ($dir in (Get-ChildItem -LiteralPath $root -Directory -Filter '7000.*')) {
                 $exe = Join-Path $dir.FullName 'Editor\Unity.exe'
                 $key = Get-VersionKey $dir.Name
-                if ((Test-Path -LiteralPath $exe) -and $key) { $found += [pscustomobject]@{ Key = $key; Exe = $exe } }
+                if ((Test-Path -LiteralPath $exe) -and $key -and ($key -ge (Get-VersionKey '7000.0.0a20'))) { $found += [pscustomobject]@{ Key = $key; Exe = $exe } }
             }
         }
         if ($found.Count -eq 0) { return $null }
@@ -306,12 +306,12 @@ public static class TlInstaller
     else {
         $script:unity = Find-Unity7
         if (-not $script:unity) {
-            Say 'no Unity 7 editor installed, installing the newest one with the Unity CLI'
+            Say 'no Unity 7 editor at 7000.0.0a20 or newer installed, installing the newest one with the Unity CLI'
             $cli = Find-UnityCli
-            if (-not $cli) { Fail 'no Unity 7 editor and no Unity CLI. Install the CLI with: irm https://unity.com/install.ps1 | iex   then open a new shell and run this again. Or set $env:UNITY to an editor Unity.exe.' }
+            if (-not $cli) { Fail 'no Unity 7 editor at 7000.0.0a20 or newer and no Unity CLI. Install the CLI with: irm https://unity.com/install.ps1 | iex   then open a new shell and run this again. Or set $env:UNITY to an editor Unity.exe.' }
             $rc = Invoke-Bounded $cli @('--no-banner', 'install', '7', '--yes', '--accept-eula') 7200000
             $script:unity = Find-Unity7
-            if (-not $script:unity) { Fail "Unity 7 install finished (exit $rc) but no 7000.* editor was found under $env:ProgramFiles\Unity\Hub\Editor" }
+            if (-not $script:unity) { Fail "Unity 7 install finished (exit $rc) but no 7000.0.0a20 or newer editor was found under $env:ProgramFiles\Unity\Hub\Editor" }
         }
     }
     Say "editor: $($script:unity)"
