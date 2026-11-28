@@ -23,8 +23,8 @@ One pasted line does all of it from a terminal: it creates a URP project on the 
 none), adds the package, imports every demo (Force, Events, Crowd) and the Demo hub, builds their scenes and a **Tl Demos** hub scene, runs
 every demo's PlayMode test and prints one line per demo with actual and expected numbers (Force x 4.0333 and back to 0, Events 15 strikes
 and dummy health 10, Crowd ns/entity at 10k and 100k with 0 B), then leaves Tl Demos open. `TL_DEMOS=force,events` picks demos,
-`--no-tests` (or `TL_NO_TESTS=1`) skips the test run. Needs git with access to `tl.unity` (`gh auth login`, `gh auth setup-git`; the repo
-is private for now). Safe to rerun on the same project.
+`--no-tests` (or `TL_NO_TESTS=1`) skips the test run. Needs git; `tl.unity` is public, so no sign-in is needed. Safe to rerun on the same
+project.
 
 ```powershell
 $env:TL_PROJECT='C:\path\MyGame'; irm https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.ps1 | iex

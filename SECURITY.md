@@ -4,4 +4,4 @@ Report a vulnerability privately through GitHub Security Advisories for `IAFahim
 
 Do not open a public issue for an undisclosed vulnerability. Ordinary correctness, performance, allocation, and compatibility defects belong in the public issue tracker.
 
-Only the current prerelease line receives fixes. No stable compatibility or support window exists before 1.0.
+Only the current prerelease line (4.0 previews) receives fixes. No stable compatibility or support window exists yet.
