@@ -80,6 +80,10 @@ editor_binary() {
   esac
 }
 
+too_old() {
+  [ "$#" -eq 5 ] && [ "$1" = 7000 ] && [ "$2" = 0 ] && [ "$3" = 0 ] && [ "$4" = a ] && [ "$5" -lt 20 ]
+}
+
 find_unity7() {
   local root dir name key best=""
   while IFS= read -r root; do
@@ -88,6 +92,7 @@ find_unity7() {
       [ -x "$(editor_binary "$dir")" ] || continue
       name="$(basename "$dir")"
       key="$(printf '%s' "$name" | sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+)([a-z])([0-9]+).*/\1 \2 \3 \4 \5/')"
+      too_old $key && continue
       best="$best
 $key|$dir"
     done
@@ -115,11 +120,11 @@ resolve_unity() {
     return 0
   fi
   if UNITY="$(find_unity7)"; then return 0; fi
-  say "no Unity 7 editor installed, installing the newest one with the Unity CLI"
+  say "no Unity 7 editor at 7000.0.0a20 or newer installed, installing the newest one with the Unity CLI"
   local cli
-  cli="$(find_unity_cli)" || die "no Unity 7 editor and no Unity CLI. Install the CLI (Windows: irm https://unity.com/install.ps1 | iex ; Linux/macOS: curl -fsSL https://unity.com/install.sh | bash), open a new shell, then run this again. Or set UNITY to an editor binary."
+  cli="$(find_unity_cli)" || die "no Unity 7 editor at 7000.0.0a20 or newer and no Unity CLI. Install the CLI (Windows: irm https://unity.com/install.ps1 | iex ; Linux/macOS: curl -fsSL https://unity.com/install.sh | bash), open a new shell, then run this again. Or set UNITY to an editor binary."
   "$cli" --no-banner install 7 --yes --accept-eula </dev/null
-  UNITY="$(find_unity7)" || die "Unity 7 install finished but no 7000.* editor was found under $(editor_roots)"
+  UNITY="$(find_unity7)" || die "Unity 7 install finished but no 7000.0.0a20 or newer editor was found under $(editor_roots)"
 }
 
 editor_holders() {
