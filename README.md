@@ -39,7 +39,7 @@ Verified on Windows 11 (PowerShell script, fresh project). The bash script follo
 ## Install
 
 ```sh
-dotnet add package Tl.CSharp --version 4.0.0-preview.1
+dotnet add package Tl.CSharp --prerelease
 dotnet tool install --global Tl.Bake --prerelease     # the tl bake command
 ```
 

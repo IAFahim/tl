@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Tl.CSharp" Version="4.0.0-preview.1" />
+    <PackageReference Include="Tl.CSharp" Version="4.0.0-preview.2" />
   </ItemGroup>
   <ItemGroup>
     <None Include="game.tlib" CopyToOutputDirectory="PreserveNewest" Condition="Exists('game.tlib')" />

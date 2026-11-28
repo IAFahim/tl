@@ -155,21 +155,21 @@ Only what still differs, and why:
 
 ## Migration: save and restore (#681)
 
-Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
+Ships in `4.0.0-preview.2`. The public API approval lists every change.
 
 - New `PlaybackImage` and `PlaybackTable.Save(PlaybackImage)` / `Restore(PlaybackImage)` (see Save and restore). Nothing else changes. A host that rebuilt a rewind by `Reset`, `Start` and writing ticks back can drop that code: it lost kind table entries and pulses, which a restore keeps.
 - The src budget rises from 520,000 B to 525,100 B for this API.
 
 ## Migration: `ExecuteBatch` removed (#659)
 
-Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
+Ships in `4.0.0-preview.2`. The public API approval lists every change.
 
 - The `ExecuteBatch(in Frame, ReadOnlySpan<BatchItem<R>>, Span<T>...)` consumer form and `Tl.BatchItem<R>` are removed. Unity never ran it (TLUNITY9105). A consumer that still declares `ExecuteBatch` fails with TLGEN95. Move the loop body into `ExecuteActive(in Frame, in R fold, ref T column)`, which runs once per playback per step with the same fold value and the entity's own column element, or feed a kind. A consumer whose only methods are `Fold` and `ExecuteActive` is read as a timeline job (TLGEN65 rules), not a system consumer; keep its `OnClipStart`/`OnClipEnd` (an empty one is enough) or a `Requests`/`Events` parameter to stay in the system.
 - The source budget pays for #655's precombined spans with this deletion (src stayed under 520,000 B).
 
 ## Migration: one control, event and pulse API (#656)
 
-Unreleased source change; the package version stays `4.0.0-preview.1`. The public API approval lists every change.
+Ships in `4.0.0-preview.2`. The public API approval lists every change.
 
 - A start an entity cannot hold no longer throws in Release builds: it is dropped and counted in the new `PlaybackTable.DroppedStarts`. Checked builds still throw. Code that caught the `ArgumentException` reads the counter instead.
 - `PlaybackRules.Start` checks the entity's kinds before it replaces a channel's playback, so a dropped start leaves that playback running (both hosts).
@@ -180,7 +180,7 @@ Unreleased source change; the package version stays `4.0.0-preview.1`. The publi
 
 ## Migration: spans from the load-time table (#652)
 
-This is an unreleased source change after `v4.0.0-preview.1`; the package version stays `4.0.0-preview.1`, and no tag or NuGet release is created. The public API approval lists every change.
+Ships in `4.0.0-preview.2`. The public API approval lists every change.
 
 - Regenerate systems with `Tl.Gen.CSharp`. Generated kind loops read `KindStore.Score` and call `KindRules.Due(entry, substep, run, count)` and `KindRules.Depth(copies, samples)`.
 - `IKindRows` adapters: remove `RemoveSpan`, `Sample` and `Unsample`, and implement `Sampled(row, samples)`. It records how many rated copies the step wrote after the row's slots (0 when none); a kind loop walks those copies by substep.
